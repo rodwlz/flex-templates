@@ -13,9 +13,10 @@ class NavBar(ft.Row):
 
         self.icon_color = icon_color
         logo = 'logo-white.svg'
-        svg_image = c.basics.Image(logo,width=50,height=40)
+        svg_image = c.basics.Image(logo,width=45,height=45).container()
         svg_image.padding = 5
         svg_image.tooltip = 'www.quantumwolf.org'
+
         # Create buttons with initial states and tooltips
         back_button = ft.IconButton(
             icon=ft.icons.ARROW_BACK_IOS,

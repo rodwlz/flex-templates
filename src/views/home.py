@@ -14,13 +14,8 @@ def view(page):
         alignment=ft.alignment.center
         )
 
-    home_button = ft.Container(
-        c.nav.NavButton(page, url='/login', text='log in'),
-        alignment=ft.alignment.center
-        )
+    home_button = c.nav.NavButton(page, url='/login', text='log in').container()
 
-    
-    
     screen = [
         title,
         sub_text,

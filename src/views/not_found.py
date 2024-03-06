@@ -14,12 +14,8 @@ def view(page):
         alignment=ft.alignment.center
         )
 
-    home_button = ft.Container(
-        c.nav.NavButton(page, url='/', text='take me home'),
-        alignment=ft.alignment.center
-        )
-
-    svg_image = c.basics.Image('page-not-found.svg')
+    home_button = c.nav.NavButton(page, url='/', text='take me home').container()
+    svg_image = c.basics.Image('page-not-found.svg').container()
     
     screen = [
         title,

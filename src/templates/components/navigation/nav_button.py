@@ -8,6 +8,6 @@ class NavButton(ft.ElevatedButton):
         self.text = text
         self.on_click = lambda _: navigation.visit(page,url)
     
-    def container(self):
-        return ft.Container(self)
+    def container(self) -> ft.Container:
+        return ft.Container(self,alignment=ft.alignment.center)
 #-------------------------------------
