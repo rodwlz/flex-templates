@@ -3,12 +3,18 @@ import src.templates.components.navigation as nav
 import src.templates.components as c
 
 
-class WebView(ft.View):
-    def __init__(self,url:str):
-        super().__init__()
-        self.route = url
+class StdView(ft.View):
+    def __init__(self,page,url:str,content:list):
+        super().__init__(route=url)
+        
+        sidebar = nav.SideBar(page)
+        navbar =  nav.NavBar(page).container()
+
         self.padding = 0
         self.margin = 0
+        self.appbar = navbar
+        self.controls = [ft.Row([sidebar, content], expand=1,alignment=ft.MainAxisAlignment.CENTER,spacing=0),]
+
         
 
 def build(page,url:str, screen_content: list,
@@ -32,13 +38,12 @@ def build(page,url:str, screen_content: list,
     main_content = ft.Container(
         ft.Column(screen_content, expand=True, spacing=25,scroll=ft.ScrollMode.ALWAYS),
         expand=True,
-        margin=0
+        margin=0,
+        padding=15,
+        alignment=alignment,
     )
 
-    main_content.padding = 15
-    main_content.alignment = alignment
 
-    
     return ft.View(
         url,
         [

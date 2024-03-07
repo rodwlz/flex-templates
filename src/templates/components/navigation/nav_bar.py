@@ -60,3 +60,8 @@ class NavBar(ft.Row):
         # Add buttons and input to the row
         self.controls = [svg_image,back_button, forward_button, reload_button, url_input, search_button]
 
+    def container(self)->ft.Container:
+        '''
+        Returns the component into a ft.Container
+        '''
+        return ft.Container(self)
