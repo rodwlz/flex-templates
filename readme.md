@@ -9,9 +9,12 @@
     <p>Flex Templates is a project using Flet for creating flexible UI templates using only python.</p>
     <h2>Getting Started</h2>
     <p>These instructions will help you set up and run the project on your local machine.</p>
+    <h3>Installing the Project</h3>
+    <pre><code>python install -e .</code></pre>
+    <p>This command will execute setup and install the project <code>src</code></p>
     <h3>Running the Project</h3>
-    <pre><code>poetry run flex-start</code></pre>
-    <p>This command will execute the <code>main</code> function in the <code>src.main</code> module.</p>
+    <pre><code>flex-start</code></pre>
+    <p>This command will execute the file <code>src.main</code></p>
     <h2>Project Structure</h2>
     <ul>
         <li><code>src/</code>: Source code directory.</li>
