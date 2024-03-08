@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flex Templates</title>
 </head>
 <body>
     <h1>Flex Templates</h1>
@@ -17,7 +16,6 @@
     <ul>
         <li><code>src/</code>: Source code directory.</li>
         <li><code>pyproject.toml</code>: Project configuration file.</li>
-        <li><code>poetry.lock</code>: Poetry's lock file for exact dependency versions.</li>
         <li><code>tests/</code>: Directory for project tests.</li>
     </ul>
     <h2>Contributing</h2>
