@@ -44,6 +44,9 @@ class SideBar(ft.Column):
         )
 
         return [home_icon, settings_icon, menu_icon]
+    
+    def container(self)->ft.Container:
+        return ft.Container(self)
 
 # Example usage:
 # sidebar = SideBar(page)

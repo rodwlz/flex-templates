@@ -2,18 +2,29 @@ import flet as ft
 import src.templates.components.navigation as nav
 import src.templates.components as c
 
+class StView(ft.View):
+    def __init__(self,page,url:str,content:list,top_color='#161616',):
 
-class StdView(ft.View):
-    def __init__(self,page,url:str,content:list):
-        super().__init__(route=url)
+        self.top_color = ft.colors.with_opacity(0.7,top_color)
+        self.sidebar = nav.SideBar(page).container()
+        self.navbar =  nav.NavBar(page).container()
+        self.sidebar.bgcolor = self.top_color
+        self.navbar.bgcolor = self.top_color
+
+        super().__init__(route=url,
+                         padding=0,
+                         spacing=0,
+                         appbar=self.navbar)
         
-        sidebar = nav.SideBar(page)
-        navbar =  nav.NavBar(page).container()
+        self.main_content = ft.Container(
+            ft.Column(content, expand=True, spacing=25,scroll=ft.ScrollMode.ADAPTIVE,),
+            expand=True,
+            margin=0,
+            padding=15,
+            alignment=ft.alignment.top_center
+        )
 
-        self.padding = 0
-        self.margin = 0
-        self.appbar = navbar
-        self.controls = [ft.Row([sidebar, content], expand=1,alignment=ft.MainAxisAlignment.CENTER,spacing=0),]
+        self.controls = [ft.Row([self.sidebar,self.main_content], expand=1,alignment=ft.MainAxisAlignment.CENTER,spacing=0),]
 
         
 
