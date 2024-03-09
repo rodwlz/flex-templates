@@ -1,25 +1,14 @@
 import flet as ft
 from src.utils import navigation
 
+#To-Do: Fix this thing
 class SideBar(ft.Column):
     def __init__(self, page, icon_color=ft.colors.GREY_300):
         super().__init__()
 
         self.icon_color = icon_color
-        self.rail = self._create_navigation_rail()
         self.controls = self._create_navigation_controls(page)
-
         self.alignment = ft.MainAxisAlignment.SPACE_EVENLY
-
-    def _create_navigation_rail(self):
-        return ft.NavigationRail(
-            extended=True,
-            expand=True,
-            selected_index=0,
-            min_width=150,
-            min_extended_width=250,
-            group_alignment=-0.9,
-        )
 
     def _create_navigation_controls(self, page):
         home_icon = ft.IconButton(
