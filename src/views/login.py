@@ -1,28 +1,21 @@
 import flet as ft
-from src.utils import navigation
-from src.templates.layouts import base_view
 import src.templates.components as c
+import src.templates.layouts as l
 
 def view(page):
    
+    text = ft.Text("Login", size=24, weight="bold", color=ft.colors.ON_BACKGROUND)
     username_input = ft.TextField(hint_text="Username", autofocus=True)
     password_input = ft.TextField(hint_text="Password", password=True)
     login_button = c.nav.NavButton(page,url='/dashboard',text='Login')
-    
-    # Your login page content goes here
-    login_content = ft.Column([
 
-        ft.Text("Login", size=24, weight="bold", color=ft.colors.ON_BACKGROUND),
+    # Your login page content goes here
+    login_content = [
+        text,
         username_input,
         password_input,
-        login_button
-
-    ], expand=1,spacing=10)
+        login_button,
+    ]
 
     # Use the build function from base_view
-    return  base_view.build(page,"/login",screen_content=[login_content])
-
-
-# Example usage:
-# login_page = view2(page)
-# # Add the login_page to your layout or container
+    return l.StView(page,url="/login",content=login_content)

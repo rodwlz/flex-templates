@@ -8,6 +8,7 @@ class StView(ft.View):
         self.top_color = ft.colors.with_opacity(0.7,top_color)
         self.sidebar = nav.SideBar(page).container()
         self.navbar =  nav.NavBar(page).container()
+        
         self.sidebar.bgcolor = self.top_color
         self.navbar.bgcolor = self.top_color
 

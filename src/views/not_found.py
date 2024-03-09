@@ -1,6 +1,7 @@
 import flet as ft
 from src.templates.layouts import base_view
 import src.templates.components as c
+import src.templates.layouts as l
 
 def view(page):
 
@@ -24,4 +25,4 @@ def view(page):
         home_button,
     ]
 
-    return base_view.build(page, '/not_found', screen_content=screen,alignment=ft.alignment.top_center)
+    return l.StView(page,'/not_found',screen)

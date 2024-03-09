@@ -1,6 +1,7 @@
 import flet as ft
 from src.templates.layouts import base_view
 import src.templates.components as c
+import src.templates.layouts as l
 import pandas as pd
 
 def test_report_event_handler():
@@ -52,4 +53,4 @@ def view(page):
         test_report_card,  # Add the test_report_card to the screen content
     ]
 
-    return base_view.build(page, '/menu', screen_content=screen_content, alignment=ft.alignment.top_center)
+    return l.StView(page, '/menu',screen_content)
