@@ -1,7 +1,6 @@
 import flet as ft
 from src.utils import navigation
 
-#To-Do: Fix this thing
 class SideBar(ft.Column):
     def __init__(self, page, icon_color=ft.colors.GREY_300):
         super().__init__()
