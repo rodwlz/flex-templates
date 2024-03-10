@@ -1,5 +1,4 @@
 import flet as ft
-from src.templates.layouts import base_view
 import src.templates.components as c
 import src.templates.layouts as l
 import pandas as pd
@@ -7,15 +6,11 @@ import pandas as pd
 def report():
     # URL to the raw test.csv file on GitHub
     csv_url = 'https://raw.githubusercontent.com/dsindy/kaggle-titanic/master/data/test.csv'
-
     # Read the CSV data into a DataFrame
     df = pd.read_csv(csv_url)
-
     # Filter female passengers
-    female_passengers = df[df['Sex'] == 'female']
+    return df[df['Sex'] == 'female']
 
-    # Print the CSV of female passengers
-    print(female_passengers.to_csv(index=False))
 
 
 def view(page):
