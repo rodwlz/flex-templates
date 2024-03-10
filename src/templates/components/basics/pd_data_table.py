@@ -7,7 +7,7 @@ class PDDataTable(ft.DataTable):
         
         self.dataframe = dataframe
         self.width = 2000
-        self.column_spacing = 20
+        self.column_spacing = 10
         self.data_row_min_height = 40  # Adjusted the minimum height for better vertical scrolling
         # Create columns from DataFrame columns
         self.columns = [

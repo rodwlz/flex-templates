@@ -10,7 +10,7 @@
     <h2>Getting Started</h2>
     <p>These instructions will help you set up and run the project on your local machine.</p>
     <h3>Installing the Project</h3>
-    <pre><code>python install -e .</code></pre>
+    <pre><code>pip install -e .</code></pre>
     <p>This command will execute setup and install the project <code>src</code></p>
     <h3>Running the Project</h3>
     <pre><code>flex-start</code></pre>
