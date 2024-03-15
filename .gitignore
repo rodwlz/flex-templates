@@ -2,7 +2,7 @@
 *.ini
 /WIP
 
-src/.secrets/
+src\.secrets\
 
 src/.secrets/secrets.txt
 *secrets
