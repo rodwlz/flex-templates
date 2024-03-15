@@ -1,9 +1,9 @@
 /.vscode
 *.ini
 /WIP
-
-src\.secrets\
-
+*.txt
+src\.secrets\secrets.txt
+secrets.txt
 src/.secrets/secrets.txt
 *secrets
 /src/.secrets
