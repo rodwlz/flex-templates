@@ -1,6 +1,6 @@
 import flet as ft
 from src.utils import navigation
-from src.models.ViewHistory import view_history
+from src.models.view_history import view_history
 import src.templates.components as c
 
 class NavBar(ft.Row):
