@@ -1,13 +1,12 @@
 import json
+import os
 from flet.security import decrypt, encrypt
 from dotenv import load_dotenv
-import os
+import src.templates.patterns as p
 
-class Vault:
-    '''
-    For extra safety move this file to a muted folder
-    '''
-    def __init__(self, secrets_file="src/.secrets/secrets.json"):
+
+class Vault(metaclass=p.Singleton):
+    def __init__(self, secrets_file="src/secrets/secrets.json"):
         load_dotenv()
         self.__secrets_file = secrets_file
         self.__key = os.getenv("MASTER-PASSWORD")
