@@ -1,5 +1,5 @@
 from src.models.view_history import view_history
-from src.middleware import routing
+
 
 def main():
     names = ['/store', '/kaira', '/esnofi', '/ps5', '/wii', '/potato']

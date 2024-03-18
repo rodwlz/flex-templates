@@ -6,7 +6,7 @@ src\.secrets\secrets.txt
 secrets.txt
 src/.secrets/secrets.txt
 *secrets
-/src/.secrets
+/src/vault_secrets
 *.secrets
 *.env
 *.venv

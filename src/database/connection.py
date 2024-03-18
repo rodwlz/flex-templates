@@ -1,6 +1,6 @@
 import asyncpg
 import mysql.connector
-from src.secrets.vault import vault
+from src.vault_secrets.vault import vault
 
 class Connection:
     
