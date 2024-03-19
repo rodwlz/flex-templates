@@ -1,13 +1,13 @@
 from src.views import home,not_found
 import importlib
 
+def route_change(page):
 
-'''
+    '''
     The route needs to have the exact name of the file in a java-ish convention this is to standarize a routing method
         views_name.py == route_name
     '''
 
-def route_change(page):
     route_name = page.route.replace("/","")
     
     try:    
