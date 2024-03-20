@@ -1,7 +1,10 @@
 [project]
 name = "flex-templates"
 version = "0.1"
-dependencies = ["flet>=0.20.0", "pandas>=2.2.1","python-dotenv"]
+dependencies = ["flet>=0.20.0", 
+        "pandas>=2.2.1",
+        "python-dotenv",
+        "ctyptography"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -9,3 +12,4 @@ build-backend = "setuptools.build_meta"
 
 [project.scripts]
 flex-start = "src.main:main"
+backend = 'src.api.backend:main'
