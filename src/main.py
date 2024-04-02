@@ -3,6 +3,8 @@ from src.templates import apps
 from src.api.backend import backend
 import uvicorn
 import threading
+import requests
+import os,signal
 
 def run_uvicorn():
     uvicorn.run(backend, host="127.0.0.1", port=8080)
@@ -14,6 +16,10 @@ def app(page: ft.Page):
 def main():
     threading.Thread(target=run_uvicorn).start()
     ft.app(target=app)
+    shutdown()
+
+def shutdown():
+    os.kill(os.getpid(), signal.SIGTERM)
 
 if __name__ == '__main__':
     main()

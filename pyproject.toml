@@ -4,7 +4,11 @@ version = "0.1"
 dependencies = ["flet>=0.20.0", 
         "pandas>=2.2.1",
         "python-dotenv",
-        "cryptography"]
+        "cryptography",
+        "asyncpg",
+        "mysql","mysql-connector-python",
+        "uvicorn","fastapi","flet.fastapi"
+        ]
 
 [build-system]
 requires = ["setuptools>=61.0"]
