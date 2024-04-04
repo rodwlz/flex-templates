@@ -7,7 +7,8 @@ dependencies = ["flet>=0.20.0",
         "cryptography",
         "asyncpg",
         "mysql","mysql-connector-python",
-        "uvicorn","fastapi","flet.fastapi"
+        "uvicorn","fastapi","flet.fastapi",
+        "alembic","SQLAlchemy",
         ]
 
 [build-system]

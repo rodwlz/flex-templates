@@ -1,4 +1,4 @@
-from src.models.view_history import view_history
+from src.utils.view_history import view_history
 from src.middleware import routing
 
 
