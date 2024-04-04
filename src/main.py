@@ -1,25 +1,16 @@
 import flet as ft
 from src.templates import apps
 from src.api.backend import backend
-import uvicorn
 import threading
-import requests
-import os,signal
-
-def run_uvicorn():
-    uvicorn.run(backend, host="127.0.0.1", port=8080)
 
 def app(page: ft.Page):
     page.scroll = ft.ScrollMode.ALWAYS
-    apps.multi_view("Flet App", page)
+    apps.multi_view("Flex App", page)
  
 def main():
-    threading.Thread(target=run_uvicorn).start()
-    ft.app(target=app)
-    shutdown()
-
-def shutdown():
-    os.kill(os.getpid(), signal.SIGTERM)
+    threading.Thread(target=backend.launch).start() #Launch the back end on its own thread
+    ft.app(target=app) #Launch the front end
+    backend.shutdown() #Stop The backend when the app is closed
 
 if __name__ == '__main__':
     main()
