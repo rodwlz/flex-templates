@@ -7,7 +7,8 @@ def view(page):
     text = ft.Text("Login", size=24, weight="bold", color=ft.colors.ON_BACKGROUND)
     username_input = ft.TextField(hint_text="Username", autofocus=True)
     password_input = ft.TextField(hint_text="Password", password=True)
-    login_button = c.nav.NavButton(page,url='/dashboard',text='Login')
+    
+    login_button = c.nav.NavButton(page,url='/passwords',text='Login')
 
     # Your login page content goes here
     login_content = [
