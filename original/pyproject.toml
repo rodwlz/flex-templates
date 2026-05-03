@@ -1,0 +1,20 @@
+[project]
+name = "flex-templates"
+version = "0.1"
+dependencies = ["flet", 
+        "pandas>=2.2.1",
+        "python-dotenv",
+        "cryptography",
+        "asyncpg",
+        "mysql","mysql-connector-python",
+        "uvicorn","fastapi","flet.fastapi",
+        "alembic","SQLAlchemy","flet-map"
+        ]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+flex-start = "src.main:main"
+backend = 'src.api.backend:main'

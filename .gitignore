@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.claude
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets (encrypted vault is safe, but keep .env out)
+.secrets/
+.env
+.env.local
+
+# Project-specific
+*.log
+.DS_Store
