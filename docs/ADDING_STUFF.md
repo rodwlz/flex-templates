@@ -290,6 +290,124 @@ Badge("NEW", color=ft.Colors.GREEN_400)
 
 ---
 
+## 11. Connect a SQL database
+
+All connections are registered at startup from vault secrets — no code changes needed for new instances.
+
+### The default (app) database
+
+Set `POSTGRES_URL` in the vault. This becomes `"default"` in `ConnectionRegistry` and is what `UserRepository` uses. It also appears as **DEFAULT** in `/admin/databases`.
+
+```
+Vault key: POSTGRES_URL
+Value:      postgresql://user:pass@host:5432/mydb
+Registry:   ConnectionRegistry.get("default")
+```
+
+### Additional named databases (for inspection / reporting)
+
+Add a `DATABASE_<NAME>` key in the vault. Each one is registered automatically under that name.
+
+```
+Vault key: DATABASE_ANALYTICS
+Value:      postgresql://user:pass@host:5432/analytics
+Registry:   ConnectionRegistry.get("analytics")
+
+Vault key: DATABASE_LEGACY
+Value:      mysql+pymysql://user:pass@host/legacydb
+Registry:   ConnectionRegistry.get("legacy")
+```
+
+These show up in `/admin/databases` next to DEFAULT. Add as many as you want — just restart the app.
+
+### Use a database in a view or service
+
+```python
+from lib.database.session import ConnectionRegistry
+from lib.database.query import safe_query
+
+def build_content(self):
+    factory = ConnectionRegistry.get("analytics")   # or "default"
+    with factory.session() as session:
+        rows = safe_query(session, "SELECT * FROM orders WHERE status = :s", s="open")
+    return ft.Text(f"{len(rows)} open orders")
+```
+
+For ORM-based access, use a repository:
+
+```python
+from lib.repositories.user_repository import UserRepository
+from lib.database.session import ConnectionRegistry
+
+user_repo = UserRepository(ConnectionRegistry.get("default"))
+users = user_repo.list()
+```
+
+---
+
+## 12. Connect a cache (Redis, etc.)
+
+Cache adapters follow a `SERVICE_URL[_ID]` convention in the vault.
+
+### Single Redis instance
+
+```
+Vault key: REDIS_URL
+Value:      redis://192.168.0.100:6379
+Password:   REDIS_PASSWORD   (optional)
+Registry:   CacheRegistry.get("redis")
+```
+
+### Multiple Redis instances
+
+```
+Vault key: REDIS_URL_MAIN        → CacheRegistry.get("redis_main")
+Vault key: REDIS_URL_SESSIONS    → CacheRegistry.get("redis_sessions")
+Passwords: REDIS_PASSWORD_MAIN, REDIS_PASSWORD_SESSIONS
+```
+
+All registered instances appear in `/admin/caches` automatically.
+
+### Use a cache adapter in a view or service
+
+```python
+from lib.services.cache_registry import CacheRegistry
+from lib.contracts.base import ActionRequest
+
+def save_to_cache(_):
+    redis = CacheRegistry.get("redis")
+    result = redis.execute(ActionRequest(action="set", data={
+        "key": "session:abc123",
+        "value": "user_id:42",
+        "ttl": 3600,           # seconds (optional)
+    }))
+    if result.success:
+        print("Stored!")
+
+def read_from_cache(_):
+    redis = CacheRegistry.get("redis")
+    result = redis.execute(ActionRequest(action="get", data={"key": "session:abc123"}))
+    if result.success and result.data["found"]:
+        print(result.data["value"])
+```
+
+Available actions on `RedisAdapter`: `get`, `set`, `delete`, `exists`, `keys`, `expire`, `ttl`.
+
+### Add a new cache type (not Redis)
+
+Add one entry to `_CACHE_BUILDERS` in [main.py](../main.py):
+
+```python
+_CACHE_BUILDERS = {
+    "REDIS":     lambda host, port, password: RedisAdapter(host=host, port=port or 6379, password=password or ""),
+    "MEMCACHED": lambda host, port, password: MemcachedAdapter(host=host, port=port or 11211),
+}
+```
+
+Then set `MEMCACHED_URL` in the vault — it auto-registers as `"memcached"`.
+
+---
+
 ## File map
 
 ```

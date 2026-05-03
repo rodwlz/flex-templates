@@ -65,6 +65,7 @@ class SchemaInspector(SimpleService):
                 "type": str(col["type"]),
                 "nullable": col["nullable"],
                 "primary_key": col["name"] in pk_columns,
+                "default": str(col["default"]) if col.get("default") is not None else None,
             })
 
         return {"table": table_name, "columns": result_columns}

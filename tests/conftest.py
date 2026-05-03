@@ -4,12 +4,16 @@ Shared test fixtures.
 Read this file once and you'll know how every other test sets up its world:
 - A FakePage stands in for ft.Page (doesn't render, just records).
 - The event_bus / nav_service / router fixtures wire up a fresh app every test.
+- The db_factory fixture provides an in-memory SQLite session factory.
 """
 import pytest
 
 from lib.core.events import EventBus
 from lib.services.navigation_service import NavigationService
 from lib.ui.router import FletRouter
+from lib.database.session import SessionFactory
+from lib.database.base import Base
+from lib.repositories.user_repository import UserRepository
 
 
 class FakePage:
@@ -47,3 +51,15 @@ def router(nav_service):
 @pytest.fixture
 def fake_page():
     return FakePage()
+
+
+@pytest.fixture
+def db_factory():
+    factory = SessionFactory("sqlite:///:memory:")
+    factory.create_tables(Base)
+    return factory
+
+
+@pytest.fixture
+def user_repo(db_factory):
+    return UserRepository(db_factory)

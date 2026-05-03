@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 import flet as ft
 from fastapi import FastAPI
 
@@ -5,6 +7,7 @@ from lib.config.settings import AppConfig
 from lib.core.events import EventBus, Events
 from lib.services.navigation_service import NavigationService
 from lib.services.nav import Nav
+from lib.services.cache_registry import CacheRegistry
 from lib.security.vault_service import VaultService
 from lib.security.vault_store import VaultStore
 from lib.security.vault import Vault
@@ -12,9 +15,42 @@ from lib.ui.adapter import FletNavigationAdapter
 from lib.ui.router import FletRouter
 from lib.ui.error_adapter import FletErrorAdapter
 from lib.database.session import ConnectionRegistry
+from lib.adapters.redis_adapter import RedisAdapter
 from lib.repositories.user_repository import UserRepository
 from lib.api.server import BackendServer
 from lib.api.router_registry import mount_routes
+
+
+# Vault key prefix → adapter builder. Adding a new cache type means adding one
+# entry here. The convention is {SERVICE}_URL[_{ID}] + {SERVICE}_PASSWORD[_{ID}].
+_CACHE_BUILDERS = {
+    "REDIS": lambda host, port, password: RedisAdapter(
+        host=host, port=port or 6379, password=password or ""
+    ),
+}
+
+
+def _register_caches_from_vault(vault) -> None:
+    """Scan vault keys for SERVICE_URL[_ID] and register matching adapters."""
+    for key in vault.keys():
+        if "_URL" not in key:
+            continue
+        service, _, id_suffix = key.partition("_URL")
+        builder = _CACHE_BUILDERS.get(service)
+        if builder is None:
+            continue
+
+        id_part = id_suffix.lstrip("_").lower()
+        registry_name = f"{service.lower()}_{id_part}" if id_part else service.lower()
+        password_key = (
+            f"{service}_PASSWORD_{id_part.upper()}" if id_part else f"{service}_PASSWORD"
+        )
+        try:
+            parsed = urlparse(vault.get(key))
+            adapter = builder(parsed.hostname, parsed.port, vault.get(password_key, ""))
+            CacheRegistry.register(registry_name, adapter)
+        except Exception as e:
+            print(f"Warning: Failed to register cache '{registry_name}': {e}")
 
 
 def main():
@@ -49,8 +85,27 @@ def main():
     # Parameterized routes (path params).  Convention routing handles the rest.
     router.register("/products/{id}", "lib.views.product_detail")
     router.register("/admin/databases", "lib.views.admin.databases")
+    router.register("/admin/caches",   "lib.views.admin.caches")
 
     vault = Vault(vault_service)
+    vault.unlock()
+
+    # Register databases from vault — keys named DATABASE_* hold connection URLs.
+    # This keeps credentials out of .env entirely.
+    for key in vault.keys():
+        if key.startswith("DATABASE_"):
+            db_name = key[len("DATABASE_"):].lower()
+            try:
+                ConnectionRegistry.register(url=vault.get(key), name=db_name)
+            except Exception as e:
+                print(f"Warning: Failed to register vault database '{db_name}': {e}")
+
+    # Caches — scan vault for SERVICE_URL[_ID] keys and register each adapter.
+    # See _CACHE_BUILDERS at module top for supported services.
+    _register_caches_from_vault(vault)
+    # Convenience handle: the unnamed "redis" instance, if present, is exposed
+    # directly as props["redis"] for views that don't need the registry.
+    redis = CacheRegistry._adapters.get("redis")
 
     # Database setup — failures here degrade gracefully (app still opens).
     _startup_error: str | None = None
@@ -72,7 +127,8 @@ def main():
         "vault_service": vault_service,
         # ── Data access (repositories & services) ───────────────────────────
         "user_repo": user_repo,
-        "config": config,
+        "redis":     redis,
+        "config":    config,
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })

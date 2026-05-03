@@ -32,6 +32,7 @@ SIDEBAR_ITEMS = [
     ("Login", "/login"),
     ("Products", "/products"),
     ("Security", "/security"),
+    ("Admin", "/admin/databases"),
 ]
 
 
@@ -51,7 +52,13 @@ class BaseView:
     def __init__(self, page: ft.Page, props: dict):
         self.page = page
         self.props = props
-        self.nav_service = props["nav_service"]
+        nav = props.get("nav_service")
+        if nav is None:
+            raise KeyError(
+                f"{type(self).__name__}: props['nav_service'] is required. "
+                "Add it to router.set_props_factory()."
+            )
+        self.nav_service = nav
         # Simple-API shortcuts — available when wired in main.py, None otherwise
         self.nav    = props.get("nav")
         self.vault  = props.get("vault")

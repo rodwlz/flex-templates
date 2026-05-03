@@ -64,6 +64,8 @@ def test_main_module_imports_cleanly():
         "lib.services.nav",
         "lib.services.schema_inspector",
         "lib.services.connection_tester",
+        "lib.services.cache_registry",
+        "lib.services.cache_tester",
         "lib.security.crypto",
         "lib.security.vault_store",
         "lib.security.vault_service",
@@ -71,6 +73,7 @@ def test_main_module_imports_cleanly():
         "lib.api.mount_service",
         "lib.api.router_registry",
         "lib.api.routes.users",
+        "lib.api.routes.caches",
         "lib.ui.adapter",
         "lib.ui.error_adapter",
         "lib.ui.router",
@@ -82,6 +85,8 @@ def test_main_module_imports_cleanly():
         "lib.ui.components.side_bar",
         "lib.ui.components.card",
         "lib.ui.components.copy_button",
+        "lib.ui.components.admin_tabs",
+        "lib.ui.components.status_card",
         "lib.views.home",
         "lib.views.login",
         "lib.views.products",
@@ -90,6 +95,7 @@ def test_main_module_imports_cleanly():
         "lib.views.vault_test",
         "lib.views.not_found",
         "lib.views.admin.databases",
+        "lib.views.admin.caches",
     ],
 )
 def test_module_imports_cleanly(module_path):

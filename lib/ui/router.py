@@ -97,20 +97,41 @@ class FletRouter:
     # ── Resolution ─────────────────────────────────────────────────────────
 
     def _resolve(self, path: str, page: ft.Page, query: dict) -> ft.View:
-        # 1. Check named/parameterized routes first (most specific wins).
-        for pattern, module_path in self._named_routes:
-            match = pattern.match(path)
-            if match:
-                return self._load_view(module_path, page, match.groupdict(), query)
-
-        # 2. Convention-based: /login → views.login, / → views.home
-        module_path = self._url_to_module(path)
         try:
-            return self._load_view(module_path, page, {}, query)
-        except ModuleNotFoundError:
-            return self._load_view(
-                f"{self._views_package}.not_found", page, {"url": path}, query
-            )
+            # 1. Check named/parameterized routes first (most specific wins).
+            for pattern, module_path in self._named_routes:
+                match = pattern.match(path)
+                if match:
+                    return self._load_view(module_path, page, match.groupdict(), query)
+
+            # 2. Convention-based: /login → views.login, / → views.home
+            module_path = self._url_to_module(path)
+            try:
+                return self._load_view(module_path, page, {}, query)
+            except ModuleNotFoundError:
+                return self._load_view(
+                    f"{self._views_package}.not_found", page, {"url": path}, query
+                )
+        except Exception as exc:
+            return self._error_view(page, str(exc))
+
+    def _error_view(self, page: ft.Page, message: str) -> ft.View:
+        return ft.View(
+            route=page.route or "/",
+            controls=[
+                ft.Column(
+                    [
+                        ft.Text("Page Error", size=20, weight=ft.FontWeight.BOLD),
+                        ft.Text(message, color=ft.Colors.RED_400),
+                        ft.TextButton(
+                            content=ft.Text("← Home"),
+                            on_click=lambda _: page.go("/"),
+                        ),
+                    ],
+                    spacing=12,
+                )
+            ],
+        )
 
     def _url_to_module(self, url: str) -> str:
         if url in ("/", ""):

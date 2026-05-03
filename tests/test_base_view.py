@@ -82,12 +82,11 @@ def test_overriding_build_appbar_swaps_in_a_custom_one(nav_service):
     assert v.appbar is custom
 
 
-def test_build_content_is_required():
+def test_build_content_is_required(nav_service):
     class Broken(BaseView):
         pass  # forgot build_content
 
-    page = FakePage("/")
-    instance = Broken(page, {"nav_service": None, "params": {}, "query": {}})
+    instance = make_view(Broken, nav_service=nav_service)
 
     with pytest.raises(NotImplementedError):
         instance.render()

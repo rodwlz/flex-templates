@@ -44,4 +44,8 @@ class EventBus:
 
     def publish(self, event: Event) -> None:
         for callback in self._subscribers.get(event.type, []):
-            callback(event)
+            try:
+                callback(event)
+            except Exception as exc:
+                import sys
+                print(f"[EventBus] subscriber error on {event.type!r}: {exc}", file=sys.stderr)

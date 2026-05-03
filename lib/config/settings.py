@@ -53,15 +53,27 @@ class AppConfig(BaseSettings):
         """
         Scan environment for DATABASE_* variables and return as {name: url} dict.
 
+        Merges os.environ (real env) with .env file values so that DATABASE_*
+        entries work whether set in the shell or in .env.
+
         Example:
             DATABASE_MAIN=postgresql://localhost/db → {"main": "postgresql://localhost/db"}
-            DATABASE_ANALYTICS=postgresql://localhost/analytics → {"analytics": "postgresql://localhost/analytics"}
+            DATABASE_NORTHWIND=mssql+pyodbc://...  → {"northwind": "..."}
         """
+        # pydantic-settings reads .env into model fields but does NOT inject into
+        # os.environ — read the .env file directly so DATABASE_* lines work there too.
+        env: dict[str, str] = dict(os.environ)
+        env_file = str(self.model_config.get("env_file", ".env"))
+        try:
+            from dotenv import dotenv_values
+            env.update(dotenv_values(env_file))
+        except Exception:
+            pass  # dotenv not installed or .env missing — fall back to os.environ only
+
         databases = {}
         prefix = "DATABASE_"
-        for key, value in os.environ.items():
-            if key.startswith(prefix):
-                # Remove prefix and convert to lowercase
+        for key, value in env.items():
+            if key.startswith(prefix) and value:
                 db_name = key[len(prefix):].lower()
                 databases[db_name] = value
         return databases

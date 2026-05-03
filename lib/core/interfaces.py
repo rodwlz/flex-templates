@@ -46,9 +46,71 @@ class SimpleService(IService):
             return ActionResult(success=False, error=str(exc))
 
 
+class StagingService(SimpleService):
+    """Base for services that need preview-before-commit (multi-step forms, order confirmations).
+
+    Views always call the same three actions regardless of which service:
+        action="stage"   → stages changes, returns {"preview": diff, **custom_data}
+        action="confirm" → commits
+        action="cancel"  → rolls back (idempotent)
+
+    Services only override _stage_impl(uow, data) which returns a dict.
+
+    Example:
+        class UserService(StagingService):
+            def _stage_impl(self, uow, data):
+                repo = uow.repo(UserRepository)
+                user = repo.create(data)
+                return {"user": {"id": user.id}}
+
+    All exceptions raised by _stage_impl, commit(), or rollback() become
+    ActionResult(success=False, error=...) automatically.
+    """
+
+    def __init__(self, factory):
+        self._factory = factory
+        self._pending = None
+
+    def _stage_impl(self, uow, data: dict) -> dict:
+        """Override this. Use uow.repo(MyRepo) to stage work.
+        Returned dict is merged into ActionResult.data."""
+        raise NotImplementedError
+
+    def stage(self, data: dict) -> dict:
+        if self._pending:
+            self._pending.rollback()
+            self._pending.close()
+            self._pending = None
+        uow = self._factory.unit_of_work()
+        result = self._stage_impl(uow, data)
+        diff = uow.stage()
+        self._pending = uow
+        return {"preview": diff, **result}
+
+    def confirm(self, data: dict) -> dict:
+        if self._pending is None:
+            raise RuntimeError("Nothing to confirm — call stage first")
+        try:
+            self._pending.commit()
+            return {"confirmed": True}
+        except Exception as e:
+            self._pending.rollback()
+            raise RuntimeError(f"Commit failed: {e}") from e
+        finally:
+            self._pending.close()
+            self._pending = None
+
+    def cancel(self, data: dict) -> dict:
+        if self._pending:
+            self._pending.rollback()
+            self._pending.close()
+            self._pending = None
+        return {"cancelled": True}
+
+
 class IRepository(ABC):
     @abstractmethod
-    def get(self, id: int): ...
+    def get(self, id): ...
 
     @abstractmethod
     def list(self, **filters): ...
@@ -57,10 +119,10 @@ class IRepository(ABC):
     def create(self, data: dict): ...
 
     @abstractmethod
-    def update(self, id: int, data: dict): ...
+    def update(self, id, data: dict): ...
 
     @abstractmethod
-    def delete(self, id: int) -> bool: ...
+    def delete(self, id) -> bool: ...
 
 
 class INavigationAdapter(ABC):
