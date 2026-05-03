@@ -1,6 +1,7 @@
-import os
 import flet as ft
+from fastapi import FastAPI
 
+from lib.config.settings import AppConfig
 from lib.core.events import EventBus, Events
 from lib.services.navigation_service import NavigationService
 from lib.services.nav import Nav
@@ -9,12 +10,27 @@ from lib.security.vault_store import VaultStore
 from lib.security.vault import Vault
 from lib.ui.adapter import FletNavigationAdapter
 from lib.ui.router import FletRouter
+from lib.ui.error_adapter import FletErrorAdapter
+from lib.database.session import ConnectionRegistry
+from lib.repositories.user_repository import UserRepository
+from lib.api.server import BackendServer
+from lib.api.router_registry import mount_routes
 
 
 def main():
+    config = AppConfig()
+
+    # Register all databases from DATABASE_* environment variables
+    for db_name, db_url in config.databases.items():
+        try:
+            ConnectionRegistry.register(url=db_url, name=db_name)
+        except Exception as e:
+            print(f"Warning: Failed to register database '{db_name}': {e}")
+
     event_bus = EventBus()
     nav_service = NavigationService(event_bus)
     nav_adapter = FletNavigationAdapter(nav_service)
+    error_adapter = FletErrorAdapter()
     router = FletRouter(nav_service, views_package="lib.views")
 
     nav    = Nav(nav_service)
@@ -22,19 +38,29 @@ def main():
 
     # Vault for secrets management (DB passwords, API keys, etc.)
     # Keys live in `.secrets/.env` — the vault service reads/writes that file
-    # itself, so first launch can bootstrap with no manual setup. Project-root
-    # env vars still win if set (useful for dev/CI overrides).
+    # itself, so first launch can bootstrap with no manual setup.
     vault_service = VaultService(
-        store=VaultStore(path=".secrets/vault.json"),
-        master_key=os.getenv("VAULT_MASTER_KEY", ""),
-        confirm_key=os.getenv("VAULT_CONFIRM_KEY", ""),
-        env_path=".secrets/.env",
+        store=VaultStore(path=config.vault_path),
+        master_key=config.vault_master_key,
+        confirm_key=config.vault_confirm_key,
+        env_path=config.vault_env_path,
     )
 
     # Parameterized routes (path params).  Convention routing handles the rest.
     router.register("/products/{id}", "lib.views.product_detail")
+    router.register("/admin/databases", "lib.views.admin.databases")
 
     vault = Vault(vault_service)
+
+    # Database setup — failures here degrade gracefully (app still opens).
+    _startup_error: str | None = None
+    user_repo = None
+    try:
+        db_url = config.postgres_url or vault.get("POSTGRES_URL", config.database_url)
+        ConnectionRegistry.register(url=db_url, name="default")
+        user_repo = UserRepository(ConnectionRegistry.get("default"))
+    except Exception as exc:
+        _startup_error = str(exc)
 
     router.set_props_factory(lambda: {
         # ── Simple snap-in API (use these in your views and services) ──────
@@ -44,23 +70,42 @@ def main():
         # ── Full service API (used by framework internals) ─────────────────
         "nav_service":   nav_service,
         "vault_service": vault_service,
+        # ── Data access (repositories & services) ───────────────────────────
+        "user_repo": user_repo,
+        "config": config,
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })
 
+    # ── HTTP API server (Phase 4) ──────────────────────────────────────────
+    # Auto-discovers route modules from lib/api/routes/ and serves them on
+    # config.api_host:config.api_port in a daemon thread. Same Python process,
+    # same ConnectionRegistry — Flet UI and HTTP API share state.
+    api_app = FastAPI(title=config.app_title)
+    mount_routes(api_app)
+    server = BackendServer(api_app, host=config.api_host, port=config.api_port)
+    server.start()
+
     def flet_main(page: ft.Page):
-        page.title = "FlexTemplates"
+        page.title = config.app_title
         page.theme_mode = ft.ThemeMode.DARK
         nav_adapter.bind_page(page)
+        error_adapter.bind_page(page)
         page.on_route_change = lambda e: router.route_change(page)
         page.on_view_pop = lambda e: router.view_pop(page)
+
+        if _startup_error:
+            error_adapter.show_error(f"DB unavailable: {_startup_error}")
 
         # Flet quirk: page.go(page.route) is a no-op when the route hasn't
         # changed (e.g. initial '/' is already '/'), so on_route_change never
         # fires and the screen stays blank. Render the first view directly.
         router.route_change(page)
 
-    ft.run(main=flet_main)
+    try:
+        ft.run(main=flet_main)
+    finally:
+        server.stop()
 
 
 if __name__ == "__main__":
