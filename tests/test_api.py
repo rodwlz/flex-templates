@@ -44,7 +44,7 @@ def api_client(monkeypatch):
     monkeypatch.setattr(
         ConnectionRegistry,
         "_factories",
-        {"default": factory},
+        {"postgres": factory},
     )
 
     app = FastAPI()

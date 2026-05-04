@@ -112,8 +112,8 @@ def main():
     user_repo = None
     try:
         db_url = config.postgres_url or vault.get("POSTGRES_URL", config.database_url)
-        ConnectionRegistry.register(url=db_url, name="default")
-        user_repo = UserRepository(ConnectionRegistry.get("default"))
+        ConnectionRegistry.register(url=db_url, name="postgres")
+        user_repo = UserRepository(ConnectionRegistry.get("postgres"))
     except Exception as exc:
         _startup_error = str(exc)
 
