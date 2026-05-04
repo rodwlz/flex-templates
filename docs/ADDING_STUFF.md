@@ -296,12 +296,12 @@ All connections are registered at startup from vault secrets — no code changes
 
 ### The default (app) database
 
-Set `POSTGRES_URL` in the vault. This becomes `"default"` in `ConnectionRegistry` and is what `UserRepository` uses. It also appears as **DEFAULT** in `/admin/databases`.
+Set `POSTGRES_URL` in the vault. This becomes `"postgres"` in `ConnectionRegistry` and is what `UserRepository` uses. It also appears as **POSTGRES** in `/admin/databases`.
 
 ```
 Vault key: POSTGRES_URL
 Value:      postgresql://user:pass@host:5432/mydb
-Registry:   ConnectionRegistry.get("default")
+Registry:   ConnectionRegistry.get("postgres")
 ```
 
 ### Additional named databases (for inspection / reporting)
@@ -318,7 +318,7 @@ Value:      mysql+pymysql://user:pass@host/legacydb
 Registry:   ConnectionRegistry.get("legacy")
 ```
 
-These show up in `/admin/databases` next to DEFAULT. Add as many as you want — just restart the app.
+These show up in `/admin/databases` next to POSTGRES. Add as many as you want — just restart the app.
 
 ### Use a database in a view or service
 
@@ -327,7 +327,7 @@ from lib.database.session import ConnectionRegistry
 from lib.database.query import safe_query
 
 def build_content(self):
-    factory = ConnectionRegistry.get("analytics")   # or "default"
+    factory = ConnectionRegistry.get("analytics")   # or "postgres"
     with factory.session() as session:
         rows = safe_query(session, "SELECT * FROM orders WHERE status = :s", s="open")
     return ft.Text(f"{len(rows)} open orders")
@@ -339,7 +339,7 @@ For ORM-based access, use a repository:
 from lib.repositories.user_repository import UserRepository
 from lib.database.session import ConnectionRegistry
 
-user_repo = UserRepository(ConnectionRegistry.get("default"))
+user_repo = UserRepository(ConnectionRegistry.get("postgres"))
 users = user_repo.list()
 ```
 
