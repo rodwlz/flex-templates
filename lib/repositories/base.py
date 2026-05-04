@@ -27,7 +27,6 @@ class AbstractRepository(IRepository, Generic[T]):
             obj = self.model(**data)
             s.add(obj)
             s.flush()
-            s.commit()
             return obj
 
     def update(self, id, data: dict) -> T | None:
@@ -38,7 +37,6 @@ class AbstractRepository(IRepository, Generic[T]):
             for k, v in data.items():
                 setattr(obj, k, v)
             s.flush()
-            s.commit()
             return obj
 
     def delete(self, id) -> bool:
