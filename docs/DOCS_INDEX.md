@@ -4,6 +4,21 @@
 
 This folder contains everything you need to understand and implement FlexTemplates 2.0 — a LEGO-style Python fullstack framework.
 
+> **Doc accuracy status (2026-05-03)** — Some docs describe a `dependency-injector` container at `lib/container.py` and a `UserService` class. The current codebase wires services directly in `main.py` and has not yet introduced `UserService`. Treat **[CONVENTIONS.md](../CONVENTIONS.md)** as ground truth for module names, action contracts, and class layout. The conceptual guides below remain useful for *understanding* the architecture; the import paths and DI-container snippets are aspirational.
+
+| Doc | Accuracy |
+|---|---|
+| [../CONVENTIONS.md](../CONVENTIONS.md) | ✅ ground truth |
+| [../docs/ADDING_STUFF.md](ADDING_STUFF.md) | ✅ matches code |
+| [QUICKSTART.md](QUICKSTART.md) | ✅ matches code |
+| [TESTING.md](TESTING.md) | ✅ matches code |
+| [VAULT_USAGE.md](VAULT_USAGE.md) | ✅ matches code |
+| [WRAPPERS.md](WRAPPERS.md) | ✅ matches code |
+| [ARCHITECTURE_AND_CONCEPTS.md](ARCHITECTURE_AND_CONCEPTS.md) | ⚠️ concepts current; some examples reference unbuilt pieces |
+| [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) | ⚠️ concepts current; `UserService` examples are aspirational |
+| [DI_GUIDE.md](DI_GUIDE.md) | ⚠️ describes a `Container` class not in the codebase — read for theory only |
+| [PONG_EXAMPLE.md](PONG_EXAMPLE.md) | ⚠️ matches `games/`; some import paths drifted |
+
 ---
 
 ## Start Here
@@ -74,17 +89,16 @@ This folder contains everything you need to understand and implement FlexTemplat
 
 ## Architecture & Implementation
 
-### [C:\Users\rodwlz\.claude\plans\refactored-wibbling-forest.md](C:\Users\rodwlz\.claude\plans\refactored-wibbling-forest.md)
-**The official implementation plan**
-- Complete folder structure
-- Core interfaces (ABCs)
-- DI container design
-- Config & vault system
-- Entry point boot sequence
-- Migration map (v1 → v2)
-- 6-phase build order
-- Handoff notes for Sonnet/Opus
-- Use this as the authoritative design document
+### [../CONVENTIONS.md](../CONVENTIONS.md)
+**Naming, structure, and contract conventions**
+- Vault key patterns and registry name derivation
+- Class/method naming rules
+- Module structure with placement rules
+- Import boundary rules per layer
+- Full action reference (every service, every action)
+- Docstring policy
+- When to use `SimpleService` vs custom `execute()`
+- This is the authoritative convention document — read before adding new code
 
 ---
 
@@ -178,7 +192,7 @@ service = UserService(repository=mock_repo, event_bus=mock_bus)
 ### File Organization
 
 ```
-flex_app/
+lib/
 ├── contracts/         # Pydantic models (pure data)
 ├── core/              # Interfaces (ABCs) + EventBus
 ├── config/            # Settings + vault

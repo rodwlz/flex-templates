@@ -326,21 +326,43 @@ class MyAdapter(SimpleService):
 
 ## 9. When to Use SimpleService vs Custom execute()
 
-**Use `SimpleService`** (inherits routing automatically):
+Both patterns are first-class. Pick by what your service actually needs.
+
+### Use `SimpleService` (default choice)
+
+When each action is a self-contained method that returns a dict:
+
 ```python
-class MyService(SimpleService):
-    def create(self, data: dict) -> dict: ...
-    def delete(self, data: dict) -> dict: ...
+class OrderService(SimpleService):
+    def create(self, data: dict) -> dict:
+        return {"order_id": db.insert(data)}
+
+    def cancel(self, data: dict) -> dict:
+        db.delete(data["order_id"])
+        return {}
 ```
 
-**Use custom `execute()` with `match`** only when actions need argument type conversion or complex pre-processing before dispatch:
+Routing is automatic. Plain `dict` returns get wrapped into `ActionResult(success=True, data=...)`. Any raised exception becomes `ActionResult(success=False, error=...)`. Most services should look like this.
+
+### Use custom `execute()` with `match` when:
+
+1. **Action names collide with read-only properties** the class already exposes
+   (e.g. `NavigationService` exposes `nav.current` as a property *and* an action — the SimpleService dispatcher would resolve `current` to the property's value, not a callable).
+
+2. **Actions need argument coercion or merging before dispatch**
+   (e.g. `int(data.get("steps", 1))`, normalizing optional flags, defaulting from class state).
+
+3. **Every action returns `ActionResult` directly** with custom `events=[...]` payloads.
+   The dict-auto-wrap shortcut adds no value here.
+
 ```python
 class NavigationService(IService):
-    def execute(self, request):
+    def execute(self, request: ActionRequest) -> ActionResult:
         match request.action:
             case "back":
-                return self._back(int(request.data.get("steps", 1)))  # type coercion
+                return self._back(int(request.data.get("steps", 1)))
+            case "current":
+                return ActionResult(success=True, data=self._nav_state())
 ```
 
-`NavigationService` and `VaultService` predate `SimpleService` and use custom `execute()`. 
-All new services should use `SimpleService`.
+`NavigationService` and `VaultService` use this pattern intentionally. Don't refactor them to `SimpleService` — they hit reasons 1, 2, and 3.

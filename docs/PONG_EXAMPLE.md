@@ -237,8 +237,8 @@ If you want to expose Pong over an API, wrap it in a service:
 ```python
 # games/pong_service.py
 
-from flex_app.contracts.base import ActionRequest, ActionResult
-from flex_app.core.interfaces import IService
+from lib.contracts.base import ActionRequest, ActionResult
+from lib.core.interfaces import IService
 from games.contracts import PongInput
 from games.engine import PongEngine
 
@@ -282,8 +282,8 @@ class PongService(IService):
 
 from fastapi import APIRouter, Depends
 from dependency_injector.wiring import inject, Provide
-from flex_app.container import Container
-from flex_app.contracts.base import ActionRequest
+from lib.container import Container
+from lib.contracts.base import ActionRequest
 
 router = APIRouter(prefix="/pong")
 

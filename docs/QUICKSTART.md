@@ -162,7 +162,7 @@ View sends ActionRequest
 
 1. **Create the repository** (repositories/my_repository.py)
    ```python
-   from flex_app.core.interfaces import IRepository
+   from lib.core.interfaces import IRepository
    
    class MyRepository(IRepository):
        def __init__(self, session):
@@ -178,8 +178,8 @@ View sends ActionRequest
 
 2. **Create the service** (services/my_service.py)
    ```python
-   from flex_app.core.interfaces import IService
-   from flex_app.contracts.base import ActionRequest, ActionResult
+   from lib.core.interfaces import IService
+   from lib.contracts.base import ActionRequest, ActionResult
    
    class MyService(IService):
        def __init__(self, repository, event_bus):
@@ -206,9 +206,9 @@ View sends ActionRequest
 # tests/test_my_service.py
 
 from unittest.mock import Mock
-from flex_app.services.my_service import MyService
-from flex_app.core.events import EventBus
-from flex_app.contracts.base import ActionRequest
+from lib.services.my_service import MyService
+from lib.core.events import EventBus
+from lib.contracts.base import ActionRequest
 
 def test_create_my_obj():
     # Setup — manually wire with mocks
@@ -232,7 +232,7 @@ def test_create_my_obj():
 ## File Organization Cheat Sheet
 
 ```
-flex_app/
+lib/
 ├── contracts/              # Pydantic models — no imports except pydantic
 │   ├── base.py            # ActionRequest, ActionResult, Event
 │   ├── user.py            # UserIn, UserOut, UserCreate
@@ -458,7 +458,7 @@ async def create_user(username: str, service = Depends(...)):
 
 **View not rendering?**
 - Is the view function signature `def view(page, props):`?
-- Is the view module in flex_app/views/?
+- Is the view module in lib/views/?
 - Does the filename match the URL? (/login → views/login.py)
 
 **Test failing?**
@@ -473,4 +473,4 @@ async def create_user(username: str, service = Depends(...)):
 1. **[Read ARCHITECTURE_AND_CONCEPTS.md](ARCHITECTURE_AND_CONCEPTS.md)** — Detailed explanation of EventBus, BaseView, FletRouter, async in Flet, and what's missing
 2. **[Read ADDING_STUFF.md](ADDING_STUFF.md)** — Step-by-step recipes for common tasks
 3. **[Read TESTING.md](TESTING.md)** — How to test, common failures, 5 quick fixes
-4. **Review the plan** — C:\Users\rodwlz\.claude\plans\refactored-wibbling-forest.md
+4. **[Read CONVENTIONS.md](../CONVENTIONS.md)** — Naming, structure, and full action reference

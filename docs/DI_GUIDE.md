@@ -162,16 +162,16 @@ get_user = providers.Callable(get_current_user)
 Here's what our container looks like:
 
 ```python
-# flex_app/container.py
+# lib/container.py
 
 from dependency_injector import containers, providers
-from flex_app.config.settings import AppConfig
-from flex_app.config.vault import VaultManager
-from flex_app.core.events import EventBus
-from flex_app.database.session import SessionFactory
-from flex_app.repositories.user_repository import UserRepository
-from flex_app.services.user_service import UserService
-from flex_app.services.navigation_service import NavigationService
+from lib.config.settings import AppConfig
+from lib.config.vault import VaultManager
+from lib.core.events import EventBus
+from lib.database.session import SessionFactory
+from lib.repositories.user_repository import UserRepository
+from lib.services.user_service import UserService
+from lib.services.navigation_service import NavigationService
 
 class Container(containers.DeclarativeContainer):
     # ============ CONFIGURATION ============
@@ -236,7 +236,7 @@ class Container(containers.DeclarativeContainer):
 
 from fastapi import APIRouter, Depends
 from dependency_injector.wiring import inject, Provide
-from flex_app.container import Container
+from lib.container import Container
 
 router = APIRouter()
 
@@ -270,7 +270,7 @@ def route_change(page):
     }
     
     # Import the view module and call view(page, props)
-    from flex_app.views import login
+    from lib.views import login
     view_obj = login.view(page, props)
     page.views.append(view_obj)
 
@@ -296,8 +296,8 @@ def view(page, props):
 
 import pytest
 from unittest.mock import Mock
-from flex_app.services.user_service import UserService
-from flex_app.core.events import EventBus
+from lib.services.user_service import UserService
+from lib.core.events import EventBus
 
 @pytest.fixture
 def mock_repo():
@@ -325,9 +325,9 @@ def test_create_user(service):
 At startup, the container needs to know about all the modules it will inject into. This is called "wiring":
 
 ```python
-# flex_app/main.py
+# lib/main.py
 
-from flex_app.container import Container
+from lib.container import Container
 
 def main():
     # Initialize the container
@@ -337,9 +337,9 @@ def main():
     # This tells dependency-injector "look in these modules for @inject decorators"
     container.wire(
         modules=[
-            "flex_app.api.routes.users",
-            "flex_app.api.routes.products",
-            "flex_app.views",  # All view modules
+            "lib.api.routes.users",
+            "lib.api.routes.products",
+            "lib.views",  # All view modules
         ]
     )
     
@@ -420,7 +420,7 @@ class UserOut(BaseModel):
 ```python
 # repositories/user_repository.py
 
-from flex_app.models.user import User
+from lib.models.user import User
 from sqlalchemy.orm import Session
 
 class UserRepository:
@@ -439,9 +439,9 @@ class UserRepository:
 ```python
 # services/user_service.py
 
-from flex_app.contracts.base import ActionRequest, ActionResult, Event
-from flex_app.repositories.user_repository import UserRepository
-from flex_app.core.events import EventBus
+from lib.contracts.base import ActionRequest, ActionResult, Event
+from lib.repositories.user_repository import UserRepository
+from lib.core.events import EventBus
 
 class UserService:
     def __init__(self, repository: UserRepository, event_bus: EventBus):

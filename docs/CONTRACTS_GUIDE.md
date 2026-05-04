@@ -147,7 +147,7 @@ event = Event(
 ```python
 # views/login.py
 
-from flex_app.contracts.base import ActionRequest
+from lib.contracts.base import ActionRequest
 
 def view(page, props):
     user_service = props["user_service"]
@@ -186,9 +186,9 @@ def view(page, props):
 ```python
 # services/user_service.py
 
-from flex_app.contracts.base import ActionRequest, ActionResult, Event
-from flex_app.repositories.user_repository import UserRepository
-from flex_app.core.events import EventBus
+from lib.contracts.base import ActionRequest, ActionResult, Event
+from lib.repositories.user_repository import UserRepository
+from lib.core.events import EventBus
 
 class UserService:
     def __init__(self, repository: UserRepository, event_bus: EventBus):
@@ -229,8 +229,8 @@ class UserService:
 ```python
 # repositories/user_repository.py
 
-from flex_app.core.interfaces import IRepository
-from flex_app.models.user import User
+from lib.core.interfaces import IRepository
+from lib.models.user import User
 
 class UserRepository(IRepository):
     def __init__(self, session):
@@ -256,8 +256,8 @@ class UserRepository(IRepository):
 
 from fastapi import APIRouter, Depends, HTTPException
 from dependency_injector.wiring import inject, Provide
-from flex_app.container import Container
-from flex_app.contracts.base import ActionRequest
+from lib.container import Container
+from lib.contracts.base import ActionRequest
 
 router = APIRouter(prefix="/users")
 
@@ -509,7 +509,7 @@ print(response.username)  # IDE knows this exists, offers autocomplete
 
 ```python
 # BAD — contracts should not import business logic
-from flex_app.repositories.user_repository import UserRepository
+from lib.repositories.user_repository import UserRepository
 
 class UserOut(BaseModel):
     repo: UserRepository  # DON'T DO THIS
@@ -524,7 +524,7 @@ Contracts are pure data. They should only import:
 
 ```python
 # BAD — views shouldn't know about ORM
-from flex_app.models.user import User
+from lib.models.user import User
 
 def get_user() -> User:  # Returns ORM object
     return User(...)
@@ -575,8 +575,8 @@ Contracts make testing way easier:
 ```python
 # tests/test_user_service.py
 
-from flex_app.contracts.base import ActionRequest, ActionResult
-from flex_app.services.user_service import UserService
+from lib.contracts.base import ActionRequest, ActionResult
+from lib.services.user_service import UserService
 from unittest.mock import Mock
 
 def test_create_user_success():
