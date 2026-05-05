@@ -146,18 +146,15 @@ class TestMultiDbPhase1Integration:
         assert analytics_factory is analytics_db_factory
 
         # ── Step 3: Test both connections are alive ───────────────────────
-        main_tester = ConnectionTester(main_factory)
-        analytics_tester = ConnectionTester(analytics_factory)
+        tester = ConnectionTester()
 
-        # Test main DB
-        main_result = main_tester.execute(ActionRequest(action="test", data={}))
+        main_result = tester.execute(ActionRequest(action="test", data={"name": "main"}))
         assert main_result.success is True
         assert main_result.data["alive"] is True
         assert main_result.data["latency_ms"] >= 0
         assert main_result.data["error"] is None
 
-        # Test analytics DB
-        analytics_result = analytics_tester.execute(ActionRequest(action="test", data={}))
+        analytics_result = tester.execute(ActionRequest(action="test", data={"name": "analytics"}))
         assert analytics_result.success is True
         assert analytics_result.data["alive"] is True
         assert analytics_result.data["latency_ms"] >= 0
@@ -263,13 +260,17 @@ class TestMultiDbPhase1Integration:
 
     def test_connection_tester_measures_latency(self, main_db_factory):
         """ConnectionTester measures and returns reasonable latency."""
-        tester = ConnectionTester(main_db_factory)
-        result = tester.execute(ActionRequest(action="test", data={}))
+        ConnectionRegistry._factories["main"] = main_db_factory
+        try:
+            tester = ConnectionTester()
+            result = tester.execute(ActionRequest(action="test", data={"name": "main"}))
 
-        assert result.success is True
-        latency_ms = result.data["latency_ms"]
+            assert result.success is True
+            latency_ms = result.data["latency_ms"]
 
-        # Latency should be positive and reasonable for in-memory SQLite
-        assert isinstance(latency_ms, (int, float))
-        assert latency_ms >= 0
-        assert latency_ms < 1000  # Should be < 1 second
+            # Latency should be positive and reasonable for in-memory SQLite
+            assert isinstance(latency_ms, (int, float))
+            assert latency_ms >= 0
+            assert latency_ms < 1000  # Should be < 1 second
+        finally:
+            ConnectionRegistry._factories.pop("main", None)

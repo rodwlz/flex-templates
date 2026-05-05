@@ -8,6 +8,8 @@ from lib.core.events import EventBus, Events
 from lib.services.navigation_service import NavigationService
 from lib.services.nav import Nav
 from lib.services.cache_registry import CacheRegistry
+from lib.services.cache_tester import CacheTester
+from lib.services.connection_tester import ConnectionTester
 from lib.security.vault_service import VaultService
 from lib.security.vault_store import VaultStore
 from lib.security.vault import Vault
@@ -69,6 +71,10 @@ def main():
     error_adapter = FletErrorAdapter()
     router = FletRouter(nav_service, views_package="lib.views")
 
+    # Stateless probe singletons — look up their target by name in the registry.
+    connection_tester = ConnectionTester()
+    cache_tester      = CacheTester()
+
     nav    = Nav(nav_service)
     events = Events(event_bus)
 
@@ -126,9 +132,11 @@ def main():
         "nav_service":   nav_service,
         "vault_service": vault_service,
         # ── Data access (repositories & services) ───────────────────────────
-        "user_repo": user_repo,
-        "redis":     redis,
-        "config":    config,
+        "user_repo":         user_repo,
+        "redis":             redis,
+        "config":            config,
+        "connection_tester": connection_tester,
+        "cache_tester":      cache_tester,
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })

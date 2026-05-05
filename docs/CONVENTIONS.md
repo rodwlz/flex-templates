@@ -222,7 +222,18 @@ from lib.services.user_service import UserService
 
 # CORRECT — services arrive via props
 def build_content(self):
-    user_service = self.props.get("user_service")
+    user_service = self.props["user_service"]
+```
+
+**Registry exemption:** `ConnectionRegistry` and `CacheRegistry` are class-level singletons (no instances, classmethods only — they live closer to module state than to a service). Views may import them directly to enumerate or look up registered names. The props rule applies to instance services with state, side effects, or business logic.
+
+```python
+# OK — registries are global lookup tables, not stateful services
+from lib.database.session import ConnectionRegistry
+from lib.services.cache_registry import CacheRegistry
+
+names = ConnectionRegistry.list()
+adapter = CacheRegistry.get("redis")
 ```
 
 ---
@@ -262,12 +273,16 @@ All services, all actions, what data goes in, what comes back.
 ### ConnectionTester
 | Action | data in | data out |
 |---|---|---|
-| `test` | `{}` | `{alive, latency_ms, error}` |
+| `test` | `{name}` | `{alive, latency_ms, error}` |
+
+`name` looks up the factory in `ConnectionRegistry`. Stateless singleton — one instance for the whole app.
 
 ### CacheTester
 | Action | data in | data out |
 |---|---|---|
-| `test` | `{}` | `{alive, latency_ms, info, error}` |
+| `test` | `{name}` | `{alive, latency_ms, info, error}` |
+
+`name` looks up the adapter in `CacheRegistry`. Stateless singleton — one instance for the whole app.
 
 ### RedisAdapter
 | Action | data in | data out |

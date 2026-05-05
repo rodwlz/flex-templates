@@ -1,33 +1,25 @@
-"""CacheTester — liveness + latency probe for any cache adapter.
-
-Sends a `keys *` action to the adapter to verify the service is reachable
-and that auth/permissions are working. Never raises — returns a dict that
-SimpleService wraps as ActionResult.
-"""
+"""CacheTester — liveness + latency probe for any registered cache adapter."""
 import time
 
 from lib.contracts.base import ActionRequest
 from lib.core.interfaces import SimpleService
+from lib.services.cache_registry import CacheRegistry
 
 
 class CacheTester(SimpleService):
-    """Ping a cache adapter and report alive status, latency, key count.
-
-    Actions:
-        test → {alive, latency_ms, info, error}
-            alive       — bool
-            latency_ms  — float on success, None on failure
-            info        — short status string ("N keys"), None on failure
-            error       — message on failure, None on success
     """
+    Actions: test
 
-    def __init__(self, adapter: SimpleService):
-        self._adapter = adapter
+    test(data: {name}) -> {alive, latency_ms, info, error}
+        Looks up the named adapter in CacheRegistry, runs `keys *` to verify
+        reachability + auth, and reports liveness, latency, and key count.
+    """
 
     def test(self, data: dict) -> dict:
         try:
+            adapter = CacheRegistry.get(data["name"])
             start = time.time()
-            result = self._adapter.execute(
+            result = adapter.execute(
                 ActionRequest(action="keys", data={"pattern": "*"})
             )
             latency_ms = (time.time() - start) * 1000

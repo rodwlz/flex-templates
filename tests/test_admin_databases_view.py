@@ -4,6 +4,7 @@ import flet as ft
 import pytest
 
 from lib.database.session import ConnectionRegistry, SessionFactory
+from lib.services.connection_tester import ConnectionTester
 from lib.views.admin.databases import AdminDatabasesView
 from tests.conftest import FakePage
 
@@ -20,7 +21,10 @@ def clean_registry():
 
 def make_view(nav_service, route="/admin/databases"):
     page = FakePage(route)
-    props = {"nav_service": nav_service}
+    props = {
+        "nav_service": nav_service,
+        "connection_tester": ConnectionTester(),
+    }
     return AdminDatabasesView(page, props)
 
 

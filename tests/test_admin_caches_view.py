@@ -5,6 +5,7 @@ import pytest
 
 from lib.contracts.base import ActionResult
 from lib.services.cache_registry import CacheRegistry
+from lib.services.cache_tester import CacheTester
 from lib.views.admin.caches import AdminCachesView
 from tests.conftest import FakePage
 
@@ -20,7 +21,10 @@ def clean_registry():
 
 def make_view(nav_service, route="/admin/caches"):
     page = FakePage(route)
-    props = {"nav_service": nav_service}
+    props = {
+        "nav_service": nav_service,
+        "cache_tester": CacheTester(),
+    }
     return AdminCachesView(page, props)
 
 

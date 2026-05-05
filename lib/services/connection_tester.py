@@ -1,23 +1,23 @@
 import time
 from sqlalchemy import text
 from lib.core.interfaces import SimpleService
-from lib.database.session import SessionFactory
+from lib.database.session import ConnectionRegistry
 
 
 class ConnectionTester(SimpleService):
     """
     Actions: test
 
-    test(data: {}) -> {alive, latency_ms, error}
+    test(data: {name}) -> {alive, latency_ms, error}
+        Looks up the named database in ConnectionRegistry, runs SELECT 1,
+        and reports liveness + round-trip latency.
     """
-
-    def __init__(self, factory: SessionFactory):
-        self._factory = factory
 
     def test(self, data: dict) -> dict:
         try:
+            factory = ConnectionRegistry.get(data["name"])
             start = time.time()
-            with self._factory.session() as s:
+            with factory.session() as s:
                 s.execute(text("SELECT 1"))
             return {
                 "alive": True,

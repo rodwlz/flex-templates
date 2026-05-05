@@ -25,6 +25,8 @@ from lib.services.cache_tester import CacheTester
 
 router = APIRouter(prefix="/caches", tags=["caches"])
 
+_tester = CacheTester()
+
 
 def _get_or_404(name: str):
     try:
@@ -42,8 +44,8 @@ def list_caches() -> list[str]:
 @router.get("/{name}")
 def get_cache_status(name: str) -> dict:
     """Run CacheTester against the named adapter and return alive/latency/info."""
-    adapter = _get_or_404(name)
-    result = CacheTester(adapter).execute(ActionRequest(action="test", data={}))
+    _get_or_404(name)
+    result = _tester.execute(ActionRequest(action="test", data={"name": name}))
     return result.model_dump()
 
 

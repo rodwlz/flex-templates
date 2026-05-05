@@ -1,84 +1,79 @@
 """
-ConnectionTester: test database connectivity with latency measurement.
+ConnectionTester: probe a registered database for liveness and latency.
 
 Actions:
-    - test: returns {"alive": bool, "latency_ms": float | None, "error": str | None}
+    - test(data: {name}) → {alive, latency_ms, error}
 """
+from unittest.mock import Mock
 import pytest
-from unittest.mock import Mock, MagicMock
 from sqlalchemy.exc import SQLAlchemyError
 
+from lib.contracts.base import ActionRequest, ActionResult
+from lib.database.session import ConnectionRegistry
 from lib.services.connection_tester import ConnectionTester
-from lib.contracts.base import ActionResult
+
+
+@pytest.fixture(autouse=True)
+def clean_registry():
+    saved = dict(ConnectionRegistry._factories)
+    ConnectionRegistry._factories = {}
+    yield
+    ConnectionRegistry._factories = saved
 
 
 @pytest.fixture
-def db_factory_working(db_factory):
-    """A working SessionFactory (from conftest: in-memory SQLite)."""
-    return db_factory
+def working_db(db_factory):
+    """Register an in-memory SQLite factory under the name 'working'."""
+    ConnectionRegistry._factories["working"] = db_factory
+    return "working"
 
 
 @pytest.fixture
-def db_factory_broken():
-    """A SessionFactory that fails on session() calls."""
+def broken_db():
+    """Register a factory whose session() raises."""
     factory = Mock()
     factory.session.side_effect = SQLAlchemyError("Connection refused")
-    return factory
+    ConnectionRegistry._factories["broken"] = factory
+    return "broken"
 
 
 class TestConnectionTester:
-    """ConnectionTester service tests."""
-
-    def test_test_returns_alive_true_on_working_connection(self, db_factory_working):
-        """ConnectionTester.test() returns alive=True for working DB."""
-        service = ConnectionTester(db_factory_working)
-        result = service.test({})
+    def test_returns_alive_true_on_working_connection(self, working_db):
+        result = ConnectionTester().test({"name": working_db})
 
         assert result["alive"] is True
         assert isinstance(result["latency_ms"], (int, float))
         assert result["latency_ms"] >= 0
         assert result["error"] is None
 
-    def test_test_handles_connection_failure(self, db_factory_broken):
-        """Graceful error on connection failure, alive=False."""
-        service = ConnectionTester(db_factory_broken)
-        result = service.test({})
+    def test_handles_connection_failure(self, broken_db):
+        result = ConnectionTester().test({"name": broken_db})
 
         assert result["alive"] is False
         assert result["latency_ms"] is None
-        assert isinstance(result["error"], str)
-        assert len(result["error"]) > 0
+        assert "Connection refused" in result["error"]
 
-    def test_test_never_raises_exception(self, db_factory_broken):
-        """Even with broken factory, always returns dict (not exception)."""
-        service = ConnectionTester(db_factory_broken)
-
-        # This should NOT raise; it should return a dict.
-        result = service.test({})
-
-        # Verify it's a dict (method returns dict, SimpleService wraps as ActionResult)
+    def test_never_raises_exception(self, broken_db):
+        # Returns dict even when factory throws.
+        result = ConnectionTester().test({"name": broken_db})
         assert isinstance(result, dict)
-        assert "alive" in result
-        assert "latency_ms" in result
-        assert "error" in result
+        assert set(result.keys()) == {"alive", "latency_ms", "error"}
 
-    def test_test_via_execute_wraps_result_as_action_result(self, db_factory_working):
-        """SimpleService.execute wraps dict result as ActionResult."""
-        from lib.contracts.base import ActionRequest
+    def test_unknown_name_returns_failure(self):
+        result = ConnectionTester().test({"name": "does_not_exist"})
+        assert result["alive"] is False
+        assert result["error"] is not None
 
-        service = ConnectionTester(db_factory_working)
-        req = ActionRequest(action="test", data={})
-        result = service.execute(req)
+    def test_via_execute_wraps_result_as_action_result(self, working_db):
+        tester = ConnectionTester()
+        result = tester.execute(ActionRequest(action="test", data={"name": working_db}))
 
         assert isinstance(result, ActionResult)
         assert result.success is True
         assert result.data["alive"] is True
         assert result.error is None
 
-    def test_test_latency_is_reasonable(self, db_factory_working):
-        """Latency should be a small positive number (in-memory SQLite)."""
-        service = ConnectionTester(db_factory_working)
-        result = service.test({})
-
-        assert result["latency_ms"] < 1000  # Should be < 1 second for in-memory DB
+    def test_latency_is_reasonable(self, working_db):
+        result = ConnectionTester().test({"name": working_db})
+        assert result["latency_ms"] < 1000  # in-memory SQLite
         assert result["latency_ms"] >= 0

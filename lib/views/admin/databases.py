@@ -3,13 +3,11 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse
 
 import flet as ft
 
 from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
-from lib.services.connection_tester import ConnectionTester
 from lib.ui.components.admin_tabs import AdminTabs
 from lib.ui.components.status_card import StatusCard
 from lib.ui.layouts.base_view import BaseView
@@ -26,18 +24,13 @@ class AdminDatabasesView(BaseView):
 
     # ── Connection probing ─────────────────────────────────────────────────
     def _probe(self, db_name: str) -> tuple[bool, float | None, str | None]:
-        try:
-            factory = ConnectionRegistry.get(db_name)
-            result = ConnectionTester(factory).execute(
-                ActionRequest(action="test", data={})
-            )
-            if result.success and result.data.get("alive"):
-                return True, result.data.get("latency_ms"), None
-            return False, None, result.error or "connection failed"
-        except RuntimeError:
-            return False, None, "not registered"
-        except Exception as exc:
-            return False, None, str(exc)
+        result = self.props["connection_tester"].execute(
+            ActionRequest(action="test", data={"name": db_name})
+        )
+        d = result.data
+        if d["alive"]:
+            return True, d["latency_ms"], None
+        return False, None, d["error"] or "connection failed"
 
     @staticmethod
     def _driver_subtitle(factory) -> str:
@@ -51,9 +44,7 @@ class AdminDatabasesView(BaseView):
             return "—"
 
     # ── Card builder ───────────────────────────────────────────────────────
-    def _make_cards(
-        self, names: list[str], databases: dict
-    ) -> tuple[list[ft.Control], int]:
+    def _make_cards(self, names: list[str]) -> tuple[list[ft.Control], int]:
         cards, alive = [], 0
         cache = type(self)._status_cache
         for name in names:
@@ -67,7 +58,8 @@ class AdminDatabasesView(BaseView):
                 state, status = "down", f"🔴 {r[2] or 'down'}"
             cards.append(StatusCard(
                 state=state, icon=ft.Icons.STORAGE, name=name,
-                subtitle=self._driver_subtitle(databases[name]), status=status,
+                subtitle=self._driver_subtitle(ConnectionRegistry.get(name)),
+                status=status,
             ))
         return cards, alive
 
@@ -114,17 +106,16 @@ class AdminDatabasesView(BaseView):
         )
 
     def build_content(self):
-        databases = ConnectionRegistry._factories
+        names = sorted(ConnectionRegistry.list())
         tabs = AdminTabs(self.page.route or "/admin/databases", self.nav_service)
 
-        if not databases:
+        if not names:
             return ft.Column([tabs, self._empty_state()], spacing=0)
 
-        names = sorted(databases)
         body = ft.Column(spacing=10)
 
         def _fill_body():
-            cards, alive = self._make_cards(names, databases)
+            cards, alive = self._make_cards(names)
             body.controls = [
                 self._header(len(names), alive),
                 ft.Container(height=8),

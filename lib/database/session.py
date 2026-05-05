@@ -48,3 +48,7 @@ class ConnectionRegistry:
         if name not in cls._factories:
             raise RuntimeError(f"No database registered as {name!r}")
         return cls._factories[name]
+
+    @classmethod
+    def list(cls) -> list[str]:
+        return list(cls._factories.keys())

@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import flet as ft
 
+from lib.contracts.base import ActionRequest
 from lib.services.cache_registry import CacheRegistry
-from lib.services.cache_tester import CacheTester
 from lib.ui.components.admin_tabs import AdminTabs
 from lib.ui.components.status_card import StatusCard
 from lib.ui.layouts.base_view import BaseView
@@ -24,11 +24,10 @@ class AdminCachesView(BaseView):
 
     # ── Probing ────────────────────────────────────────────────────────────
     def _probe(self, name: str) -> dict:
-        try:
-            adapter = CacheRegistry.get(name)
-            return CacheTester(adapter).test({})
-        except Exception as exc:
-            return {"alive": False, "latency_ms": None, "info": None, "error": str(exc)}
+        result = self.props["cache_tester"].execute(
+            ActionRequest(action="test", data={"name": name})
+        )
+        return result.data
 
     @staticmethod
     def _adapter_subtitle(name: str, adapter) -> str:
