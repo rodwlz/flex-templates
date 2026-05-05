@@ -16,8 +16,12 @@ class RedisAdapter(SimpleService):
 
     def __init__(self, host: str, port: int = 6379, password: str = "", db: int = 0):
         import redis
-        self._r = redis.Redis(host=host, port=port, password=password, db=db,
-                              decode_responses=True)
+        self._r = redis.Redis(
+            host=host, port=port, password=password, db=db,
+            decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
 
     def get(self, data: dict) -> dict:
         value = self._r.get(data["key"])

@@ -12,8 +12,10 @@ from tests.conftest import FakePage
 @pytest.fixture(autouse=True)
 def clean_registry():
     CacheRegistry._adapters = {}
+    AdminCachesView._status_cache = {}
     yield
     CacheRegistry._adapters = {}
+    AdminCachesView._status_cache = {}
 
 
 def make_view(nav_service, route="/admin/caches"):

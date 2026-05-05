@@ -30,6 +30,11 @@ class FakePage:
     def go(self, url: str):
         self.route = url
 
+    def run_task(self, coro_fn, *args, **kwargs):
+        """Run async tasks synchronously so test assertions see the result."""
+        import asyncio
+        asyncio.run(coro_fn(*args, **kwargs))
+
 
 @pytest.fixture
 def event_bus():

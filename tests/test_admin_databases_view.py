@@ -12,8 +12,10 @@ from tests.conftest import FakePage
 def clean_registry():
     saved = dict(ConnectionRegistry._factories)
     ConnectionRegistry._factories = {}
+    AdminDatabasesView._status_cache = {}
     yield
     ConnectionRegistry._factories = saved
+    AdminDatabasesView._status_cache = {}
 
 
 def make_view(nav_service, route="/admin/databases"):

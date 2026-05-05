@@ -1,6 +1,9 @@
 """Admin cache inspector view — live status for every registered cache adapter."""
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
 import flet as ft
 
 from lib.services.cache_registry import CacheRegistry
@@ -16,6 +19,9 @@ class AdminCachesView(BaseView):
     title = "Cache Inspector"
     show_sidebar = True
 
+    # Persists across navigation — cleared only by the Refresh button.
+    _status_cache: dict[str, dict] = {}
+
     # ── Probing ────────────────────────────────────────────────────────────
     def _probe(self, name: str) -> dict:
         try:
@@ -26,8 +32,6 @@ class AdminCachesView(BaseView):
 
     @staticmethod
     def _adapter_subtitle(name: str, adapter) -> str:
-        """Best-effort 'service · host' subtitle from the adapter's underlying client."""
-        # Adapters keep their client at conventional attrs; fall back gracefully.
         client = getattr(adapter, "_r", None)
         kind = type(adapter).__name__.replace("Adapter", "").lower()
         try:
@@ -37,6 +41,28 @@ class AdminCachesView(BaseView):
             return f"{kind} · {host}:{port}"
         except Exception:
             return kind
+
+    # ── Card builder ───────────────────────────────────────────────────────
+    def _make_cards(self, names: list[str]) -> tuple[list[ft.Control], int]:
+        cards, alive = [], 0
+        cache = type(self)._status_cache
+        for name in names:
+            adapter = CacheRegistry.get(name)
+            r = cache.get(name)
+            if r is None:
+                state, status = "unknown", "connecting..."
+            elif r["alive"]:
+                alive += 1
+                state = "alive"
+                status = f"🟢 {r['latency_ms']:.1f} ms · {r['info']}"
+            else:
+                state = "down"
+                status = f"🔴 {r['error'] or 'down'}"
+            cards.append(StatusCard(
+                state=state, icon=ft.Icons.BOLT, name=name,
+                subtitle=self._adapter_subtitle(name, adapter), status=status,
+            ))
+        return cards, alive
 
     # ── Sections ───────────────────────────────────────────────────────────
     def _empty_state(self) -> ft.Control:
@@ -89,38 +115,47 @@ class AdminCachesView(BaseView):
         if not names:
             return ft.Column([tabs, self._empty_state()], spacing=0)
 
-        cards: list[ft.Control] = []
-        alive_count = 0
-        for name in sorted(names):
-            adapter = CacheRegistry.get(name)
-            r = self._probe(name)
-            if r["alive"]:
-                alive_count += 1
-                status = f"🟢 {r['latency_ms']:.1f} ms · {r['info']}"
-                state = "alive"
-            else:
-                status = f"🔴 {r['error'] or 'down'}"
-                state = "down"
+        sorted_names = sorted(names)
+        body = ft.Column(spacing=10)
 
-            cards.append(
-                StatusCard(
-                    state=state,
-                    icon=ft.Icons.BOLT,
-                    name=name,
-                    subtitle=self._adapter_subtitle(name, adapter),
-                    status=status,
-                )
-            )
-
-        return ft.Column(
-            [
-                tabs,
-                self._header(len(names), alive_count),
+        def _fill_body():
+            cards, alive = self._make_cards(sorted_names)
+            body.controls = [
+                self._header(len(sorted_names), alive),
                 ft.Container(height=8),
                 *cards,
-            ],
-            spacing=10,
-        )
+                ft.Row(
+                    [ft.TextButton(
+                        content=ft.Text("↺  Refresh connections"),
+                        on_click=lambda _: _on_refresh(),
+                    )],
+                    alignment=ft.MainAxisAlignment.END,
+                ),
+            ]
+
+        async def _run_probe():
+            uncached = [n for n in sorted_names if n not in type(self)._status_cache]
+            if not uncached:
+                return
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as ex:
+                results = await loop.run_in_executor(
+                    None, lambda: list(ex.map(self._probe, uncached))
+                )
+            type(self)._status_cache.update(dict(zip(uncached, results)))
+            _fill_body()
+            self.page.update()
+
+        def _on_refresh():
+            type(self)._status_cache.clear()
+            _fill_body()
+            self.page.update()
+            self.page.run_task(_run_probe)
+
+        _fill_body()
+        self.page.run_task(_run_probe)
+
+        return ft.Column([tabs, body], spacing=0)
 
 
 def view(page: ft.Page, props: dict) -> ft.View:

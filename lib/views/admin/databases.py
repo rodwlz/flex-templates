@@ -1,6 +1,8 @@
 """Admin database inspector view — live status for every registered SQL database."""
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
 import flet as ft
@@ -19,6 +21,9 @@ class AdminDatabasesView(BaseView):
     title = "Database Inspector"
     show_sidebar = True
 
+    # Persists across navigation — cleared only by the Refresh button.
+    _status_cache: dict[str, tuple[bool, float | None, str | None]] = {}
+
     # ── Connection probing ─────────────────────────────────────────────────
     def _probe(self, db_name: str) -> tuple[bool, float | None, str | None]:
         try:
@@ -36,7 +41,6 @@ class AdminDatabasesView(BaseView):
 
     @staticmethod
     def _driver_subtitle(factory) -> str:
-        """Render 'driver · host' for the card subtitle."""
         try:
             url = factory._engine.url
             driver = url.drivername.split("+")[0]
@@ -45,6 +49,27 @@ class AdminDatabasesView(BaseView):
             return f"{driver} · {host}/{db}" if db else f"{driver} · {host}"
         except Exception:
             return "—"
+
+    # ── Card builder ───────────────────────────────────────────────────────
+    def _make_cards(
+        self, names: list[str], databases: dict
+    ) -> tuple[list[ft.Control], int]:
+        cards, alive = [], 0
+        cache = type(self)._status_cache
+        for name in names:
+            r = cache.get(name)
+            if r is None:
+                state, status = "unknown", "connecting..."
+            elif r[0]:
+                alive += 1
+                state, status = "alive", f"🟢 {r[1]:.1f} ms"
+            else:
+                state, status = "down", f"🔴 {r[2] or 'down'}"
+            cards.append(StatusCard(
+                state=state, icon=ft.Icons.STORAGE, name=name,
+                subtitle=self._driver_subtitle(databases[name]), status=status,
+            ))
+        return cards, alive
 
     # ── Sections ───────────────────────────────────────────────────────────
     def _empty_state(self) -> ft.Control:
@@ -95,38 +120,47 @@ class AdminDatabasesView(BaseView):
         if not databases:
             return ft.Column([tabs, self._empty_state()], spacing=0)
 
-        # Probe all and assemble cards.
-        cards: list[ft.Control] = []
-        alive_count = 0
-        for name in sorted(databases):
-            alive, latency_ms, error = self._probe(name)
-            if alive:
-                alive_count += 1
-                status = f"🟢 {latency_ms:.1f} ms"
-                state = "alive"
-            else:
-                status = f"🔴 {error or 'down'}"
-                state = "down"
+        names = sorted(databases)
+        body = ft.Column(spacing=10)
 
-            cards.append(
-                StatusCard(
-                    state=state,
-                    icon=ft.Icons.STORAGE,
-                    name=name,
-                    subtitle=self._driver_subtitle(databases[name]),
-                    status=status,
-                )
-            )
-
-        return ft.Column(
-            [
-                tabs,
-                self._header(len(databases), alive_count),
-                ft.Container(height=8),  # spacer
+        def _fill_body():
+            cards, alive = self._make_cards(names, databases)
+            body.controls = [
+                self._header(len(names), alive),
+                ft.Container(height=8),
                 *cards,
-            ],
-            spacing=10,
-        )
+                ft.Row(
+                    [ft.TextButton(
+                        content=ft.Text("↺  Refresh connections"),
+                        on_click=lambda _: _on_refresh(),
+                    )],
+                    alignment=ft.MainAxisAlignment.END,
+                ),
+            ]
+
+        async def _run_probe():
+            uncached = [n for n in names if n not in type(self)._status_cache]
+            if not uncached:
+                return
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as ex:
+                results = await loop.run_in_executor(
+                    None, lambda: list(ex.map(self._probe, uncached))
+                )
+            type(self)._status_cache.update(dict(zip(uncached, results)))
+            _fill_body()
+            self.page.update()
+
+        def _on_refresh():
+            type(self)._status_cache.clear()
+            _fill_body()
+            self.page.update()
+            self.page.run_task(_run_probe)
+
+        _fill_body()
+        self.page.run_task(_run_probe)
+
+        return ft.Column([tabs, body], spacing=0)
 
 
 def view(page: ft.Page, props: dict) -> ft.View:
