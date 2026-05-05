@@ -2,12 +2,17 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# Bound the wait when a network DB is unreachable. SQLite ignores it (file I/O,
+# no socket). Five seconds is short enough to keep the admin views responsive
+# yet long enough to ride out brief network blips during normal startup.
+_CONNECT_TIMEOUT_SECONDS = 5
+
 
 def _engine_kwargs(url: str, echo: bool) -> dict:
     """Build create_engine kwargs — adds connect_timeout for network DBs."""
     kwargs: dict = {"echo": echo}
     if url.startswith(("postgresql", "postgres", "mysql")):
-        kwargs["connect_args"] = {"connect_timeout": 5}
+        kwargs["connect_args"] = {"connect_timeout": _CONNECT_TIMEOUT_SECONDS}
     return kwargs
 
 
