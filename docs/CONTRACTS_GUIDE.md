@@ -1,622 +1,432 @@
 # FlexTemplates 2.0 — Contracts Guide
 
-## What Are Contracts?
+## What's a contract?
 
-A **contract** is a promise about the shape of data. It defines:
-- **What goes in** (inputs)
-- **What comes out** (outputs)
-- **What fields are required/optional**
-- **What type each field is**
+A **contract** is a fixed shape for data passing between layers. It defines what
+goes in, what comes out, what fields are required, and what type each field is.
 
-In FlexTemplates 2.0, we use **Pydantic models** for contracts. Pydantic is a Python library that validates data at runtime — it ensures that data matches the contract before your code even sees it.
+In FlexTemplates we use **Pydantic models** for contracts. Pydantic validates at
+runtime — bad data is rejected at the boundary instead of crashing somewhere
+deep in the stack.
 
-Think of a contract like a function signature, but for data objects:
-
-```python
-# Traditional function signature (input/output types clear)
-def add(a: int, b: int) -> int:
-    return a + b
-
-# Pydantic contract (data structure, input/output clear)
-class AddRequest(BaseModel):
-    a: int
-    b: int
-
-class AddResult(BaseModel):
-    result: int
-```
-
-The function signature is a contract for function behavior. The Pydantic models are contracts for data shape.
+A contract is to data what a function signature is to behaviour: a promise,
+checkable, written once, read everywhere.
 
 ---
 
-## Why Contracts? The Problem They Solve
+## Why contracts?
 
-**Without contracts:**
-```python
-# View sends data to service
-data = {"username": "alice", "age": 30}
-result = user_service.create(data)
+**Without contracts** every caller has to read the callee's source to know the
+shape of the return value. When the callee changes, every caller breaks
+silently.
 
-# What shape is result? Is it {"id": 42} or {"success": True, "id": 42, "errors": []}?
-# You have to read the service code to know.
-# If service changes, view breaks silently.
-# Tests are hard because you don't know what to expect.
-```
+**With contracts** the shape is the public surface. Callers depend on the
+contract, not the implementation. The implementation can change freely as long
+as the contract holds.
 
-**With contracts:**
-```python
-# Define the contract first
-class CreateUserRequest(BaseModel):
-    username: str
-    age: int
-
-class CreateUserResult(BaseModel):
-    id: int
-    created_at: datetime
-
-# View knows exactly what to send and what to expect
-request = CreateUserRequest(username="alice", age=30)
-result = user_service.create(request)
-
-# Type hints + validation = confidence
-# IDE autocomplete works
-# Tests are explicit
-```
+That's the property that makes the LEGO architecture work — every plug is a
+contract, and you can swap any block as long as it produces the right shape.
 
 ---
 
-## The Three Core Contracts in FlexTemplates 2.0
+## The three core contracts
 
-Every interaction between layers uses one of these three contracts:
-
-### 1. ActionRequest — "I want to do something"
-
-```python
-from pydantic import BaseModel
-from typing import Any
-
-class ActionRequest(BaseModel):
-    action: str                  # What operation: "create_user", "go_back", "move_paddle"
-    data: dict[str, Any] = {}    # Payload (action-specific)
-
-# Examples:
-request1 = ActionRequest(action="create_user", data={"username": "alice", "age": 30})
-request2 = ActionRequest(action="go_back")  # data defaults to {}
-request3 = ActionRequest(action="move_paddle", data={"direction": "up"})
-```
-
-**Used by:** Views, API endpoints, game agents — anyone who wants to trigger an action.
-
----
-
-### 2. ActionResult — "Here's what happened"
+Every layer-to-layer call uses one of these three. They live in
+[lib/contracts/base.py](../lib/contracts/base.py):
 
 ```python
 class Event(BaseModel):
-    type: str                           # "user.created", "nav.route_changed"
-    payload: dict[str, Any] = {}        # Event data
-
-class ActionResult(BaseModel):
-    success: bool                       # Did it work?
-    data: dict[str, Any] = {}           # The result (if success=True)
-    events: list[Event] = []            # Side effects (for listeners to react to)
-    error: str | None = None            # Error message (if success=False)
-
-# Examples:
-result1 = ActionResult(
-    success=True,
-    data={"id": 42, "username": "alice"},
-    events=[Event(type="user.created", payload={"id": 42})]
-)
-
-result2 = ActionResult(
-    success=False,
-    error="Username already taken"
-)
-```
-
-**Used by:** Services to return results from actions.
-
----
-
-### 3. Event — "Something happened, listen up"
-
-```python
-class Event(BaseModel):
-    type: str                   # e.g., "nav.route_changed", "game.score_updated"
+    type: str                       # "user.created", "nav.route_changed"
     payload: dict[str, Any] = {}
 
-# Example:
-event = Event(
-    type="nav.route_changed",
-    payload={"url": "/login", "timestamp": 1234567890}
-)
+
+class ActionRequest(BaseModel):
+    action: str                     # "test", "visit", "set", "create"
+    data: dict[str, Any] = {}       # Action-specific payload
+
+
+class ActionResult(BaseModel):
+    success: bool
+    data: dict[str, Any] = {}
+    events: list[Event] = []
+    error: str | None = None
 ```
 
-**Used by:** Services to notify listeners (NavigationService publishes, UI adapters subscribe).
+That's the entire vocabulary the system uses to talk between layers. Every
+service has the same `execute(request: ActionRequest) -> ActionResult`
+signature, defined by `IService` in
+[lib/core/interfaces.py](../lib/core/interfaces.py).
 
 ---
 
-## How Contracts Flow Through the System
+## A real walkthrough — testing a database connection
 
-### Example: Creating a User
+The admin databases view shows live status for every registered SQL connection.
+Here's the full flow, top to bottom, using real code from the repo.
 
-#### 1. View (Flet UI) wants to create a user
-
-```python
-# views/login.py
-
-from lib.contracts.base import ActionRequest
-
-def view(page, props):
-    user_service = props["user_service"]
-    
-    username_input = ft.TextField(label="Username")
-    
-    def on_signup(e):
-        # Create a request contract
-        request = ActionRequest(
-            action="create_user",
-            data={"username": username_input.value}
-        )
-        
-        # Send it to the service (no direct DB calls!)
-        result = user_service.execute(request)
-        
-        # Check the result
-        if result.success:
-            page.snack_bar.content.value = "User created!"
-        else:
-            page.snack_bar.content.value = f"Error: {result.error}"
-        page.update()
-    
-    return ft.Column([
-        username_input,
-        ft.ElevatedButton("Sign Up", on_click=on_signup)
-    ])
-```
-
-**Key point:** The view doesn't care HOW users are created. It just sends a request and expects a result.
-
----
-
-#### 2. Service (business logic) processes the request
+### 1. The view sends an `ActionRequest`
 
 ```python
-# services/user_service.py
+# lib/views/admin/databases.py
 
-from lib.contracts.base import ActionRequest, ActionResult, Event
-from lib.repositories.user_repository import UserRepository
-from lib.core.events import EventBus
-
-class UserService:
-    def __init__(self, repository: UserRepository, event_bus: EventBus):
-        self.repo = repository
-        self.event_bus = event_bus
-    
-    def execute(self, request: ActionRequest) -> ActionResult:
-        if request.action == "create_user":
-            return self._create_user(request.data)
-        return ActionResult(success=False, error="Unknown action")
-    
-    def _create_user(self, data: dict) -> ActionResult:
-        try:
-            # Call the repository
-            user = self.repo.create(data)
-            
-            # Publish an event so listeners know
-            self.event_bus.publish(
-                Event(type="user.created", payload={"id": user.id})
-            )
-            
-            # Return success with the user data
-            return ActionResult(
-                success=True,
-                data={"id": user.id, "username": user.username},
-                events=[Event(type="user.created", payload={"id": user.id})]
-            )
-        except Exception as e:
-            return ActionResult(success=False, error=str(e))
-```
-
-**Key point:** The service receives a contract, does business logic, and returns a contract.
-
----
-
-#### 3. Repository (data access) does the DB work
-
-```python
-# repositories/user_repository.py
-
-from lib.core.interfaces import IRepository
-from lib.models.user import User
-
-class UserRepository(IRepository):
-    def __init__(self, session):
-        self.session = session
-    
-    def create(self, data: dict) -> User:
-        # This is NOT a contract — it's internal
-        # We talk to the DB and return a User ORM object
-        user = User(username=data["username"])
-        self.session.add(user)
-        self.session.commit()
-        return user
-```
-
-**Key point:** The repository doesn't know about contracts. It just works with ORM models. The service translates between contracts and ORM.
-
----
-
-#### 4. API endpoint (HTTP layer) also uses contracts
-
-```python
-# api/routes/users.py
-
-from fastapi import APIRouter, Depends, HTTPException
-from dependency_injector.wiring import inject, Provide
-from lib.container import Container
-from lib.contracts.base import ActionRequest
-
-router = APIRouter(prefix="/users")
-
-@router.post("/")
-@inject
-async def create_user(
-    username: str,
-    service = Depends(Provide[Container.user_service])
-):
-    # Convert HTTP request to contract
-    request = ActionRequest(
-        action="create_user",
-        data={"username": username}
+def _probe(self, db_name: str) -> tuple[bool, float | None, str | None]:
+    result = self.props["connection_tester"].execute(
+        ActionRequest(action="test", data={"name": db_name})
     )
-    
-    # Send to service
-    result = service.execute(request)
-    
-    # Convert contract to HTTP response
-    if not result.success:
-        raise HTTPException(400, detail=result.error)
-    
-    return result.data  # {"id": 42, "username": "alice"}
+    d = result.data
+    if d["alive"]:
+        return True, d["latency_ms"], None
+    return False, None, d["error"] or "connection failed"
 ```
 
-**Key point:** HTTP request → contract → service → contract → HTTP response.
+The view doesn't know how the connection is tested. It builds a request, hands
+it off, reads a result.
+
+### 2. The service handles the action
+
+```python
+# lib/services/connection_tester.py
+
+class ConnectionTester(SimpleService):
+    """
+    Actions: test
+    test(data: {name}) -> {alive, latency_ms, error}
+    """
+
+    def test(self, data: dict) -> dict:
+        try:
+            factory = ConnectionRegistry.get(data["name"])
+            start = time.time()
+            with factory.session() as s:
+                s.execute(text("SELECT 1"))
+            return {
+                "alive": True,
+                "latency_ms": (time.time() - start) * 1000,
+                "error": None,
+            }
+        except Exception as exc:
+            return {"alive": False, "latency_ms": None, "error": str(exc)}
+```
+
+`ConnectionTester` extends `SimpleService` — a base class that routes
+`request.action` to a same-named method automatically. So
+`execute(ActionRequest(action="test", ...))` calls `self.test(...)`.
+
+The method returns a plain dict. `SimpleService` wraps it as
+`ActionResult(success=True, data=<dict>)`. Any exception that escapes becomes
+`ActionResult(success=False, error=str(exc))`. The service never has to write
+that boilerplate itself.
+
+### 3. The registry is global lookup
+
+```python
+# lib/database/session.py
+
+class ConnectionRegistry:
+    _factories: dict[str, SessionFactory] = {}
+
+    @classmethod
+    def register(cls, url: str, name: str = "postgres", echo: bool = False):
+        cls._factories[name] = SessionFactory(url, echo=echo)
+
+    @classmethod
+    def get(cls, name: str = "postgres") -> SessionFactory:
+        ...
+```
+
+Registries are class-level singletons (no instances). Per
+[CONVENTIONS.md §6](CONVENTIONS.md), they're exempt from the props-dict rule —
+treat them as global lookup tables, not stateful services.
+
+### 4. The wiring is in `main.py`
+
+```python
+# main.py
+
+connection_tester = ConnectionTester()
+
+router.set_props_factory(lambda: {
+    "nav_service":       nav_service,
+    "vault_service":     vault_service,
+    "connection_tester": connection_tester,
+    ...
+})
+```
+
+One singleton instance, passed via the `props` dict the router gives every
+view. The view never imports `ConnectionTester` — it only knows the contract.
 
 ---
 
-## The Data Path (Visual)
+## The HTTP angle — same service, different caller
 
-```
-┌─────────────┐
-│  Flet View  │
-└──────┬──────┘
-       │ sends ActionRequest(action="create_user", data={...})
-       ▼
-┌──────────────────┐
-│  UserService     │
-└──────┬───────────┘
-       │ uses UserRepository
-       ▼
-┌──────────────────┐
-│  UserRepository  │
-└──────┬───────────┘
-       │ returns User ORM object
-       ▼
-┌──────────────────┐
-│  UserService     │
-└──────┬───────────┘
-       │ sends ActionResult(success=True, data={...}, events=[...])
-       ▼
-┌─────────────┐
-│  Flet View  │
-└──────┬──────┘
-       │ shows snackbar
-       ▼
-    [User sees "User created!"]
+Because the contract is the only public surface, an HTTP route can call the
+same service the Flet view calls. Here's the cache-status endpoint
+([lib/api/routes/caches.py](../lib/api/routes/caches.py)):
 
-ALSO (parallel):
-┌──────────────────┐
-│  EventBus        │  ← Service publishes Event(type="user.created")
-└──────┬───────────┘
-       │
-       ▼
-┌──────────────────────────┐
-│  FletNavigationAdapter   │  ← Other listeners react to the event
-└──────────────────────────┘
+```python
+from lib.contracts.base import ActionRequest
+from lib.services.cache_registry import CacheRegistry
+from lib.services.cache_tester import CacheTester
+
+router = APIRouter(prefix="/caches", tags=["caches"])
+_tester = CacheTester()
+
+
+@router.get("/{name}")
+def get_cache_status(name: str) -> dict:
+    if name not in CacheRegistry.list():
+        raise HTTPException(404, f"Cache adapter {name!r} not registered")
+    result = _tester.execute(ActionRequest(action="test", data={"name": name}))
+    return result.model_dump()
 ```
+
+The HTTP route does the same thing the Flet view does: build an
+`ActionRequest`, call `execute()`, return the result. The service has one
+implementation, two consumers. That's the payoff for putting everything behind
+a contract.
+
+For the User resource, see [lib/api/routes/users.py](../lib/api/routes/users.py)
+— uses `Depends(get_repo)` for per-request session scope, returns plain dicts
+so the contract stays JSON-shaped.
 
 ---
 
-## The Pong Example (Contracts in Action)
+## Pong — same engine, two drivers
 
-Contracts really shine when the same logic drives different interfaces:
+Pong is the canonical proof. The engine ingests `PongInput` and produces
+`PongState`. Two adapters produce `PongInput`: a keyboard reader and a fake
+neural-net controller. Swapping one for the other is a one-line change.
 
-### Pong Contracts
+### The contracts
 
 ```python
 # games/contracts.py
 
-class PongState(BaseModel):
-    ball_x: float
-    ball_y: float
-    ball_vx: float
-    ball_vy: float
-    paddle_y: float
-    score_left: int
-    score_right: int
-
 class PongInput(BaseModel):
-    action: str  # "move_up", "move_down", "idle"
+    left_up: bool = False
+    left_down: bool = False
+    right_up: bool = False
+    right_down: bool = False
+
+
+class PongState(BaseModel):
+    ball_x: float = 400.0
+    ball_y: float = 300.0
+    ...
 ```
 
-### Pong Engine (pure logic)
-
-```python
-# games/engine.py
-
-class PongEngine:
-    def __init__(self):
-        self.state = PongState(
-            ball_x=400, ball_y=300,
-            ball_vx=5, ball_vy=5,
-            paddle_y=275,
-            score_left=0, score_right=0
-        )
-    
-    def step(self, input: PongInput) -> PongState:
-        # Update paddle
-        if input.action == "move_up":
-            self.state.paddle_y = max(0, self.state.paddle_y - 10)
-        elif input.action == "move_down":
-            self.state.paddle_y = min(580, self.state.paddle_y + 10)
-        
-        # Update ball physics
-        self.state.ball_x += self.state.ball_vx
-        self.state.ball_y += self.state.ball_vy
-        
-        # (collision detection here)
-        
-        return self.state
-```
-
-### Keyboard Driver (Flet)
+### The keyboard adapter
 
 ```python
 # games/keyboard_adapter.py
 
 class KeyboardAdapter:
-    def __init__(self, engine: PongEngine):
-        self.engine = engine
-    
-    def on_key(self, e: ft.KeyboardEvent):
-        # Translate Flet key event to contract
-        action = "idle"
-        if e.key == "ArrowUp":
-            action = "move_up"
-        elif e.key == "ArrowDown":
-            action = "move_down"
-        
-        # Create contract
-        input = PongInput(action=action)
-        
-        # Step engine (no Flet knowledge in engine!)
-        state = self.engine.step(input)
-        
-        # Render state
-        self.canvas.update(state)
+    def __init__(self):
+        self._keys: set[str] = set()
+
+    def on_key(self, e) -> None:
+        self._keys.add(e.key)
+
+    def get_input(self, state: PongState | None = None) -> PongInput:
+        return PongInput(
+            left_up="W" in self._keys or "w" in self._keys,
+            left_down="S" in self._keys or "s" in self._keys,
+            right_up="Arrow Up" in self._keys,
+            right_down="Arrow Down" in self._keys,
+        )
 ```
 
-### Neural Net Driver (RL agent)
+### The mock neural adapter
 
 ```python
-# games/neural_adapter.py
+# games/mock_neural_adapter.py
 
-class NeuralAdapter:
-    def __init__(self, engine: PongEngine, model):
-        self.engine = engine
-        self.model = model
-    
-    def step(self, observation):
-        # Neural net predicts action
-        raw_output = self.model(observation)  # [0.1, 0.8, 0.1]
-        
-        # Translate to contract
-        actions = ["move_up", "move_down", "idle"]
-        best_action = actions[raw_output.argmax()]
-        input = PongInput(action=best_action)
-        
-        # Step engine (identical to keyboard driver!)
-        state = self.engine.step(input)
-        
-        return state
+class MockNeuralAdapter:
+    def __init__(self, dead_zone: int = 20):
+        self._dead_zone = dead_zone
+
+    def get_input(self, state: PongState | None = None) -> PongInput:
+        if state is None:
+            return PongInput()
+        paddle_center = state.right_y + state.paddle_h / 2
+        ball_center = state.ball_y + state.ball_size / 2
+        diff = ball_center - paddle_center
+        return PongInput(
+            right_up=diff < -self._dead_zone,
+            right_down=diff > self._dead_zone,
+        )
 ```
 
-**The magic:** The engine's `step()` method doesn't know if it's being driven by a keyboard or a neural net. Both send the same `PongInput` contract. The engine doesn't care about Flet or TensorFlow — it just returns `PongState`.
+Both adapters expose the exact same `get_input(state) -> PongInput`
+signature. The view swaps them with a single line:
+
+```python
+adapter = KeyboardAdapter()         # human plays
+# adapter = MockNeuralAdapter()     # AI plays — same engine, same view
+```
+
+The engine has zero imports from `lib`, zero awareness of who's driving,
+zero awareness of who's rendering. The contracts are the only coupling.
+That's the whole architectural pitch in 30 lines of code.
+
+For the full walkthrough, see [docs/PONG_EXAMPLE.md](PONG_EXAMPLE.md).
 
 ---
 
-## How to Write Your Own Contracts
+## Building your own service
 
-### 1. Identify the boundary
-
-Ask: "What data flows between these two layers?"
-
-```
-View ← data → Service ← data → Repository
-```
-
-### 2. Write the contracts
+Most services should subclass `SimpleService` — one method per action, return
+a dict, get free `ActionRequest` routing, free exception trapping, free
+`ActionResult` wrapping.
 
 ```python
-# contracts/user.py
+# Hypothetical OrderService — illustrating the pattern, not yet built
 
-from pydantic import BaseModel
-from datetime import datetime
+class OrderService(SimpleService):
+    """
+    Actions: create, cancel, get
 
-# Request: what the view sends to the service
-class CreateUserRequest(BaseModel):
-    username: str  # required
-    email: str     # required
-    age: int | None = None  # optional, defaults to None
+    create(data: {customer_id, items}) -> {order_id, total}
+    cancel(data: {order_id}) -> {cancelled: bool}
+    get(data: {order_id}) -> {order_id, customer_id, items, total, status}
+    """
 
-# Response: what the service returns
-class UserOut(BaseModel):
-    id: int
-    username: str
-    email: str
-    created_at: datetime
+    def __init__(self, repo: OrderRepository, event_bus: EventBus):
+        self._repo = repo
+        self._bus = event_bus
+
+    def create(self, data: dict) -> dict:
+        order = self._repo.create(data)
+        self._bus.publish(Event(type="order.created", payload={"id": order.id}))
+        return {"order_id": str(order.id), "total": order.total}
+
+    def cancel(self, data: dict) -> dict:
+        ok = self._repo.delete(data["order_id"])
+        return {"cancelled": ok}
+
+    def get(self, data: dict) -> dict:
+        order = self._repo.get(data["order_id"])
+        if order is None:
+            raise RuntimeError(f"Order {data['order_id']!r} not found")
+        return {"order_id": str(order.id), ...}
 ```
 
-### 3. Use them in services
+Three things to notice:
 
-```python
-# services/user_service.py
+1. **No `execute` method** — `SimpleService` provides it, dispatches by name.
+2. **Plain dicts, not `ActionResult`** — wrapping is automatic. Return an
+   `ActionResult` directly if you need to populate `events` or pick a custom
+   `success` value.
+3. **Raise exceptions freely** — they become
+   `ActionResult(success=False, error=str(exc))` so callers never see raw
+   tracebacks. Domain errors should be raised, not branched into.
 
-def _create_user(self, data: dict) -> ActionResult:
-    # Validate input using the contract
-    request = CreateUserRequest(**data)  # Pydantic validates here
-    
-    # Do the work
-    user = self.repo.create({
-        "username": request.username,
-        "email": request.email,
-        "age": request.age
-    })
-    
-    # Return with the response contract
-    return ActionResult(
-        success=True,
-        data=UserOut.model_validate(user).model_dump()
-    )
-```
-
-### 4. Type hints help
-
-```python
-# You get IDE autocomplete now
-response: UserOut = UserOut(id=1, username="alice", email="alice@example.com", created_at=datetime.now())
-print(response.username)  # IDE knows this exists, offers autocomplete
-```
+For services where the dispatcher would collide with an existing property
+(like `NavigationService.current` which is both a property and an action), or
+where every action needs custom `events` payloads, write a plain `IService`
+with a `match request.action` block. See [CONVENTIONS.md §9](CONVENTIONS.md)
+for the full guidance and `NavigationService` for the canonical example.
 
 ---
 
-## Common Mistakes to Avoid
+## Common mistakes
 
-### Mistake 1: Mixing contracts with implementation details
+### Contracts importing implementation
 
 ```python
-# BAD — contracts should not import business logic
+# WRONG — contracts must be pure data
 from lib.repositories.user_repository import UserRepository
 
 class UserOut(BaseModel):
-    repo: UserRepository  # DON'T DO THIS
+    repo: UserRepository
 ```
 
-Contracts are pure data. They should only import:
-- `pydantic` (BaseModel, Field, etc.)
-- Python stdlib (datetime, etc.)
-- Other contracts
+`lib/contracts/` may only import `pydantic` and stdlib. If a contract reaches
+into another layer, you've turned the contract into a wrapper for the thing
+you're trying to abstract over.
 
-### Mistake 2: Services returning ORM objects
+### Services returning ORM objects
 
 ```python
-# BAD — views shouldn't know about ORM
-from lib.models.user import User
-
-def get_user() -> User:  # Returns ORM object
-    return User(...)
+# WRONG — leaks SQLAlchemy types into the consumer
+def get_user(self, data: dict) -> User:
+    return self.repo.get(data["id"])
 ```
 
-**Good:**
-```python
-# GOOD — return via contract
-def get_user(self, request: ActionRequest) -> ActionResult:
-    user_orm = self.repo.get(...)
-    return ActionResult(
-        success=True,
-        data={"id": user_orm.id, "username": user_orm.username}
-    )
-```
+Repositories return ORM objects. Services translate to plain data
+(dicts or contract models) before returning.
 
-### Mistake 3: Contracts doing business validation
+### Contracts doing business validation
 
 ```python
-# BAD — contracts shouldn't have business logic
+# WRONG — Pydantic validators only check shape and type
 class UserOut(BaseModel):
     username: str
-    
+
     @field_validator("username")
-    def username_must_exist_in_db(cls, v):  # DON'T DO THIS
-        pass
+    def must_exist_in_db(cls, v):  # business rule, not a contract concern
+        ...
 ```
 
-**Good:**
+Pydantic checks "is this a string." The service checks "does this user exist."
+Don't conflate the two.
+
+### Reaching across the props dict
+
 ```python
-# Contracts only validate format/type
-class UserOut(BaseModel):
-    username: str  # Pydantic validates it's a string, that's enough
-
-# Service validates business rules
-def _create_user(self, data: dict) -> ActionResult:
-    request = CreateUserRequest(**data)
-    if self.repo.username_exists(request.username):  # service checks this
-        return ActionResult(success=False, error="Username taken")
+# WRONG
+nav = self.props["nav_service"]
+nav._history.clear()  # poking private state of a service
 ```
+
+If you need a behaviour, add an action to the service. Reaching into
+private state means the contract is incomplete.
 
 ---
 
-## Testing with Contracts
+## Testing with contracts
 
-Contracts make testing way easier:
+Because every public surface is a contract, tests are explicit:
 
 ```python
-# tests/test_user_service.py
+# tests/test_connection_tester.py
 
-from lib.contracts.base import ActionRequest, ActionResult
-from lib.services.user_service import UserService
-from unittest.mock import Mock
-
-def test_create_user_success():
-    # Setup
-    mock_repo = Mock()
-    mock_repo.create.return_value = Mock(id=1, username="alice")
-    mock_bus = Mock()
-    
-    service = UserService(mock_repo, mock_bus)
-    
-    # Execute
-    request = ActionRequest(
-        action="create_user",
-        data={"username": "alice"}
+def test_returns_alive_true_on_working_connection(working_db):
+    result = ConnectionTester().execute(
+        ActionRequest(action="test", data={"name": working_db})
     )
-    result = service.execute(request)
-    
-    # Assert — you KNOW what the result contract is
-    assert result.success == True
-    assert result.data["id"] == 1
-    assert len(result.events) == 1
-    assert result.events[0].type == "user.created"
+    assert result.success is True
+    assert result.data["alive"] is True
+    assert result.data["error"] is None
+    assert result.data["latency_ms"] >= 0
 ```
 
-Because everything is a contract, tests are explicit and easy to follow.
+No mocks of internal methods, no special fixtures, no patching. Build the
+request, call `execute`, assert on the result fields. Because the contract is
+the boundary, that's all there is to check.
+
+For the full pattern with registry fixtures, see
+[tests/test_connection_tester.py](../tests/test_connection_tester.py).
 
 ---
 
 ## Summary
 
-**Contracts = data boundaries = clarity**
+- **Contracts are the only public surface.** Inside a layer, do whatever's
+  cheapest — outside it, talk in `ActionRequest` / `ActionResult` / `Event`.
+- **`SimpleService` is the default.** One method per action, plain-dict
+  returns, free wrapping, free error trapping.
+- **Registries are exempt from props.** They're class-level globals, treated
+  more like config than like services. See
+  [CONVENTIONS.md §6](CONVENTIONS.md).
+- **Repositories don't know about contracts.** They return ORM objects.
+  Services translate.
+- **HTTP routes call services exactly like Flet views do** — build an
+  `ActionRequest`, hand it off, return the result.
+- **Test through the contract.** If your test mocks an internal method, the
+  contract is leaking abstraction.
 
-- Every layer communicates via Pydantic models
-- No layer reaches across to another layer's internal types
-- Services receive contracts, return contracts
-- Repositories talk to DBs (no contracts), services translate
-- Views talk to services via contracts
-- APIs talk to services via contracts
-- Tests are explicit about inputs/outputs
-
-The benefit: **you can swap out any layer without changing others**. Replace Flet with a web UI? The services don't care — they return the same contracts. Replace SQLAlchemy with MongoDB? The services still return the same contracts.
-
-That's the LEGO philosophy in action.
+That's how the LEGO works. Every block has a contract on its plug; every
+consumer programs to the plug. Swap any block, the rest of the system can't
+tell.
