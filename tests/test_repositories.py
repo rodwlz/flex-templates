@@ -4,6 +4,7 @@ Repository CRUD tests. Uses in-memory SQLite from conftest fixtures.
 import pytest
 from lib.database.query import safe_query
 from lib.models.user import User
+from lib.repositories.user_repository import UserRepository
 from lib.repositories.role_repository import RoleRepository
 
 
@@ -114,3 +115,34 @@ def test_role_repository_list(db_factory):
     repo.create({"name": "editor", "description": "Editor"})
     roles = repo.list()
     assert len(roles) == 2
+
+
+def test_user_repository_get_with_roles(db_factory):
+    user_repo = UserRepository(db_factory)
+    role_repo = RoleRepository(db_factory)
+
+    user = user_repo.create({"username": "alice", "email": "alice@example.com", "password_hash": "hash", "salt": "salt"})
+    role = role_repo.create({"name": "admin", "description": "Admin"})
+
+    # Add role to user
+    user_repo.add_role(user.id, role.id)
+
+    # Retrieve user with roles
+    retrieved = user_repo.get(user.id)
+    assert len(retrieved.roles) == 1
+    assert retrieved.roles[0].name == "admin"
+
+
+def test_user_repository_list_by_role(db_factory):
+    user_repo = UserRepository(db_factory)
+    role_repo = RoleRepository(db_factory)
+
+    user1 = user_repo.create({"username": "alice", "email": "alice@example.com", "password_hash": "hash", "salt": "salt"})
+    user2 = user_repo.create({"username": "bob", "email": "bob@example.com", "password_hash": "hash", "salt": "salt"})
+    admin_role = role_repo.create({"name": "admin", "description": "Admin"})
+
+    user_repo.add_role(user1.id, admin_role.id)
+
+    admins = user_repo.list_by_role("admin")
+    assert len(admins) == 1
+    assert admins[0].username == "alice"
