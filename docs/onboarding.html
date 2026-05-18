@@ -272,6 +272,96 @@
             transform: translateY(-1px);
         }
 
+        .quicklinks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .quicklink {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--primary-light) 0%, #dbeafe 100%);
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .quicklink:hover {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        .quicklink .icon {
+            font-size: 2rem;
+        }
+
+        .flow-diagram {
+            margin: 2rem 0;
+            padding: 2rem;
+            background: var(--bg-light);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .flow-step {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+            padding: 1rem;
+            background: white;
+            border-left: 4px solid var(--primary);
+            border-radius: 4px;
+        }
+
+        .step-number {
+            min-width: 40px;
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-content h4 {
+            margin: 0 0 0.5rem;
+            color: var(--text);
+        }
+
+        .step-content code {
+            background: var(--bg-light);
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            overflow-x: auto;
+            display: block;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .flow-arrow {
+            text-align: center;
+            color: var(--border);
+            font-size: 1.2rem;
+            margin: 0.5rem 0;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header h1 {
@@ -296,6 +386,19 @@
 
             .paths-container {
                 grid-template-columns: 1fr;
+            }
+
+            .quicklinks-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .flow-step {
+                flex-direction: column;
+            }
+
+            .flow-arrow {
+                transform: rotate(90deg);
+                margin: 0.25rem 0;
             }
         }
     </style>
@@ -425,6 +528,115 @@
                     <button class="btn btn-primary" onclick="document.getElementById('quick-nav').scrollIntoView({behavior: 'smooth'})">Find a Recipe</button>
                 </div>
             </div>
+        </section>
+
+        <section class="section" id="quick-nav">
+            <h2>❓ What Do I Want to Do?</h2>
+            <p>Quick links to the right doc based on your goal.</p>
+
+            <div class="quicklinks-grid">
+                <a href="QUICKSTART.md" class="quicklink">
+                    <span class="icon">⚡</span>
+                    <span class="label">Get Running Locally</span>
+                </a>
+                <a href="CONTRACTS_GUIDE.md" class="quicklink">
+                    <span class="icon">📊</span>
+                    <span class="label">Understand Data Flow</span>
+                </a>
+                <a href="CONVENTIONS.md" class="quicklink">
+                    <span class="icon">📏</span>
+                    <span class="label">Learn the Rules</span>
+                </a>
+                <a href="ADDING_STUFF.md" class="quicklink">
+                    <span class="icon">➕</span>
+                    <span class="label">Add a New Feature</span>
+                </a>
+                <a href="WRAPPERS.md" class="quicklink">
+                    <span class="icon">🎁</span>
+                    <span class="label">Use the Snap API</span>
+                </a>
+                <a href="VAULT_USAGE.md" class="quicklink">
+                    <span class="icon">🔐</span>
+                    <span class="label">Manage Secrets</span>
+                </a>
+                <a href="TESTING.md" class="quicklink">
+                    <span class="icon">✅</span>
+                    <span class="label">Write Tests</span>
+                </a>
+                <a href="PONG_EXAMPLE.md" class="quicklink">
+                    <span class="icon">🎮</span>
+                    <span class="label">See a Complete Example</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="section" id="data-flow">
+            <h2>🔄 How Data Flows (Example: Navigation)</h2>
+            <p>Here's what happens when a user clicks a button in Flet:</p>
+
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>User clicks NavButton</h4>
+                        <code>NavButton("Products", "/products")</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">→</div>
+
+                <div class="flow-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Button calls NavigationService</h4>
+                        <code>service.execute(ActionRequest(action="visit", data={"url": "/products"}))</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">→</div>
+
+                <div class="flow-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Service publishes Event</h4>
+                        <code>EventBus.publish(Event(type="nav.route_changed", ...))</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">→</div>
+
+                <div class="flow-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Adapter listens to Event</h4>
+                        <code>FletNavigationAdapter subscribes; calls page.go()</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">→</div>
+
+                <div class="flow-step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>Router loads view</h4>
+                        <code>FletRouter matches "/products" and loads ProductsView</code>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">→</div>
+
+                <div class="flow-step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <h4>View renders</h4>
+                        <code>page.update() — UI painted</code>
+                    </div>
+                </div>
+            </div>
+
+            <p style="text-align: center; margin-top: 1.5rem; color: var(--text-light);">
+                <strong>Key insight:</strong> NavigationService knows nothing about Flet. FletNavigationAdapter is the only piece with Flet imports. This is the LEGO pattern in action.
+            </p>
         </section>
     </main>
 
