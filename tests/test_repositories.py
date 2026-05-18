@@ -4,6 +4,7 @@ Repository CRUD tests. Uses in-memory SQLite from conftest fixtures.
 import pytest
 from lib.database.query import safe_query
 from lib.models.user import User
+from lib.repositories.role_repository import RoleRepository
 
 
 def test_create_user(user_repo):
@@ -91,3 +92,25 @@ def test_safe_query_parameterized(db_factory):
         rows = safe_query(s, "SELECT * FROM users WHERE username = :u OR email = :e",
                           u="henry", e="h@example.com")
         assert len(rows) == 1
+
+
+def test_role_repository_create(db_factory):
+    repo = RoleRepository(db_factory)
+    role = repo.create({"name": "admin", "description": "Admin role"})
+    assert role.name == "admin"
+    assert role.id is not None
+
+
+def test_role_repository_get(db_factory):
+    repo = RoleRepository(db_factory)
+    role = repo.create({"name": "editor", "description": "Editor role"})
+    retrieved = repo.get(role.id)
+    assert retrieved.name == "editor"
+
+
+def test_role_repository_list(db_factory):
+    repo = RoleRepository(db_factory)
+    repo.create({"name": "admin", "description": "Admin"})
+    repo.create({"name": "editor", "description": "Editor"})
+    roles = repo.list()
+    assert len(roles) == 2
