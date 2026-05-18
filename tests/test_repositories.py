@@ -125,12 +125,62 @@ def test_user_repository_get_with_roles(db_factory):
     role = role_repo.create({"name": "admin", "description": "Admin"})
 
     # Add role to user
-    user_repo.add_role(user.id, role.id)
+    added = user_repo.add_role(user.id, role.id)
+    assert added is True  # Successfully added
 
     # Retrieve user with roles
     retrieved = user_repo.get(user.id)
     assert len(retrieved.roles) == 1
     assert retrieved.roles[0].name == "admin"
+
+
+def test_user_repository_add_role_duplicate_returns_false(db_factory):
+    """Adding the same role twice should return False the second time."""
+    user_repo = UserRepository(db_factory)
+    role_repo = RoleRepository(db_factory)
+
+    user = user_repo.create({"username": "alice", "email": "alice@example.com", "password_hash": "hash", "salt": "salt"})
+    role = role_repo.create({"name": "admin", "description": "Admin"})
+
+    # Add role first time
+    result1 = user_repo.add_role(user.id, role.id)
+    assert result1 is True
+
+    # Add same role second time
+    result2 = user_repo.add_role(user.id, role.id)
+    assert result2 is False  # Already assigned, returns False
+
+
+def test_user_repository_add_role_nonexistent_user_returns_false(db_factory):
+    """Adding a role to nonexistent user should return False."""
+    import uuid
+    user_repo = UserRepository(db_factory)
+    role_repo = RoleRepository(db_factory)
+
+    role = role_repo.create({"name": "admin", "description": "Admin"})
+
+    result = user_repo.add_role(uuid.uuid4(), role.id)
+    assert result is False
+
+
+def test_user_repository_remove_role_returns_true_only_if_removed(db_factory):
+    """remove_role should return True only if a role was actually removed."""
+    user_repo = UserRepository(db_factory)
+    role_repo = RoleRepository(db_factory)
+
+    user = user_repo.create({"username": "alice", "email": "alice@example.com", "password_hash": "hash", "salt": "salt"})
+    role = role_repo.create({"name": "admin", "description": "Admin"})
+
+    # Add role first
+    user_repo.add_role(user.id, role.id)
+
+    # Remove existing role returns True
+    result1 = user_repo.remove_role(user.id, role.id)
+    assert result1 is True
+
+    # Remove non-existent role returns False
+    result2 = user_repo.remove_role(user.id, role.id)
+    assert result2 is False
 
 
 def test_user_repository_list_by_role(db_factory):
@@ -146,3 +196,11 @@ def test_user_repository_list_by_role(db_factory):
     admins = user_repo.list_by_role("admin")
     assert len(admins) == 1
     assert admins[0].username == "alice"
+
+
+def test_user_repository_list_by_role_returns_empty_for_unknown_role(db_factory):
+    """list_by_role should return empty list for unknown role."""
+    user_repo = UserRepository(db_factory)
+
+    result = user_repo.list_by_role("nonexistent")
+    assert result == []

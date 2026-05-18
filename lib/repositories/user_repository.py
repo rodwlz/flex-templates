@@ -8,22 +8,27 @@ from lib.models.role import Role
 class UserRepository(AbstractRepository[User]):
     model = User
 
-    def add_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> None:
-        """Add a role to a user."""
+    def add_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
+        """Add a role to a user. Returns True if added, False if user/role not found or already assigned."""
         with self._factory.session() as s:
             user = s.get(self.model, user_id)
-            role = s.query(Role).filter(Role.id == role_id).first()
-            if user and role:
+            role = s.get(Role, role_id)
+            if not (user and role):
+                return False
+            if role not in user.roles:
                 user.roles.append(role)
+                return True
+            return False  # Already assigned
 
     def remove_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
-        """Remove a role from a user. Returns True if removed, False if not found."""
+        """Remove a role from a user. Returns True if removed, False if user not found or role wasn't assigned."""
         with self._factory.session() as s:
             user = s.get(self.model, user_id)
-            if user:
-                user.roles = [r for r in user.roles if r.id != role_id]
-                return True
-            return False
+            if not user:
+                return False
+            before_count = len(user.roles)
+            user.roles = [r for r in user.roles if r.id != role_id]
+            return len(user.roles) < before_count  # True only if a role was actually removed
 
     def list_by_role(self, role_name: str) -> list[User]:
         """List all users with a specific role."""
