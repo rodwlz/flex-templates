@@ -38,3 +38,17 @@ def test_event_carries_type_and_payload():
 def test_action_request_rejects_missing_action():
     with pytest.raises(ValidationError):
         ActionRequest()  # action is required
+
+
+def test_action_request_requires_approval():
+    request = ActionRequest(
+        action="bulk_delete",
+        data={"ids": [1, 2, 3]},
+        requires_approval=True
+    )
+    assert request.requires_approval is True
+
+
+def test_action_request_approval_defaults_false():
+    request = ActionRequest(action="get_user", data={"id": 1})
+    assert request.requires_approval is False

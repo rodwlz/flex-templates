@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Event(BaseModel):
@@ -11,6 +11,7 @@ class Event(BaseModel):
 class ActionRequest(BaseModel):
     action: str
     data: dict[str, Any] = {}
+    requires_approval: bool = Field(default=False, description="Flag for operations requiring explicit confirmation")
 
 
 class ActionResult(BaseModel):
