@@ -75,6 +75,8 @@ def test_get_user_returns_200_with_serialized_uuid(api_client):
     assert body["id"] == str(user.id)
     assert body["username"] == "alice"
     assert body["email"] == "alice@example.com"
+    # New service-backed endpoint surfaces the user's roles too.
+    assert body["roles"] == []
 
 
 def test_get_user_404_when_missing(api_client):
@@ -87,33 +89,39 @@ def test_get_user_404_when_missing(api_client):
     assert "not found" in response.json()["detail"].lower()
 
 
-def test_get_user_422_on_malformed_uuid(api_client):
-    """A non-UUID id is rejected by FastAPI's path validation, not by the handler."""
+def test_get_user_404_on_malformed_uuid(api_client):
+    """A non-UUID id is parsed by the service layer; a parse failure surfaces as 404.
+
+    The route param is now `str` (the service is the source of truth for id
+    validity), so FastAPI no longer 422s before the handler runs. The service
+    raises ValueError on uuid.UUID('not-a-uuid'), which becomes a 404.
+    """
     client, _ = api_client
 
     response = client.get("/users/not-a-uuid")
 
-    assert response.status_code == 422
+    assert response.status_code == 404
 
 
 def test_list_users_returns_all(api_client):
-    """GET /users/ returns every user in the database."""
+    """GET /users returns every user in the database under the `users` key."""
     client, repo = api_client
     _make_user(repo, username="alice")
     _make_user(repo, username="bob")
 
-    response = client.get("/users/")
+    response = client.get("/users")
 
     assert response.status_code == 200
-    usernames = {u["username"] for u in response.json()}
+    body = response.json()
+    usernames = {u["username"] for u in body["users"]}
     assert usernames == {"alice", "bob"}
 
 
 def test_list_users_returns_empty_list_when_no_users(api_client):
-    """An empty database returns []."""
+    """An empty database returns {'users': []}."""
     client, _ = api_client
 
-    response = client.get("/users/")
+    response = client.get("/users")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"users": []}
