@@ -13,6 +13,7 @@ from lib.services.navigation_service import NavigationService
 from lib.ui.router import FletRouter
 from lib.database.session import SessionFactory
 from lib.database.base import Base
+import lib.models  # noqa: F401 — ensures all ORM models are registered in Base.metadata
 from lib.repositories.user_repository import UserRepository
 
 
