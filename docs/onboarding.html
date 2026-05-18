@@ -168,6 +168,110 @@
             min-height: 100px;
         }
 
+        .paths-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .path-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .path-card:hover {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .path-header {
+            padding: 1.5rem 1rem;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .path-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+            color: white;
+        }
+
+        .path-time {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .path-header.use {
+            background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        }
+
+        .path-header.understand {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .path-header.extend {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .path-card ol,
+        .path-card ul {
+            margin: 0;
+            padding: 1rem 1.5rem;
+            flex-grow: 1;
+        }
+
+        .path-card li {
+            margin-bottom: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .path-card a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .path-card a:hover {
+            text-decoration: underline;
+        }
+
+        .path-card p {
+            padding: 1rem 1.5rem 0;
+            color: var(--text-light);
+        }
+
+        .btn {
+            margin: 1rem 1.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header h1 {
@@ -187,6 +291,10 @@
             }
 
             .layer-group {
+                grid-template-columns: 1fr;
+            }
+
+            .paths-container {
                 grid-template-columns: 1fr;
             }
         }
@@ -262,6 +370,60 @@
 
             <div class="layer-details" id="layer-info">
                 <p style="color: var(--text-light); text-align: center;">Click a layer to learn more</p>
+            </div>
+        </section>
+
+        <section class="section" id="reading-paths">
+            <h2>📚 Choose Your Learning Path</h2>
+            <p>Pick the path that fits your goals and time budget.</p>
+
+            <div class="paths-container">
+                <div class="path-card" id="path-use">
+                    <div class="path-header use">
+                        <h3>🚀 Use It (30 min)</h3>
+                        <span class="path-time">15 min reading + 15 min setup</span>
+                    </div>
+                    <p>Get the project running locally and understand the basic architecture.</p>
+                    <ol>
+                        <li><a href="ARCHITECTURE.md">ARCHITECTURE.md</a> — 10 min overview</li>
+                        <li><a href="CONVENTIONS.md">CONVENTIONS.md</a> — Skim §1-§6 (10 min)</li>
+                        <li><a href="ADDING_STUFF.md">ADDING_STUFF.md</a> — Find your recipe (10 min)</li>
+                        <li><a href="QUICKSTART.md">QUICKSTART.md</a> — Boot the project (5 min)</li>
+                    </ol>
+                    <button class="btn btn-primary" onclick="document.getElementById('quick-nav').scrollIntoView({behavior: 'smooth'})">Start Here</button>
+                </div>
+
+                <div class="path-card" id="path-understand">
+                    <div class="path-header understand">
+                        <h3>🧠 Understand It (90 min)</h3>
+                        <span class="path-time">Full deep dive</span>
+                    </div>
+                    <p>Master the architecture and be ready to extend anything.</p>
+                    <ol>
+                        <li><a href="ARCHITECTURE.md">ARCHITECTURE.md</a> — Full read (15 min)</li>
+                        <li><a href="CONVENTIONS.md">CONVENTIONS.md</a> — Full read (20 min)</li>
+                        <li><a href="CONTRACTS_GUIDE.md">CONTRACTS_GUIDE.md</a> — Full + walkthrough (30 min)</li>
+                        <li><a href="PONG_EXAMPLE.md">PONG_EXAMPLE.md</a> — See it in action (20 min)</li>
+                        <li>Skim test specs in <code>tests/test_interfaces.py</code> (5 min)</li>
+                    </ol>
+                    <button class="btn btn-primary" onclick="window.open('CONTRACTS_GUIDE.md')">Read Now</button>
+                </div>
+
+                <div class="path-card" id="path-extend">
+                    <div class="path-header extend">
+                        <h3>🔧 Extend It (recipe-based)</h3>
+                        <span class="path-time">30 min per recipe</span>
+                    </div>
+                    <p>Pick a specific task and follow the step-by-step guide.</p>
+                    <ul>
+                        <li><strong>New SQL database:</strong> <a href="ADDING_STUFF.md">ADDING_STUFF.md</a> §11</li>
+                        <li><strong>New cache backend:</strong> <a href="ADDING_STUFF.md">ADDING_STUFF.md</a> §12</li>
+                        <li><strong>New Flet view:</strong> <a href="ADDING_STUFF.md">ADDING_STUFF.md</a></li>
+                        <li><strong>New service:</strong> <a href="WRAPPERS.md">WRAPPERS.md</a> + <a href="CONVENTIONS.md">CONVENTIONS.md</a> §7</li>
+                        <li><strong>New API route:</strong> <a href="ADDING_STUFF.md">ADDING_STUFF.md</a></li>
+                    </ul>
+                    <button class="btn btn-primary" onclick="document.getElementById('quick-nav').scrollIntoView({behavior: 'smooth'})">Find a Recipe</button>
+                </div>
             </div>
         </section>
     </main>
