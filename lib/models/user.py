@@ -26,8 +26,8 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     username: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String, nullable=True)
-    salt: Mapped[str] = mapped_column(String, nullable=True)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    salt: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, default="base-user")
 
     # Many-to-many: a user can have multiple roles
@@ -35,6 +35,5 @@ class User(Base):
         "Role",
         back_populates="users",
         secondary="user_roles",
-        cascade="all, delete",
         lazy="joined",
     )

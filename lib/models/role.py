@@ -15,12 +15,11 @@ class Role(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    description: Mapped[str] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Relationship (inverse side)
     users: Mapped[List["User"]] = relationship(
         "User",
         back_populates="roles",
         secondary="user_roles",
-        cascade="all, delete",
     )
