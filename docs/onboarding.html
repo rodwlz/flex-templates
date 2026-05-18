@@ -102,6 +102,72 @@
             text-decoration: underline;
         }
 
+        .architecture-container {
+            margin: 2rem 0;
+            padding: 2rem;
+            background: var(--bg-light);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .layer-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .layer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.5rem 1rem;
+            background: linear-gradient(135deg, var(--layer-bg) 0%, #fef9e7 100%);
+            border: 2px solid var(--layer-border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .layer:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 12px rgba(245, 158, 11, 0.2);
+            border-color: var(--accent);
+        }
+
+        .layer-icon {
+            font-size: 2rem;
+        }
+
+        .layer-name {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .layer-desc {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 1.5rem;
+            color: var(--border);
+            margin: 1rem 0;
+        }
+
+        .layer-details {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--primary-light);
+            border-left: 4px solid var(--primary);
+            border-radius: 4px;
+            min-height: 100px;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .header h1 {
@@ -115,6 +181,14 @@
             .section h2 {
                 font-size: 1.5rem;
             }
+
+            .architecture-container {
+                padding: 1rem;
+            }
+
+            .layer-group {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -127,7 +201,69 @@
     </nav>
 
     <main class="container">
-        <!-- Sections will be added in Tasks 2-5 -->
+        <section class="section" id="architecture">
+            <h2>📐 The Architecture — At a Glance</h2>
+            <p>FlexTemplates follows a LEGO-block pattern where layers talk via <strong>contracts</strong>, and every piece can be swapped without touching the rest.</p>
+
+            <div class="architecture-container">
+                <div class="layer-group">
+                    <div class="layer" data-layer="views">
+                        <span class="layer-icon">🖼️</span>
+                        <span class="layer-name">Views</span>
+                        <span class="layer-desc">Flet pages</span>
+                    </div>
+                    <div class="layer" data-layer="api">
+                        <span class="layer-icon">🔌</span>
+                        <span class="layer-name">API Routes</span>
+                        <span class="layer-desc">FastAPI endpoints</span>
+                    </div>
+                </div>
+
+                <div class="arrow">↓</div>
+
+                <div class="layer-group">
+                    <div class="layer" data-layer="services">
+                        <span class="layer-icon">⚙️</span>
+                        <span class="layer-name">Services</span>
+                        <span class="layer-desc">Business logic</span>
+                    </div>
+                    <div class="layer" data-layer="contracts">
+                        <span class="layer-icon">📋</span>
+                        <span class="layer-name">Contracts</span>
+                        <span class="layer-desc">ActionRequest/Result</span>
+                    </div>
+                </div>
+
+                <div class="arrow">↓</div>
+
+                <div class="layer-group">
+                    <div class="layer" data-layer="repositories">
+                        <span class="layer-icon">🗄️</span>
+                        <span class="layer-name">Repositories</span>
+                        <span class="layer-desc">Data access (CRUD)</span>
+                    </div>
+                    <div class="layer" data-layer="adapters">
+                        <span class="layer-icon">🔄</span>
+                        <span class="layer-name">Adapters</span>
+                        <span class="layer-desc">Redis, files, external APIs</span>
+                    </div>
+                </div>
+
+                <div class="arrow">↓</div>
+
+                <div class="layer-group">
+                    <div class="layer" data-layer="database">
+                        <span class="layer-icon">💾</span>
+                        <span class="layer-name">Database</span>
+                        <span class="layer-desc">SQLAlchemy ORM</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="layer-details" id="layer-info">
+                <p style="color: var(--text-light); text-align: center;">Click a layer to learn more</p>
+            </div>
+        </section>
     </main>
 
     <footer class="footer">
