@@ -12,6 +12,15 @@ import threading
 import uvicorn
 from fastapi import FastAPI
 
+from lib.api.router_registry import mount_routes
+
+
+def create_app() -> FastAPI:
+    """Create and return a FastAPI application with all routes mounted."""
+    app = FastAPI()
+    mount_routes(app)
+    return app
+
 
 class BackendServer:
     def __init__(self, app: FastAPI, host: str = "127.0.0.1", port: int = 8080):
