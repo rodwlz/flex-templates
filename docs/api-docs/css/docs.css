@@ -12,6 +12,9 @@
   --neutral-300: #d1d5db;
   --neutral-700: #374151;
   --neutral-900: #111827;
+  --shadow-sm: 0 4px 12px rgba(37, 99, 235, 0.3);
+  --shadow-md: 0 8px 24px rgba(37, 99, 235, 0.15);
+  --neutral-white: #ffffff;
 }
 
 /* Base styles */
@@ -25,7 +28,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
   color: var(--neutral-900);
-  background-color: #ffffff;
+  background-color: var(--neutral-white);
 }
 
 /* Header */
@@ -87,7 +90,7 @@ li {
 /* Code blocks */
 pre {
   background: var(--neutral-900);
-  color: #f3f4f6;
+  color: var(--neutral-100);
   padding: 1.5rem;
   border-radius: 0.5rem;
   overflow-x: auto;
@@ -141,7 +144,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 1.5rem;
-  background: white;
+  background: var(--neutral-white);
 }
 
 table thead {
@@ -194,7 +197,7 @@ button {
 
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-light);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:disabled {
@@ -267,7 +270,7 @@ details p {
 }
 
 .card {
-  background: white;
+  background: var(--neutral-white);
   border: 1px solid var(--neutral-200);
   border-radius: 0.5rem;
   padding: 1.5rem;
@@ -280,7 +283,7 @@ details p {
 
 .card:hover {
   border-color: var(--primary);
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
