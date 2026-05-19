@@ -17,6 +17,48 @@
   --neutral-white: #ffffff;
 }
 
+/* Section accent colors */
+:root {
+  --section-core: #2563eb;
+  --section-builder: #16a34a;
+  --section-troubleshoot: #d97706;
+}
+
+/* Hub section layout */
+.doc-section {
+  margin-bottom: 3rem;
+}
+
+.section-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding-left: 1rem;
+  margin-bottom: 0.25rem;
+  margin-top: 0;
+}
+
+.doc-section--core .section-title {
+  border-left: 4px solid var(--section-core);
+  color: var(--section-core);
+}
+
+.doc-section--builder .section-title {
+  border-left: 4px solid var(--section-builder);
+  color: var(--section-builder);
+}
+
+.doc-section--troubleshoot .section-title {
+  border-left: 4px solid var(--section-troubleshoot);
+  color: var(--section-troubleshoot);
+}
+
+.section-desc {
+  color: var(--neutral-700);
+  margin-bottom: 1.5rem;
+  padding-left: 1.25rem;
+  font-size: 0.95rem;
+}
+
 /* Base styles */
 * {
   margin: 0;
