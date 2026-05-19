@@ -48,7 +48,9 @@ class UsersView(BaseView):
         user_service = self.props["user_service"]
 
         # 1. Call the service
+        # Old way (still works):
         result = user_service.execute(ActionRequest(action="list"))
+        # New way (easier): result = user_service.list_users()  # Wrapper method
 
         # 2. Handle failure
         if not result.success:
@@ -150,6 +152,8 @@ The current factory provides:
 | `query` | `dict` | Parsed query string (e.g. `{"tab": "stock"}` from `?tab=stock`) |
 | `dev_nav` | `bool` | Show the orange floating dev nav |
 
+**Note:** The table above shows `main.py`'s default props. The rest of this guide assumes you've added `user_service` and `role_service` to the props factory as shown in section 2.2.
+
 Add a new key when you wire a new service — edit the lambda in `main.py`:
 
 ```python
@@ -217,9 +221,13 @@ Services speak one language: `service.execute(ActionRequest(...))` returns an
 ### 3.1 The Standard Call
 
 ```python
+from pydantic import BaseModel
 from lib.contracts.base import ActionRequest
 
 class UserDetailView(BaseView):
+    class Params(BaseModel):
+        id: str
+
     def build_content(self):
         user_service = self.props["user_service"]
 
@@ -266,8 +274,10 @@ result = user_service.execute(ActionRequest(action="get", data={"id": user_id}))
 user = result.data if result.success else None
 
 # Short form — equivalent, easier to read
-user = user_service.get_user(user_id)   # returns dict or None
+user = user_service.get_user(user_id)   # returns dict (empty on miss/error)
 ```
+
+**Available wrapper methods:** See [WRAPPERS.md](WRAPPERS.md) for the full list (`list_users`, `get_user`, `create_user`, `delete_user`, `stage_user_with_roles`, etc.)
 
 When to use which:
 
@@ -327,22 +337,22 @@ Two patterns cover everything:
 **Inline error text** — for forms and validation:
 
 ```python
-class LoginView(BaseView):
+class CreateUserView(BaseView):
     def __init__(self, page, props):
         super().__init__(page, props)
         self._error_text = ft.Text("", color=ft.Colors.RED_400, size=12)
 
     def _on_submit(self, e):
-        result = self.props["auth_service"].execute(
-            ActionRequest(action="login", data={
+        result = self.props["user_service"].execute(
+            ActionRequest(action="create", data={
                 "username": self._username.value,
-                "password": self._password.value,
+                "email": self._email.value,
             })
         )
         if result.success:
-            self.nav.go("/")
+            self.nav.go("/users")
         else:
-            self._error_text.value = result.error or "Login failed"
+            self._error_text.value = result.error or "Create failed"
             self.page.update()
 ```
 
@@ -486,6 +496,11 @@ immediately:
 ```python
 def _on_refresh(self, e):
     result = self.props["user_service"].execute(ActionRequest(action="list"))
+    if not result.success:
+        self.page.snack_bar = ft.SnackBar(ft.Text(f"Error: {result.error}"))
+        self.page.snack_bar.open = True
+        self.page.update()
+        return
     self._users = result.data.get("users", [])
     self._refresh_list()
 ```
@@ -499,6 +514,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 def build_content(self):
     body = ft.Column(spacing=10)
+    names = ["Postgres", "Redis", "MongoDB"]   # or: [c for c in CacheRegistry.list()]
 
     async def _run_probe():
         # Run blocking work in a thread pool so we don't freeze the UI
@@ -557,6 +573,27 @@ unlocked / show-keys states without rebuilding the whole view.
 ## Common Patterns
 
 The four UI shapes that cover most views.
+
+> **Helper used throughout this section** — several examples call
+> `self._refresh_list()` to rebuild a `ft.Column` of user rows from the cached
+> `self._users` list. Define it once on your view class:
+>
+> ```python
+> def _refresh_list(self):
+>     """Rebuild the users list control from self._users."""
+>     self.body.controls.clear()
+>     for u in self._users:
+>         self.body.controls.append(
+>             ft.ListTile(
+>                 title=ft.Text(u["username"]),
+>                 on_click=lambda e, uid=u["id"]: self._view_user(uid),
+>             )
+>         )
+>     self.page.update()
+> ```
+>
+> The examples below assume `self.body` is the `ft.Column` returned from
+> `build_content()` and `self._users` is the cached list of user dicts.
 
 ### 5.1 Forms
 
@@ -667,10 +704,22 @@ class UsersListView(BaseView):
         ], spacing=15)
 
     def _on_delete(self, user_id):
-        self.props["user_service"].execute(
+        result = self.props["user_service"].execute(
             ActionRequest(action="delete", data={"id": user_id})
         )
-        self.nav.go("/users")    # cheapest "refresh" — re-render the view
+        if not result.success:
+            self._error.value = result.error
+            self.page.update()
+            return
+
+        # Refresh the users list from the database (page.go(page.route) is a
+        # no-op in Flet, so we re-fetch and rebuild explicitly).
+        list_result = self.props["user_service"].execute(
+            ActionRequest(action="list")
+        )
+        if list_result.success:
+            self._users = list_result.data.get("users", [])
+            self._refresh_list()
 ```
 
 For card-style lists, the pattern is the same but with `Card` components from
@@ -778,7 +827,10 @@ Key ideas:
 For a manual loading spinner pattern:
 
 ```python
-class SlowReportView(BaseView):
+class SlowUserDetailView(BaseView):
+    class Params(BaseModel):
+        id: str
+
     def build_content(self):
         self._content = ft.Container(
             content=ft.ProgressRing(),     # spinner while we wait
@@ -787,11 +839,14 @@ class SlowReportView(BaseView):
         )
 
         async def _load():
-            result = self.props["report_service"].execute(
-                ActionRequest(action="generate", data={"id": self.params.id})
+            result = self.props["user_service"].execute(
+                ActionRequest(action="get", data={"id": self.params.id})
             )
             if result.success:
-                self._content.content = ft.Text(result.data["report"])
+                user = result.data
+                self._content.content = ft.Text(
+                    f"{user['username']} ({user['email']})"
+                )
             else:
                 self._content.content = ft.Text(result.error, color=ft.Colors.RED_400)
             self._content.update()
