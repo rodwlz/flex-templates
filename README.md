@@ -57,12 +57,13 @@ flex-templates-2/
 │   └── container.py                   # DI container (wire everything here)
 │
 ├── docs/                              ← Documentation
-│   ├── QUICKSTART.md                  # 5-min cheat sheet
-│   ├── API_ARCHITECTURE_SUMMARY.md    # How the API layer works
-│   ├── API_PATTERN_TEMPLATE.md        # Step-by-step: add a new entity
-│   ├── PONG_EXAMPLE.md                # Complete worked example
-│   ├── api-docs/                      # Interactive HTML learning path
-│   └── superpowers/                   # Implementation plans
+│   ├── DOCS_INDEX.md                  # Documentation index
+│   ├── core/                          # ARCHITECTURE, CONVENTIONS, CONTRACTS_GUIDE
+│   ├── guides/                        # QUICKSTART, GETTING_STARTED, API_DEVELOPMENT, VIEW_DEVELOPMENT, ...
+│   ├── reference/                     # DECISION_TREES, VAULT_USAGE, TESTING, API_ARCHITECTURE_SUMMARY
+│   ├── troubleshooting/               # TROUBLESHOOTING, ANTI_PATTERNS
+│   ├── examples/                      # PONG_EXAMPLE, API_PATTERN_TEMPLATE
+│   └── api-docs/                      # Interactive HTML docs portal
 │
 └── tests/                             ← All tests
     ├── conftest.py                    # Test fixtures
@@ -275,11 +276,11 @@ pytest tests/ -v --cov=lib --cov-report=term-missing
 
 ## 🎓 Learning Path
 
-1. **[QUICKSTART.md](docs/QUICKSTART.md)** — 5-min cheat sheet (read this first!)
-2. **[API_ARCHITECTURE_SUMMARY.md](docs/API_ARCHITECTURE_SUMMARY.md)** — How the API layer works
-3. **[API_PATTERN_TEMPLATE.md](docs/API_PATTERN_TEMPLATE.md)** — Step-by-step: add a new entity from scratch
-4. **[PONG_EXAMPLE.md](docs/PONG_EXAMPLE.md)** — Complete worked example (Pong game as API)
-5. **[api-docs/](docs/api-docs/)** — Interactive HTML learning path (open in browser)
+1. **[QUICKSTART.md](docs/guides/QUICKSTART.md)** — 5-min cheat sheet (read this first!)
+2. **[API_ARCHITECTURE_SUMMARY.md](docs/reference/API_ARCHITECTURE_SUMMARY.md)** — How the API layer works
+3. **[API_PATTERN_TEMPLATE.md](docs/examples/API_PATTERN_TEMPLATE.md)** — Step-by-step: add a new entity from scratch
+4. **[PONG_EXAMPLE.md](docs/examples/PONG_EXAMPLE.md)** — Complete worked example (Pong game as API)
+5. **[api-docs/](docs/api-docs/)** — Interactive HTML docs portal (open index.html in browser)
 
 ---
 
@@ -354,7 +355,7 @@ pytest tests/ -v
 - **Phase 4:** Webhook support for external integrations
 - **Phase 5:** GraphQL API option
 
-See [docs/superpowers/](docs/superpowers/) for detailed implementation plans.
+See [.claude/superpowers/](.claude/superpowers/) for detailed implementation plans.
 
 ---
 
@@ -396,8 +397,8 @@ A: Edit the `@router.get()` or `@router.post()` decorator in `lib/api/routes/`, 
 
 ## 🔗 Navigation
 
-- **Want to build fast?** → [QUICKSTART.md](docs/QUICKSTART.md)
-- **Want to understand the API?** → [API_ARCHITECTURE_SUMMARY.md](docs/API_ARCHITECTURE_SUMMARY.md)
-- **Want to add a new entity?** → [API_PATTERN_TEMPLATE.md](docs/API_PATTERN_TEMPLATE.md)
-- **Want a complete example?** → [PONG_EXAMPLE.md](docs/PONG_EXAMPLE.md)
+- **Want to build fast?** → [QUICKSTART.md](docs/guides/QUICKSTART.md)
+- **Want to understand the API?** → [API_ARCHITECTURE_SUMMARY.md](docs/reference/API_ARCHITECTURE_SUMMARY.md)
+- **Want to add a new entity?** → [API_PATTERN_TEMPLATE.md](docs/examples/API_PATTERN_TEMPLATE.md)
+- **Want a complete example?** → [PONG_EXAMPLE.md](docs/examples/PONG_EXAMPLE.md)
 - **Want interactive docs?** → [docs/api-docs/](docs/api-docs/) (open index.html in browser)
