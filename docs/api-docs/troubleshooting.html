@@ -237,7 +237,7 @@ except IntegrityError as e:
                     <p><strong>In a service method:</strong></p>
                     <div style="position: relative;">
                         <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
-                        <pre><code class="language-python">def create(self, data: dict) -> dict:
+                        <pre><code class="language-python">def create(self, data: dict) -&gt; dict:
     repo = UserRepository(self._factory)
 
     # Check if username is taken
@@ -699,7 +699,7 @@ else:
                     <p><strong>Or raise an exception early:</strong></p>
                     <div style="position: relative;">
                         <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
-                        <pre><code class="language-python">def get_user(self, data: dict) -> dict:
+                        <pre><code class="language-python">def get_user(self, data: dict) -&gt; dict:
     repo = UserRepository(self._factory)
     user = repo.get(uuid.UUID(data["id"]))
 
@@ -728,7 +728,7 @@ username = user.username if user else "Unknown"</code></pre>
                     <div style="position: relative;">
                         <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
                         <pre><code class="language-python">class UserService(SimpleService):
-    def get(self, data: dict) -> dict:
+    def get(self, data: dict) -&gt; dict:
         repo = UserRepository(self._factory)
         user = repo.get(uuid.UUID(data["id"]))
 
@@ -1339,7 +1339,7 @@ grep "def view" lib/views/users.py  # Must have this function</code></pre>
                     <div style="position: relative;">
                         <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
                         <pre><code class="language-python"># ✓ Correct signature
-def view(page: ft.Page, props: dict) -> ft.View:
+def view(page: ft.Page, props: dict) -&gt; ft.View:
     return ft.View([...])
 
 # ❌ Wrong — missing return
@@ -1475,7 +1475,7 @@ else:
                     <div style="position: relative;">
                         <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
                         <pre><code class="language-python">class UserService(SimpleService):
-    def create(self, data: dict) -> dict:
+    def create(self, data: dict) -&gt; dict:
         username = data.get("username", "")
 
         if not username:
@@ -1946,7 +1946,7 @@ except Exception as e:
         <div style="position: relative;">
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
             <pre><code class="language-python"># In the failing function
-def create(self, data: dict) -> dict:
+def create(self, data: dict) -&gt; dict:
     username = data.get("username", "")
     print(f"DEBUG: create() called with username={username}")
 
