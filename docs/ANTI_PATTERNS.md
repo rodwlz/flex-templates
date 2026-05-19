@@ -157,6 +157,10 @@ Or use a `StagingService` to handle multi-step logic:
 ```python
 # BETTER — if the flow is complex, use StagingService to orchestrate
 class UserService(StagingService):
+    def __init__(self, factory: SessionFactory):
+        # StagingService only takes factory, not email_service
+        super().__init__(factory)
+    
     def _stage_impl(self, uow, data: dict) -> dict:
         repo = uow.repo(UserRepository)
         role_repo = uow.repo(RoleRepository)
@@ -170,6 +174,8 @@ class UserService(StagingService):
         
         return {"user_id": user.id, "role_count": len(user.roles)}
 ```
+
+If you need to inject `email_service`, do it at the container level in `main.py`, not in the service constructor.
 
 **Benefits**
 
@@ -724,9 +730,16 @@ class UserRepository(AbstractRepository[User]):
     model = User
 
     def get(self, id) -> User | None:
-        """Session opens, closes, and data is fetched before return."""
+        """Session opens, closes, and data is fetched before return.
+        
+        NOTE: This returns a raw ORM object. The SessionFactory has
+        expire_on_commit=False, so scalar columns (id, username, email)
+        are safe to access after the session closes. However, relationships
+        (e.g., user.roles) will raise DetachedInstanceError. Convert to dict
+        in _stage_impl if you access relationships outside this method.
+        """
         with self._factory.session() as s:
-            return s.get(self.model, id)  # User is detached after context closes
+            return s.get(self.model, id)
 
     def list(self, **filters) -> list[User]:
         """All users fetched inside the context."""
@@ -991,11 +1004,11 @@ def main():
     user_service = UserService(factory)
     
     router = FletRouter(nav_service, views_package="lib.views")
-    router.props = {
+    router.set_props_factory(lambda: {
         "user_service": user_service,
         "role_service": role_service,
         "nav_service": nav_service,
-    }
+    })
 ```
 
 **Special case: Registries are OK to import**
@@ -1262,8 +1275,8 @@ class OrderView(BaseView):
     def build_content(self):
         quantity_field = ft.TextField(label="Quantity")
         error_banner = ft.Banner(
-            title=ft.Text(""),
-            leading=ft.Icon(ft.icons.ERROR),
+            content=ft.Text(""),  # Use content=, not title=
+            leading=ft.Icon(ft.Icons.ERROR),  # Use ft.Icons (capital I)
             bgcolor="#ffebee",
         )
         
@@ -1301,7 +1314,7 @@ class OrderView(BaseView):
                 
             except Exception as exc:
                 # Show error to user
-                error_banner.title.value = f"Error: {exc}"
+                error_banner.content.value = f"Error: {exc}"  # Access content, not title
                 error_banner.open = True
                 self.page.update()
         
@@ -1641,7 +1654,7 @@ Create all services once in `main.py` and share them everywhere:
 # CORRECT — single source of truth
 def main():
     # Create once, share everywhere
-    factory = SessionFactory()
+    factory = SessionFactory("sqlite:///app.db")  # Provide required URL
     
     user_service = UserService(factory)
     role_service = RoleService(factory)
@@ -1649,12 +1662,12 @@ def main():
     
     # Pass to router
     router = FletRouter(nav_service, views_package="lib.views")
-    router.props = {
+    router.set_props_factory(lambda: {
         "factory": factory,
         "user_service": user_service,
         "role_service": role_service,
         "email_service": email_service,
-    }
+    })
     
     # Pass to API
     api_app = FastAPI()
@@ -1715,7 +1728,7 @@ In `main.py`:
 
 ```python
 def main():
-    factory = SessionFactory()
+    factory = SessionFactory("sqlite:///app.db")  # Provide required URL
     user_service = UserService(factory)
     
     api_app = FastAPI()
@@ -1804,8 +1817,8 @@ Test code is completely separate:
 ```python
 # In tests/services/test_user_service.py
 import pytest
+from unittest.mock import patch
 from lib.services.user_service import UserService
-from lib.repositories.user_repository import UserRepository
 from lib.contracts.base import ActionRequest
 
 class MockUserRepository:
@@ -1823,18 +1836,14 @@ def test_user_service_create():
     
     service = UserService(MockFactory())
     
-    # Monkey-patch the repository for testing
-    original_repo = UserRepository
-    try:
-        UserRepository = MockUserRepository  # Only in test scope
+    # Use unittest.mock.patch() — properly rebinds the module namespace
+    with patch("lib.services.user_service.UserRepository", MockUserRepository):
         result = service.execute(ActionRequest(
             action="create",
             data={"username": "alice"}
         ))
         assert result.success
         assert result.data["username"] == "alice"
-    finally:
-        UserRepository = original_repo
 ```
 
 Or better yet, use a test factory that creates real services with a test database:
