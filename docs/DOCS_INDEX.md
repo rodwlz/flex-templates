@@ -74,13 +74,61 @@ code, swap one line. The architecture pitch as runnable code.
 In-memory SQLite, `FakePage` for view tests, fixture conventions, how to
 exercise a service without Flet or a real DB.
 
+---
+
+## Builder guides
+
+The "I'm sitting down to write code right now" docs. Pick the one that
+matches the layer you're working in.
+
+### [API_DEVELOPMENT.md](API_DEVELOPMENT.md)
+**Build HTTP endpoints — validation, errors, testing**
+
+The canonical shape of a FastAPI route, request validation, mapping
+`ActionResult` failures to HTTP status codes, response shaping, testing
+endpoints with `TestClient`, and the three operation types
+(immediate / staged / approval). Pair with
+[API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) for the step-by-step
+walkthrough when adding a new entity.
+
+### [VIEW_DEVELOPMENT.md](VIEW_DEVELOPMENT.md)
+**Build Flet views — props, event handlers, async**
+
+The props pattern (how views get services), calling services safely from
+handlers, error display, async patterns in Flet, and the canonical view
+file structure. Read before touching anything under `lib/views/`.
+
+---
+
+## Decision trees
+
 ### [DECISION_TREES.md](DECISION_TREES.md)
 **When should I use X vs Y?**
 
 Five decision trees with YES/NO branches and concrete code examples:
 `SimpleService` vs `StagingService`, immediate vs staged vs approval endpoints,
 when to emit an `Event`, new service vs new method, and `SimpleService` vs
-custom `execute()`.
+custom `execute()`. Skim before designing anything non-trivial.
+
+---
+
+## Troubleshooting & anti-patterns
+
+### [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+**When things break — 20 common errors with fixes**
+
+Organized by symptom (database errors, import/wiring errors, vault errors,
+Flet UI errors, service errors, testing errors), each entry has *what it
+means*, *why it happens*, *how to fix*, and *how to prevent*. Ends with a
+short "how to debug" playbook for problems not in the list.
+
+### [ANTI_PATTERNS.md](ANTI_PATTERNS.md)
+**What not to do, and why — 15 anti-patterns with before/after code**
+
+The mistakes new contributors make, grouped by layer (services,
+repositories, views, container/wiring). Each anti-pattern shows the broken
+code, why it breaks, and the corrected version. Read alongside
+[CONVENTIONS.md](CONVENTIONS.md) — this is the "why the rules exist" doc.
 
 ---
 
@@ -90,6 +138,7 @@ custom `execute()`.
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The "you are here" map |
 | [QUICKSTART.md](QUICKSTART.md) | Boot the project locally |
+| [GETTING_STARTED.md](GETTING_STARTED.md) | End-to-end walkthrough for new contributors |
 | [CONVENTIONS.md](CONVENTIONS.md) | Naming + structure + contracts (ground truth) |
 | [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) | How layers talk via Pydantic plugs |
 | [ADDING_STUFF.md](ADDING_STUFF.md) | Recipes: add DB / cache / view / service / route |
@@ -97,7 +146,13 @@ custom `execute()`.
 | [VAULT_USAGE.md](VAULT_USAGE.md) | Vault API + secrets workflow |
 | [PONG_EXAMPLE.md](PONG_EXAMPLE.md) | LEGO architecture in 30 lines of code |
 | [TESTING.md](TESTING.md) | Test patterns and fixtures |
+| [API_DEVELOPMENT.md](API_DEVELOPMENT.md) | Build HTTP endpoints — validation, errors, testing |
+| [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) | Step-by-step recipe for a new entity's routes |
+| [API_ARCHITECTURE_SUMMARY.md](API_ARCHITECTURE_SUMMARY.md) | Snapshot of the current API layer |
+| [VIEW_DEVELOPMENT.md](VIEW_DEVELOPMENT.md) | Build Flet views — props, handlers, async |
 | [DECISION_TREES.md](DECISION_TREES.md) | When to use X vs Y — 5 decision trees |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 20 common errors with fixes |
+| [ANTI_PATTERNS.md](ANTI_PATTERNS.md) | 15 anti-patterns with before/after code |
 | [DOCS_INDEX.md](DOCS_INDEX.md) | This file |
 | `superpowers/` | Plans, specs, and audit reports tracking the project's history |
 
@@ -121,15 +176,77 @@ custom `execute()`.
    [tests/test_repository_base.py](../tests/test_repository_base.py) for
    runnable specs of the base abstractions (5 min)
 
+### "I'm building an API endpoint" — 60 minutes
+
+1. [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) — understand `ActionRequest` / `ActionResult` (15 min)
+2. [API_DEVELOPMENT.md](API_DEVELOPMENT.md) — validation, errors, testing, response shaping (25 min)
+3. [DECISION_TREES.md](DECISION_TREES.md) — pick immediate vs staged vs approval (5 min)
+4. [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) — copy the recipe and edit (10 min)
+5. Skim the service anti-patterns in
+   [ANTI_PATTERNS.md](ANTI_PATTERNS.md#service-anti-patterns) (5 min)
+
+### "I'm building a Flet view" — 45 minutes
+
+1. [WRAPPERS.md](WRAPPERS.md) — the `nav` / `vault` / `events` snap API (10 min)
+2. [VIEW_DEVELOPMENT.md](VIEW_DEVELOPMENT.md) — props pattern, handlers, async (20 min)
+3. Skim the view anti-patterns in
+   [ANTI_PATTERNS.md](ANTI_PATTERNS.md#view-anti-patterns) (10 min)
+4. [PONG_EXAMPLE.md](PONG_EXAMPLE.md) — see a complete UI driven by services (5 min)
+
+### "Something is broken" — 5 to 30 minutes
+
+1. [TROUBLESHOOTING.md](TROUBLESHOOTING.md) — search by error text or symptom
+2. If the error isn't listed, jump to
+   [TROUBLESHOOTING.md → How to Debug](TROUBLESHOOTING.md#how-to-debug)
+3. If the code "works but smells wrong," check
+   [ANTI_PATTERNS.md](ANTI_PATTERNS.md) for the layer you're in
+4. If you're unsure which pattern to use, run through
+   [DECISION_TREES.md](DECISION_TREES.md)
+
 ### "I want to extend it" — pick the recipe
 
 - New SQL database → [ADDING_STUFF.md §11](ADDING_STUFF.md)
 - New cache backend → [ADDING_STUFF.md §12](ADDING_STUFF.md)
-- New Flet view → [ADDING_STUFF.md](ADDING_STUFF.md)
+- New Flet view → [VIEW_DEVELOPMENT.md](VIEW_DEVELOPMENT.md) +
+  [ADDING_STUFF.md](ADDING_STUFF.md)
 - New service → [WRAPPERS.md](WRAPPERS.md) for `SimpleService`,
-  [CONVENTIONS.md §7](CONVENTIONS.md) for the action reference
-- New API route → [ADDING_STUFF.md](ADDING_STUFF.md) plus
-  [lib/api/routes/users.py](../lib/api/routes/users.py) as a template
+  [CONVENTIONS.md §7](CONVENTIONS.md) for the action reference,
+  [DECISION_TREES.md](DECISION_TREES.md) if you're unsure which kind
+- New API route → [API_DEVELOPMENT.md](API_DEVELOPMENT.md) +
+  [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md), with
+  [lib/api/routes/users.py](../lib/api/routes/users.py) as the working template
+
+---
+
+## Coverage by user type
+
+| You are... | Start with | Then read |
+|---|---|---|
+| A new contributor | [ARCHITECTURE.md](ARCHITECTURE.md), [GETTING_STARTED.md](GETTING_STARTED.md) | [CONVENTIONS.md](CONVENTIONS.md), [ANTI_PATTERNS.md](ANTI_PATTERNS.md) |
+| Building an API route | [API_DEVELOPMENT.md](API_DEVELOPMENT.md) | [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md), [DECISION_TREES.md](DECISION_TREES.md) |
+| Building a Flet view | [VIEW_DEVELOPMENT.md](VIEW_DEVELOPMENT.md) | [WRAPPERS.md](WRAPPERS.md), [ANTI_PATTERNS.md](ANTI_PATTERNS.md#view-anti-patterns) |
+| Designing a service | [WRAPPERS.md](WRAPPERS.md), [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) | [DECISION_TREES.md](DECISION_TREES.md), [ANTI_PATTERNS.md](ANTI_PATTERNS.md#service-anti-patterns) |
+| Hitting an error | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | [ANTI_PATTERNS.md](ANTI_PATTERNS.md) (if pattern is wrong) |
+| Writing tests | [TESTING.md](TESTING.md) | [API_DEVELOPMENT.md → Testing Endpoints](API_DEVELOPMENT.md#testing-endpoints) |
+| Reviewing code | [CONVENTIONS.md](CONVENTIONS.md), [ANTI_PATTERNS.md](ANTI_PATTERNS.md) | [DECISION_TREES.md](DECISION_TREES.md) |
+
+---
+
+## Quick questions
+
+- **"Which kind of service should I write?"** →
+  [DECISION_TREES.md](DECISION_TREES.md) (`SimpleService` vs `StagingService`,
+  `SimpleService` vs custom `execute()`).
+- **"Should this endpoint be immediate, staged, or approval-required?"** →
+  [DECISION_TREES.md](DECISION_TREES.md).
+- **"What HTTP status code should I return on a failed `ActionResult`?"** →
+  [API_DEVELOPMENT.md → Error Handling](API_DEVELOPMENT.md#error-handling).
+- **"How do I show an error from a service in my Flet view?"** →
+  [VIEW_DEVELOPMENT.md → Event Handlers](VIEW_DEVELOPMENT.md#event-handlers).
+- **"My test says 'database is locked' — what now?"** →
+  [TROUBLESHOOTING.md → Database Errors](TROUBLESHOOTING.md#database-errors).
+- **"Why can't my service import another service directly?"** →
+  [ANTI_PATTERNS.md → Service Anti-Patterns](ANTI_PATTERNS.md#service-anti-patterns).
 
 ---
 
