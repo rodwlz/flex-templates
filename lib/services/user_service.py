@@ -48,13 +48,20 @@ class UserService(StagingService):
         }
 
     def create(self, data: dict) -> dict:
-        """Simple immediate create, no roles."""
+        """Immediate create. Accepts either 'password' (plain) or 'password_hash'+'salt'."""
+        from lib.security.password import hash_password
+        plain = data.get("password", "")
+        if plain:
+            password_hash, salt = hash_password(plain)
+        else:
+            password_hash = data.get("password_hash", "")
+            salt = data.get("salt", "")
         repo = UserRepository(self._factory)
         user = repo.create({
             "username": data["username"],
             "email": data["email"],
-            "password_hash": data.get("password_hash", ""),
-            "salt": data.get("salt", ""),
+            "password_hash": password_hash,
+            "salt": salt,
         })
         return {"id": str(user.id), "username": user.username, "email": user.email}
 
@@ -64,6 +71,26 @@ class UserService(StagingService):
         if not deleted:
             raise ValueError(f"User {data['id']} not found")
         return {"deleted": True}
+
+    def authenticate(self, data: dict) -> dict:
+        """Verify login + password. Returns user dict on success, raises ValueError on failure."""
+        from lib.security.password import verify_password
+        login = data.get("username", "")
+        password = data.get("password", "")
+        repo = UserRepository(self._factory)
+        # Try username first, then email — same field for login
+        users = repo.list(username=login)
+        if not users:
+            users = repo.list(email=login)
+        if not users or not verify_password(password, users[0].password_hash):
+            raise ValueError("Invalid credentials")
+        user = users[0]
+        return {
+            "id": str(user.id),
+            "username": user.username,
+            "email": user.email,
+            "roles": [r.name for r in user.roles],
+        }
 
     # ===== STAGED OPERATION (StagingService style) =====
 
@@ -130,3 +157,13 @@ class UserService(StagingService):
         """Cancel the staged user creation."""
         result = self.execute(ActionRequest(action="cancel", data={}))
         return result.success
+
+    def authenticate_user(self, username: str, password: str) -> dict:
+        """Wrapper: raise ValueError on bad credentials, return user dict on success."""
+        result = self.execute(ActionRequest(
+            action="authenticate",
+            data={"username": username, "password": password},
+        ))
+        if not result.success:
+            raise ValueError(result.error)
+        return result.data

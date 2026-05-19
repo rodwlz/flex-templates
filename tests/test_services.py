@@ -130,3 +130,61 @@ def test_user_service_stage_can_cancel(db_factory):
     # Verify user not created
     list_result = service.execute(ActionRequest(action="list", data={}))
     assert len(list_result.data["users"]) == 0
+
+
+def test_create_with_plain_password_hashes_it(db_factory):
+    from lib.services.user_service import UserService
+    from lib.contracts.base import ActionRequest
+    from lib.security.password import verify_password
+
+    service = UserService(db_factory)
+    result = service.execute(ActionRequest(action="create", data={
+        "username": "authuser1", "email": "authuser1@test.com", "password": "hunter2",
+    }))
+    assert result.success
+    from lib.repositories.user_repository import UserRepository
+    repo = UserRepository(db_factory)
+    users = repo.list(username="authuser1")
+    assert users and verify_password("hunter2", users[0].password_hash)
+
+
+def test_authenticate_success(db_factory):
+    from lib.services.user_service import UserService
+    from lib.contracts.base import ActionRequest
+
+    service = UserService(db_factory)
+    service.execute(ActionRequest(action="create", data={
+        "username": "authuser2", "email": "authuser2@test.com", "password": "secret",
+    }))
+    result = service.execute(ActionRequest(action="authenticate", data={
+        "username": "authuser2", "password": "secret",
+    }))
+    assert result.success
+    assert result.data["username"] == "authuser2"
+    assert "roles" in result.data
+
+
+def test_authenticate_wrong_password(db_factory):
+    from lib.services.user_service import UserService
+    from lib.contracts.base import ActionRequest
+
+    service = UserService(db_factory)
+    service.execute(ActionRequest(action="create", data={
+        "username": "authuser3", "email": "authuser3@test.com", "password": "correct",
+    }))
+    result = service.execute(ActionRequest(action="authenticate", data={
+        "username": "authuser3", "password": "wrong",
+    }))
+    assert not result.success
+    assert "Invalid credentials" in result.error
+
+
+def test_authenticate_unknown_user(db_factory):
+    from lib.services.user_service import UserService
+    from lib.contracts.base import ActionRequest
+
+    service = UserService(db_factory)
+    result = service.execute(ActionRequest(action="authenticate", data={
+        "username": "nobody", "password": "secret",
+    }))
+    assert not result.success
