@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Troubleshooting Guide — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Troubleshooting Guide</h1>
+        <p class="breadcrumb">Troubleshooting &amp; Reference &rsaquo; Troubleshooting Guide</p>
+    </header>
+    <main>
+
+        <p>When things break, this is where you find the fix. Each error has:</p>
+        <ul>
+            <li><strong>What it means</strong> — Plain English</li>
+            <li><strong>Why it happens</strong> — The root cause</li>
+            <li><strong>How to fix</strong> — Step-by-step solution with code</li>
+            <li><strong>How to prevent</strong> — Best practice to avoid it next time</li>
+        </ul>
+
+        <hr>
+
+        <p>Jump to a category:</p>
+        <ol>
+            <li><a href="#database-errors">Database Errors</a></li>
+            <li><a href="#import-wiring-errors">Import &amp; Wiring Errors</a></li>
+            <li><a href="#vault-configuration-errors">Vault &amp; Configuration Errors</a></li>
+            <li><a href="#flet-ui-errors">Flet UI Errors</a></li>
+            <li><a href="#service-errors">Service Errors</a></li>
+            <li><a href="#testing-errors">Testing Errors</a></li>
+            <li><a href="#how-to-debug">How to Debug</a></li>
+        </ol>
+
+        <hr>
+
+        <details open id="database-errors">
+            <summary>Database Errors</summary>
+
+            <h3>&ldquo;database is locked&rdquo;</h3>
+
+            <p><strong>What it means:</strong> SQLite is already in use by another process and can't handle concurrent writes.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>Multiple test workers trying to write to the same SQLite file simultaneously</li>
+                <li>The dev app running while you try to run tests</li>
+                <li>A background task or server still holding the database connection</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Stop the dev app:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash"># Kill any running python main.py processes
+# Windows:
+taskkill /IM python.exe /F
+# macOS/Linux:
+pkill -f "python main.py"</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Run tests in serial mode</strong> (not parallel):</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">pytest tests/ -v  # -v shows each test
+# Do NOT use pytest-xdist with SQLite:
+pytest tests/ -n auto  # ❌ WRONG for SQLite</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Use in-memory database</strong> for tests (recommended in conftest.py):</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/conftest.py
+@pytest.fixture
+def db_factory():
+    factory = SessionFactory("sqlite:///:memory:")  # ← in-memory, not file
+    factory.create_tables(Base)
+    return factory</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>Always use in-memory SQLite for tests: <code>sqlite:///:memory:</code></li>
+                <li>In production, use PostgreSQL (no file locking issues)</li>
+                <li>Kill old processes before running tests: <code>pgrep python | xargs kill -9</code></li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;no such table: users&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The database schema doesn't match your code — a table is missing.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>Forgot to run migrations after changing a model</li>
+                <li>Created a new ORM model but haven't created the table yet</li>
+                <li>Using a fresh SQLite file without bootstrapping the schema</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Create tables immediately</strong> (dev environment):</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.database.session import SessionFactory
+from lib.database.base import Base
+
+factory = SessionFactory("sqlite:///dev.db")
+factory.create_tables(Base)  # ← creates all missing tables
+print("✓ Tables created")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Or use Alembic</strong> (for tracked migrations):</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash"># Create a migration for new changes
+alembic revision --autogenerate -m "add users table"
+
+# Apply it
+alembic upgrade head
+
+# Verify it worked
+sqlite3 dev.db ".tables"</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check what tables exist:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.database.session import SessionFactory
+
+factory = SessionFactory("sqlite:///dev.db")
+with factory.session() as s:
+    result = s.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    )
+    print([row[0] for row in result])</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    After editing any ORM model (<code>lib/models/</code>), always run migrations:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">alembic revision --autogenerate -m "describe your change"
+alembic upgrade head</code></pre>
+                    </div>
+                </li>
+                <li>In tests, use <code>factory.create_tables(Base)</code> in conftest.py so the schema is fresh every test run</li>
+                <li>
+                    Add a smoke test that verifies core tables exist:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_schema_has_users_table(db_factory):
+    with db_factory.session() as s:
+        result = s.execute("SELECT COUNT(*) FROM users")
+        # If this doesn't crash, table exists</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;UNIQUE constraint failed: users.username&rdquo;</h3>
+
+            <p><strong>What it means:</strong> You tried to insert or update a row with a duplicate value in a unique column.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>Your code tries to create a user with a username that already exists</li>
+                <li>You forgot to check if a record exists before creating it</li>
+                <li>A test didn't clean up after itself and left duplicate data</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Check before creating:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.repositories.user_repository import UserRepository
+from lib.database.session import SessionFactory
+
+factory = SessionFactory("sqlite:///dev.db")
+repo = UserRepository(factory)
+
+# Check first
+existing = repo.list(username="alice")
+if existing:
+    print(f"User 'alice' already exists with id {existing[0].id}")
+else:
+    user = repo.create({"username": "alice", "email": "alice@example.com"})
+    print(f"Created user {user.id}")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Handle the error gracefully:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from sqlalchemy.exc import IntegrityError
+from lib.services.user_service import UserService
+
+service = UserService(factory)
+try:
+    user = service.create_user("alice", "alice@example.com")
+except IntegrityError as e:
+    if "UNIQUE constraint" in str(e):
+        print("Error: Username already taken")
+    else:
+        raise</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>In a service method:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def create(self, data: dict) -> dict:
+    repo = UserRepository(self._factory)
+
+    # Check if username is taken
+    existing = repo.list(username=data["username"])
+    if existing:
+        raise ValueError(f"Username '{data['username']}' is already taken")
+
+    # Now safe to create
+    user = repo.create(data)
+    return {"id": str(user.id), "username": user.username}</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always validate before creating:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># In your service, before repo.create():
+existing = repo.list(username=data["username"])
+if existing:
+    raise ValueError(f"Username taken")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    In tests, use unique data per test:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">import uuid
+
+def test_create_user():
+    unique_name = f"user_{uuid.uuid4()}"
+    user = service.create_user(unique_name, "test@example.com")
+    assert user["username"] == unique_name</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Add database constraints in your ORM model (SQLAlchemy will catch them):
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">class User(Base):
+    __tablename__ = "users"
+    username: Mapped[str] = mapped_column(String, unique=True, index=True)</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;FOREIGN KEY constraint failed&rdquo;</h3>
+
+            <p><strong>What it means:</strong> You tried to create/update a row that references a non-existent parent row.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You assigned a role_id to a user, but that role doesn't exist</li>
+                <li>You tried to delete a role that has users assigned to it</li>
+                <li>A fixture forgot to create the parent record before using it</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Verify parent exists before creating child:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.repositories.user_repository import UserRepository
+from lib.repositories.role_repository import RoleRepository
+from lib.database.session import SessionFactory
+
+factory = SessionFactory("sqlite:///dev.db")
+user_repo = UserRepository(factory)
+role_repo = RoleRepository(factory)
+
+# Create parent first
+role = role_repo.create({"name": "admin", "description": "Administrator"})
+print(f"Created role: {role.id}")
+
+# Now safe to reference it
+user = user_repo.create({
+    "username": "alice",
+    "email": "alice@example.com",
+    "password_hash": "...",
+    "salt": "...",
+})
+user_repo.add_role(user.id, role.id)
+print(f"Assigned role to user")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check foreign key constraint in your model:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from sqlalchemy import Column, ForeignKey, String, Table, Uuid
+
+class User(Base):
+    __tablename__ = "users"
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("roles.id", ondelete="CASCADE"),  # ← constraint
+        nullable=True
+    )</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>When deleting, cascade or re-assign:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># Option 1: The model uses ondelete="CASCADE" — children auto-delete
+# Option 2: Manually re-assign before deleting
+
+role_id_to_delete = "..."
+users_with_role = user_repo.list(role_id=role_id_to_delete)
+for user in users_with_role:
+    user_repo.update(user.id, {"role_id": None})
+
+# Now safe to delete
+role_repo.delete(role_id_to_delete)</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    In tests, use fixtures that create parents first:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">@pytest.fixture
+def role(db_factory):
+    repo = RoleRepository(db_factory)
+    return repo.create({"name": "admin", "description": "Admin role"})
+
+@pytest.fixture
+def user_with_role(db_factory, role):
+    repo = UserRepository(db_factory)
+    user = repo.create({...})
+    repo.add_role(user.id, role.id)
+    return user</code></pre>
+                    </div>
+                </li>
+                <li>
+                    In your ORM model, use <code>ondelete="CASCADE"</code> or <code>ondelete="SET NULL"</code> to auto-cleanup:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">role_id: Mapped[uuid.UUID] = mapped_column(
+    Uuid,
+    ForeignKey("roles.id", ondelete="CASCADE")  # ← auto-delete if role deleted
+)</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+        </details>
+
+        <details id="import-wiring-errors">
+            <summary>Import &amp; Wiring Errors</summary>
+
+            <h3>&ldquo;ModuleNotFoundError: No module named &lsquo;lib&rsquo;&rdquo;</h3>
+
+            <p><strong>What it means:</strong> Python can't find the <code>lib</code> package. The project isn't installed.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You didn't run <code>pip install -e .</code> in the project root</li>
+                <li>You're running Python from the wrong directory</li>
+                <li>The <code>pyproject.toml</code> file is missing or malformed</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Install the package in editable mode:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">cd /path/to/flex-templates
+pip install -e .</code></pre>
+                    </div>
+                    <p>The <code>-e</code> flag means &ldquo;editable&rdquo; — Python will look in the current directory, not site-packages.</p>
+                </li>
+                <li>
+                    <p><strong>Verify the install:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">python -c "import lib; print(lib.__file__)"</code></pre>
+                    </div>
+                    <p>If it prints a path inside the project, you're good.</p>
+                </li>
+                <li>
+                    <p><strong>Check pyproject.toml exists:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">ls -la pyproject.toml  # Should exist</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>If still broken, reinstall:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">pip uninstall flex-templates
+pip install -e .</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always run <code>pip install -e .</code> after cloning:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">git clone &lt;repo&gt;
+cd flex-templates
+pip install -e .
+python main.py</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Add a smoke test to your CI:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">python -c "from lib.services.user_service import UserService; print('✓ Imports work')"</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;ImportError: cannot import name &lsquo;UserService&rsquo; from &lsquo;lib.services&rsquo;&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The module exists, but the class isn't exported from it.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You renamed the class but forgot to update imports elsewhere</li>
+                <li>The class is defined but not exported in <code>__init__.py</code></li>
+                <li>You're importing from the wrong module (typo in path)</li>
+                <li>Circular import — A imports B, B imports A</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Verify the class exists and is spelled correctly:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">grep -n "class UserService" lib/services/user_service.py</code></pre>
+                    </div>
+                    <p>If it prints a line number, the class exists. Check the spelling matches your import.</p>
+                </li>
+                <li>
+                    <p><strong>Check if it's exported in __init__.py:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">cat lib/services/__init__.py</code></pre>
+                    </div>
+                    <p>Should contain: <code>from lib.services.user_service import UserService</code></p>
+                    <p>If not, add it:</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># lib/services/__init__.py
+from lib.services.user_service import UserService
+from lib.services.role_service import RoleService
+
+__all__ = ["UserService", "RoleService"]</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check for circular imports:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash"># Try importing in isolation
+python -c "from lib.services.user_service import UserService"
+
+# If that crashes with "ImportError: cannot import name...", it's circular
+# Look for: A imports B, B imports A
+grep "from lib.services" lib/repositories/user_repository.py
+grep "from lib.repositories" lib/services/user_service.py</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Verify the import path:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ✓ Correct
+from lib.services.user_service import UserService
+
+# ❌ Wrong (typo)
+from lib.services.user_sevice import UserService  # typo: sevice
+
+# ❌ Wrong (wrong module)
+from lib.repositories.user_service import UserService  # repositories, not services</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Import at the top of your file, where you can see it:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># lib/views/users.py
+from lib.services.user_service import UserService  # ← line 1
+
+class UsersView(BaseView):
+    ...</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Avoid circular imports by importing only what you need:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ✓ Good: import specific class
+from lib.repositories.user_repository import UserRepository
+
+# ❌ Bad: import entire module (more likely to cause circular imports)
+from lib import repositories  # Then: repositories.UserRepository</code></pre>
+                    </div>
+                </li>
+                <li>Use <code>python -c "from lib.services.user_service import UserService"</code> to test imports before using them</li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;KeyError: &lsquo;user_service&rsquo;&rdquo; (missing in props)</h3>
+
+            <p><strong>What it means:</strong> Your view tried to get <code>user_service</code> from props, but it wasn't wired.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The service exists in the container, but not in the props factory</li>
+                <li>You misspelled the service name</li>
+                <li>The props factory wasn't updated when you added a new service</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Check where props are wired</strong> (usually <code>main.py</code> or <code>lib/container.py</code>):</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># main.py — set up props factory
+def set_props_factory(container):
+    def props_factory():
+        return {
+            "user_service": container.user_service(),
+            "role_service": container.role_service(),
+            "vault_service": container.vault_service(),
+        }
+    return props_factory
+
+props = set_props_factory(container)
+router.set_props_factory(props)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Add the missing service to props:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># If you added a new service, add it here:
+def set_props_factory(container):
+    def props_factory():
+        return {
+            "user_service": container.user_service(),
+            "role_service": container.role_service(),
+            "vault_service": container.vault_service(),
+            "my_new_service": container.my_new_service(),  # ← Add this
+        }
+    return props_factory</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check the service name matches exactly:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># View code
+my_service = props["my_service"]  # Spelling matters!
+
+# Props factory
+"my_service": container.my_service(),  # ← Must match exactly</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Verify the service exists in the container:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">grep -n "my_new_service" lib/container.py</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Keep a checklist in <code>main.py</code> or <code>lib/container.py</code> of all services that should be in props:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># Services available in props (keep this up to date!)
+# - user_service (UserService)
+# - role_service (RoleService)
+# - vault_service (VaultService)
+# - my_new_service (MyNewService)  ← Add here when you add the service</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Test props in a smoke test:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_props_has_required_services():
+    props = props_factory()
+    assert "user_service" in props
+    assert "role_service" in props
+    assert "vault_service" in props</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;AttributeError: &lsquo;NoneType&rsquo; object has no attribute &lsquo;username&rsquo;&rdquo;</h3>
+
+            <p><strong>What it means:</strong> You called a method on <code>None</code>. Usually means a database query returned nothing.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You called <code>.get()</code> or similar, it returned <code>None</code>, and you didn't check</li>
+                <li>A service method returned <code>None</code> instead of raising an exception</li>
+                <li>You forgot to handle the &ldquo;not found&rdquo; case</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Always check for None before using:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.repositories.user_repository import UserRepository
+import uuid
+
+repo = UserRepository(factory)
+user = repo.get(uuid.UUID("123e4567-e89b-12d3-a456-426614174000"))
+
+# ✓ Check first
+if user is None:
+    print("User not found")
+else:
+    print(f"Username: {user.username}")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Or raise an exception early:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def get_user(self, data: dict) -> dict:
+    repo = UserRepository(self._factory)
+    user = repo.get(uuid.UUID(data["id"]))
+
+    # ✓ Raise immediately if not found
+    if user is None:
+        raise ValueError(f"User {data['id']} not found")
+
+    # Now we know user is not None
+    return {"id": str(user.id), "username": user.username}</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Use the safe access pattern:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">user = repo.get(user_id)
+username = user.username if user else "Unknown"</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always handle the &ldquo;not found&rdquo; case in your service:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">class UserService(SimpleService):
+    def get(self, data: dict) -> dict:
+        repo = UserRepository(self._factory)
+        user = repo.get(uuid.UUID(data["id"]))
+
+        # Always check
+        if user is None:
+            raise ValueError(f"User {data['id']} not found")
+
+        return {...}  # Safe to use user here</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Write tests for the &ldquo;not found&rdquo; case:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_get_nonexistent_user_raises_error(service):
+    with pytest.raises(ValueError, match="not found"):
+        service.get({"id": "nonexistent-id"})</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+        </details>
+
+        <details id="vault-configuration-errors">
+            <summary>Vault &amp; Configuration Errors</summary>
+
+            <h3>&ldquo;Vault is locked&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The vault exists but hasn't been unlocked with the master key yet.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The app started but didn't call <code>vault_service.unlock()</code></li>
+                <li>The master key (<code>VAULT_MASTER_KEY</code>) isn't set in <code>.secrets/.env</code></li>
+                <li>A view tried to access vault secrets before the unlock dialog</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Unlock the vault on startup:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># main.py — early in boot
+from lib.security.vault_service import VaultService
+from lib.security.vault_store import VaultStore
+
+vault_store = VaultStore(".secrets/vault.json")
+vault_service = VaultService(
+    vault_store,
+    master_key="your-master-key",
+    env_path=".secrets/.env"
+)
+
+# Unlock immediately
+from lib.contracts.base import ActionRequest
+result = vault_service.execute(ActionRequest(action="unlock"))
+if not result.success:
+    print(f"Failed to unlock vault: {result.error}")
+    sys.exit(1)
+
+print("✓ Vault unlocked")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check that .secrets/.env exists and has the key:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">cat .secrets/.env
+# Should contain:
+# VAULT_MASTER_KEY=your-secret-key
+# VAULT_CONFIRM_KEY=your-confirm-key</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>If the keys are missing, bootstrap the vault:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">result = vault_service.execute(ActionRequest(action="bootstrap"))
+if result.success:
+    print(f"Vault bootstrapped. Keys written to {vault_service._env_path}")
+    # Now read them back for subsequent runs</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always unlock the vault before any view tries to read from it:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># main.py, before ft.run() or serving the API
+result = vault_service.execute(ActionRequest(action="unlock"))
+if not result.success:
+    raise RuntimeError(f"Cannot start without vault: {result.error}")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Add a startup check:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_vault_unlocked_at_startup():
+    # This test should pass if your startup sequence is correct
+    assert vault_service.unlocked, "Vault not unlocked during startup"</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;Secret &lsquo;POSTGRES_URL&rsquo; not found&rdquo;</h3>
+
+            <p><strong>What it means:</strong> You tried to get a secret from the vault, but it doesn't exist.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The secret was never set in the vault</li>
+                <li>The vault was reset/wiped and the key was lost</li>
+                <li>You misspelled the key name</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>List all available keys:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.contracts.base import ActionRequest
+
+result = vault_service.execute(ActionRequest(action="list_keys"))
+if result.success:
+    print(f"Available keys: {result.data['keys']}")
+else:
+    print(f"Error: {result.error}")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Add the missing secret:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">result = vault_service.execute(
+    ActionRequest(
+        action="set",
+        data={
+            "key": "POSTGRES_URL",
+            "value": "postgresql://user:pass@localhost/mydb"
+        }
+    )
+)
+
+if result.success:
+    print("✓ Secret added (in-memory)")
+    # Now save it to disk
+    save_result = vault_service.execute(
+        ActionRequest(action="save", data={"confirm_key": "..."})
+    )
+    if save_result.success:
+        print("✓ Secret persisted to disk")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check the secret was set:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">result = vault_service.execute(
+    ActionRequest(action="get", data={"key": "POSTGRES_URL"})
+)
+if result.success:
+    print(f"POSTGRES_URL = {result.data['value']}")
+else:
+    print(f"Not found: {result.error}")</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Document all required secrets:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># README or docs/VAULT_USAGE.md
+# Required secrets:
+# - POSTGRES_URL (PostgreSQL connection string)
+# - VAULT_MASTER_KEY (encrypt/decrypt vault)
+# - VAULT_CONFIRM_KEY (persist changes)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Bootstrap the vault with defaults on first run:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">if not vault_service.vault_exists:
+    print("First run — setting up vault...")
+    vault_service.execute(
+        ActionRequest(
+            action="set",
+            data={"key": "POSTGRES_URL", "value": "..."}
+        )
+    )
+    vault_service.execute(ActionRequest(action="save", ...))</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;Failed to decrypt vault: corrupted data&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The vault file is damaged or the master key is wrong.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The vault file was edited manually or got corrupted</li>
+                <li>The master key changed but old vault.json still uses the old key</li>
+                <li>A network drive disconnected while writing the vault file</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Backup and reset the vault:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash"># Back up the corrupted vault
+mv .secrets/vault.json .secrets/vault.json.backup
+
+# Bootstrap a fresh vault
+python -c "
+from lib.security.vault_service import VaultService
+from lib.security.vault_store import VaultStore
+from lib.contracts.base import ActionRequest
+
+vault = VaultService(
+    VaultStore('.secrets/vault.json'),
+    master_key='your-key',
+    env_path='.secrets/.env'
+)
+result = vault.execute(ActionRequest(action='bootstrap'))
+print(result)
+"</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Restore secrets from backup</strong> (if you have them):</p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># Manually re-add secrets
+vault_service.execute(
+    ActionRequest(
+        action="set",
+        data={"key": "POSTGRES_URL", "value": "postgresql://..."}
+    )
+)
+vault_service.execute(ActionRequest(action="save", ...))</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check the master key is correct:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># The key in .secrets/.env must match what you're using
+with open(".secrets/.env") as f:
+    for line in f:
+        if "VAULT_MASTER_KEY" in line:
+            print(f"Master key in file: {line.split('=')[1]}")</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>Never edit <code>.secrets/vault.json</code> manually — use the API</li>
+                <li>Store the master key in a secure location (not version control)</li>
+                <li>
+                    Test vault persistence in your test suite:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_vault_persists_after_save():
+    vault.execute(ActionRequest(action="set", data={...}))
+    vault.execute(ActionRequest(action="save", ...))
+
+    # Reload the vault
+    vault2 = VaultService(VaultStore(".secrets/vault.json"))
+    result = vault2.execute(ActionRequest(action="get", ...))
+    assert result.success</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+        </details>
+
+        <details id="flet-ui-errors">
+            <summary>Flet UI Errors</summary>
+
+            <h3>&ldquo;RuntimeError: run_task() called outside a page context&rdquo;</h3>
+
+            <p><strong>What it means:</strong> You tried to call <code>page.run_task()</code> from outside an async context, or the page object isn't available.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You're calling an async function directly instead of through <code>page.run_task()</code></li>
+                <li>The page object wasn't passed to your component</li>
+                <li>A view method tried to run async code without the page</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Use page.run_task() for async operations:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ❌ Wrong — can't call async directly in event handler
+def on_click(e):
+    user = await service.get_user_async(user_id)  # SyntaxError!
+
+# ✓ Correct — use page.run_task()
+def on_click(e):
+    async def fetch_user():
+        user = await service.get_user_async(user_id)
+        # Update UI after async work
+        page.snack_bar = ft.SnackBar(ft.Text(f"Got {user['username']}"))
+        page.snack_bar.open = True
+        page.update()
+
+    page.run_task(fetch_user)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Pass page to your component:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># lib/views/users.py
+class UsersView(BaseView):
+    def build_content(self):
+        # self.page is available in BaseView
+        def on_click(e):
+            async def load_users():
+                users = await self.user_service.list_users_async()
+                # Update UI
+                self.page.update()
+
+            self.page.run_task(load_users)
+
+        return ft.ElevatedButton("Load", on_click=on_click)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>If page is None, check the view inheritance:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ✓ Correct — inherit from BaseView
+from lib.ui.layouts.base_view import BaseView
+
+class MyView(BaseView):
+    def build_content(self):
+        # self.page is guaranteed to be available
+        pass
+
+# ❌ Wrong — plain class, no page
+class MyView:
+    def __init__(self, page):
+        self.page = page  # ← Have to do this yourself</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always inherit from <code>BaseView</code> in your views:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.ui.layouts.base_view import BaseView
+
+class MyView(BaseView):
+    def build_content(self):
+        return ft.Column([...])</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Use <code>page.run_task()</code> for any async work in event handlers:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def on_click(e):
+    async def do_work():
+        result = await some_async_call()
+        self.page.update()
+
+    self.page.run_task(do_work)  # Always wrap async in run_task</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;TypeError: Button() got an unexpected keyword argument &lsquo;text&rsquo;&rdquo;</h3>
+
+            <p><strong>What it means:</strong> Flet 0.84+ changed the Button API. <code>text=</code> is no longer a parameter.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You're using old Flet code (pre-0.84) on Flet 0.84+</li>
+                <li>The dependency documentation wasn't updated after the Flet upgrade</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Replace text= with the new API:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ❌ Old (Flet &lt; 0.84)
+button = ft.ElevatedButton(text="Click me")
+menu = ft.PopupMenuItem(text="Save")
+
+# ✓ New (Flet 0.84+)
+button = ft.ElevatedButton("Click me")
+menu = ft.PopupMenuItem(content=ft.Text("Save"))</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>For controls that need content=:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ❌ Old
+button = ft.ElevatedButton(text="Hi")
+
+# ✓ New
+button = ft.ElevatedButton(content=ft.Text("Hi"))
+
+# Or use the convenience shorthand
+button = ft.ElevatedButton("Hi")  # Flet interprets as content</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check your pyproject.toml for the Flet version:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-text">[project]
+dependencies = [
+    "flet>=0.84",  # ← Make sure version is 0.84+
+]</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>Check your Flet version and ensure all controls use the new API (0.84+)</li>
+                <li>
+                    Search for <code>text=ft.</code> in your code:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">grep -r "text=ft\." lib/</code></pre>
+                    </div>
+                    <p>Replace with <code>content=ft.Text(...)</code>.</p>
+                </li>
+                <li>
+                    Add a test that creates common controls:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_flet_button_api():
+    # This will fail on wrong Flet version
+    button = ft.ElevatedButton("Click")
+    assert button is not None</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;AttributeError: &lsquo;CoroutineType&rsquo; object has no attribute &lsquo;open&rsquo;&rdquo;</h3>
+
+            <p><strong>What it means:</strong> You tried to use a coroutine result as if it were the actual value.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>You called an async function without <code>await</code></li>
+                <li>You forgot to handle the async result properly in an event handler</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Identify the async call and wrap it:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ❌ Wrong — result is a coroutine, not the actual value
+def on_click(e):
+    snack = page.snack_bar.open = service.load_data()  # Returns coroutine!
+    page.update()  # Won't work
+
+# ✓ Correct — wrap in page.run_task
+def on_click(e):
+    async def load_and_show():
+        data = await service.load_data()  # Now we have the value
+        page.snack_bar = ft.SnackBar(ft.Text(f"Loaded {data}"))
+        page.snack_bar.open = True
+        page.update()
+
+    page.run_task(load_and_show)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Or make the function sync:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># If service.load_data() doesn't need to be async, don't make it async
+class MyService:
+    # ✓ Sync version — easier to use in Flet
+    def load_data(self):
+        return {"value": 42}
+
+    # Async only if you really need it (network calls, etc.)
+    async def load_data_from_network(self):
+        result = await fetch(url)
+        return result</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Keep service methods sync unless they truly need async:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ✓ Good — simple services are sync
+class UserService:
+    def get_user(self, user_id):
+        repo = UserRepository(self._factory)
+        return repo.get(user_id)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Use page.run_task() for anything async:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># When you do need async, always wrap it
+page.run_task(async_function)  # Not: async_function()</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;Page route changed, but view didn&rsquo;t update&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The URL changed but the Flet page is still showing the old view.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The router wasn't called after the route changed</li>
+                <li>The view function is missing (module doesn't have <code>view(page, props)</code>)</li>
+                <li>A view returned <code>None</code> or an empty control</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Call page.update() after navigation:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ❌ Wrong — just changes the route
+page.route = "/users"
+# View doesn't update!
+
+# ✓ Correct — route change + update
+page.route = "/users"
+page.update()</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Or use the NavigationService (if available):</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.services.navigation_service import NavigationService
+from lib.contracts.base import ActionRequest
+
+nav_service = NavigationService(event_bus)
+# Use the execute(ActionRequest) API with action="visit"
+result = nav_service.execute(
+    ActionRequest(action="visit", data={"url": "/users"})
+)
+page.update()  # Still need to update the page</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Verify the view module exists and has the view() function:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash"># If you're navigating to /users, check:
+ls lib/views/users.py
+grep "def view" lib/views/users.py  # Must have this function</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check the view function signature:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ✓ Correct signature
+def view(page: ft.Page, props: dict) -> ft.View:
+    return ft.View([...])
+
+# ❌ Wrong — missing return
+def view(page, props):
+    pass  # Returns None!
+
+# ❌ Wrong — wrong parameters
+def view(page):
+    return ft.View([...])  # Missing props</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Every view file must have:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def view(page, props):
+    return SomeView(page, props).render()</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Use the router to navigate:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">nav_service.execute(ActionRequest(action="visit", data={"url": "/users"}))
+page.update()  # Still required</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Add a smoke test that loads each view:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_users_view_loads():
+    from lib.views.users import view
+    from tests.conftest import FakePage
+
+    page = FakePage()
+    props = {"user_service": mock_service}
+    result = view(page, props)
+
+    assert result is not None
+    assert len(result.controls) &gt; 0</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+        </details>
+
+        <details id="service-errors">
+            <summary>Service Errors</summary>
+
+            <h3>&ldquo;ValueError: Username already taken&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The service rejected the request because the data violates a business rule.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The service has validation logic that caught the error</li>
+                <li>You tried to create a duplicate record</li>
+                <li>Required field is missing or invalid</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Check the error message and fix the input:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.services.user_service import UserService
+
+service = UserService(factory)
+try:
+    user = service.create({"username": "alice", "email": "alice@example.com"})
+except ValueError as e:
+    print(f"Validation error: {e}")
+    # e.g.: "Username 'alice' is already taken"
+    # → Use a different username</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Validate before calling the service:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.repositories.user_repository import UserRepository
+
+repo = UserRepository(factory)
+username = input("Username: ")
+
+# Check first
+existing = repo.list(username=username)
+if existing:
+    print("❌ That username is taken")
+else:
+    user = service.create({
+        "username": username,
+        "email": input("Email: ")
+    })
+    print(f"✓ User created: {user['id']}")</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>In a Flet view:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def on_create_click(e):
+    username = username_input.value
+
+    # Validate
+    try:
+        user = self.user_service.create({
+            "username": username,
+            "email": email_input.value
+        })
+        page.snack_bar = ft.SnackBar(ft.Text("✓ User created"))
+    except ValueError as err:
+        # Show error to user
+        page.snack_bar = ft.SnackBar(ft.Text(f"❌ {err}"), bgcolor=ft.Colors.RED)
+
+    page.snack_bar.open = True
+    page.update()</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Raise informative errors in your service:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">class UserService(SimpleService):
+    def create(self, data: dict) -> dict:
+        username = data.get("username", "")
+
+        if not username:
+            raise ValueError("Username is required")
+
+        if len(username) &lt; 3:
+            raise ValueError("Username must be at least 3 characters")
+
+        existing = repo.list(username=username)
+        if existing:
+            raise ValueError(f"Username '{username}' is already taken")
+
+        # Now safe to create
+        user = repo.create(data)
+        return {"id": str(user.id), ...}</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Add tests for the error cases:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_create_user_rejects_duplicate_username(service):
+    service.create({"username": "alice", ...})
+
+    with pytest.raises(ValueError, match="already taken"):
+        service.create({"username": "alice", ...})</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;Transaction rolled back after error&rdquo;</h3>
+
+            <p><strong>What it means:</strong> The database transaction failed and all changes were discarded.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>A constraint was violated (UNIQUE, FOREIGN KEY, etc.)</li>
+                <li>A database error occurred during the transaction</li>
+                <li>The session wasn't properly committed</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Use the proper transaction handling:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.database.session import SessionFactory
+
+factory = SessionFactory("sqlite:///dev.db")
+
+# ✓ Correct — uses context manager
+with factory.session() as session:
+    user = User(username="alice", email="alice@example.com")
+    session.add(user)
+    # Commits automatically on exit</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Or use the Unit of Work pattern (if available):</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from lib.repositories.user_repository import UserRepository
+
+uow = factory.unit_of_work()
+try:
+    # Use repo() to get repository within transaction
+    repo = uow.repo(UserRepository)
+    user = repo.create({"username": "alice", "email": "alice@example.com"})
+
+    # Preview changes before committing
+    diff = uow.stage()
+    print(f"Will create: {diff}")
+
+    # Commit the transaction
+    uow.commit()
+except Exception:
+    uow.rollback()
+    raise</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check what caused the rollback:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from sqlalchemy.exc import SQLAlchemyError
+
+with factory.session() as session:
+    try:
+        user = User(username="alice", email="alice@example.com")
+        session.add(user)
+        session.commit()
+    except SQLAlchemyError as e:
+        print(f"Database error: {e}")
+        # e.g. "UNIQUE constraint failed"
+        raise</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always validate before adding to the database:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># Before you add to session
+existing = repo.list(username=data["username"])
+if existing:
+    raise ValueError("Username taken")  # Fail fast
+
+# Now safe to add
+user = User(**data)
+session.add(user)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Test your database operations:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_create_user_with_duplicate_username_fails(db_factory):
+    repo = UserRepository(db_factory)
+    repo.create({"username": "alice", ...})
+
+    # Should fail on second create
+    with pytest.raises(Exception):  # SQLAlchemy error
+        repo.create({"username": "alice", ...})</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+        </details>
+
+        <details id="testing-errors">
+            <summary>Testing Errors</summary>
+
+            <h3>&ldquo;ConnectionError: Can&rsquo;t connect to SQLite database&rdquo;</h3>
+
+            <p><strong>What it means:</strong> A test tried to connect to a database that doesn't exist or is locked.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The test database file was deleted</li>
+                <li>Multiple tests are trying to write to the same file (concurrency)</li>
+                <li>The in-memory database wasn't created (<code>sqlite:///:memory:</code>)</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Use in-memory SQLite in tests:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/conftest.py
+@pytest.fixture
+def db_factory():
+    # ✓ In-memory — fresh database for each test
+    factory = SessionFactory("sqlite:///:memory:")
+    factory.create_tables(Base)
+    return factory</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Run tests serially (not parallel):</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash"># ✓ Good — serial, no locking issues
+pytest tests/ -v
+
+# ❌ Bad — parallel workers, SQLite locks up
+pytest tests/ -n auto</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>If using a file-based database, ensure it exists:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">from pathlib import Path
+
+db_path = Path("tests/test.db")
+db_path.parent.mkdir(exist_ok=True)
+
+factory = SessionFactory(f"sqlite:///{db_path}")
+factory.create_tables(Base)  # Create schema</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Always use in-memory SQLite for tests:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">@pytest.fixture
+def db_factory():
+    factory = SessionFactory("sqlite:///:memory:")  # ← Always this
+    factory.create_tables(Base)
+    return factory</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Test the database setup itself:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">def test_database_fixture_creates_tables(db_factory):
+    with db_factory.session() as session:
+        result = session.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )
+        tables = [row[0] for row in result]
+        assert "users" in tables</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;pytest: fixture &lsquo;user_repo&rsquo; not found&rdquo;</h3>
+
+            <p><strong>What it means:</strong> Your test tried to use a fixture, but it's not defined.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>The fixture isn't in <code>conftest.py</code></li>
+                <li>The fixture name is misspelled</li>
+                <li>You're in the wrong test file (fixtures aren't inherited across files)</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Add the fixture to conftest.py:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/conftest.py
+@pytest.fixture
+def user_repo(db_factory):
+    return UserRepository(db_factory)</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Use it in your test:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/test_repositories.py
+def test_create_user(user_repo):  # ← name must match fixture name
+    user = user_repo.create({
+        "username": "alice",
+        "email": "alice@example.com"
+    })
+    assert user.id is not None</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Check the spelling:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ❌ Fixture is user_repo
+@pytest.fixture
+def user_repo(db_factory):
+    return UserRepository(db_factory)
+
+# ❌ Test asks for user_repo (correct) but misspelled in code
+def test_something(usr_repo):  # Typo!
+    usr_repo.list()  # Fixture doesn't match</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>Keep all shared fixtures in one place (<code>tests/conftest.py</code>)</li>
+                <li>
+                    Use meaningful fixture names:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">@pytest.fixture
+def db_factory():  # Good — clear what it is
+    ...
+
+@pytest.fixture
+def user_repo(db_factory):  # Good — clear what it returns
+    ...
+
+# ❌ Bad — unclear
+@pytest.fixture
+def f():
+    ...</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Add new fixtures to conftest.py as you add new tests:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/conftest.py
+@pytest.fixture
+def role_repo(db_factory):
+    return RoleRepository(db_factory)
+
+@pytest.fixture
+def user_with_roles(user_repo, role_repo):
+    role = role_repo.create({"name": "admin", ...})
+    user = user_repo.create({...})
+    user_repo.add_role(user.id, role.id)
+    return user</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+            <hr>
+
+            <h3>&ldquo;Async test hangs (times out)&rdquo;</h3>
+
+            <p><strong>What it means:</strong> A test started an async operation but never finished waiting for it.</p>
+
+            <p><strong>Why it happens:</strong></p>
+            <ul>
+                <li>An async function wasn't awaited</li>
+                <li>A Flet page.run_task() wasn't given time to complete</li>
+                <li>The test didn't use the proper async test pattern</li>
+            </ul>
+
+            <p><strong>How to fix:</strong></p>
+
+            <ol>
+                <li>
+                    <p><strong>Use pytest's async support:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/conftest.py — add this fixture
+@pytest.fixture
+def fake_page():
+    class FakePage:
+        def run_task(self, coro_fn, *args, **kwargs):
+            """Run async tasks synchronously in tests."""
+            import asyncio
+            asyncio.run(coro_fn(*args, **kwargs))
+
+    return FakePage()</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Use the fixture in your test:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># tests/test_views.py
+def test_user_view_loads_data(fake_page):
+    # fake_page.run_task() handles async automatically
+    view = UsersView(fake_page, props)
+
+    # Click the load button
+    view.on_load_click(None)
+
+    # FakePage.run_task ran the async code synchronously
+    # So we can make assertions immediately
+    assert view.user_list.controls &gt; 0</code></pre>
+                    </div>
+                </li>
+                <li>
+                    <p><strong>Or use pytest-asyncio if you must be truly async:</strong></p>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-bash">pip install pytest-asyncio</code></pre>
+                    </div>
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">import pytest
+
+@pytest.mark.asyncio
+async def test_async_operation():
+    result = await some_async_call()
+    assert result is not None</code></pre>
+                    </div>
+                </li>
+            </ol>
+
+            <p><strong>How to prevent:</strong></p>
+            <ul>
+                <li>
+                    Keep Flet views sync; don't make them async:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python"># ✓ Good — sync, easy to test
+def on_click(e):
+    users = self.user_service.list_users()
+    self.page.update()
+
+# ❌ Bad — async, harder to test
+async def on_click(e):
+    users = await self.user_service.list_users_async()
+    self.page.update()</code></pre>
+                    </div>
+                </li>
+                <li>
+                    Use page.run_task() to wrap async code, not plain async:
+                    <div style="position: relative;">
+                        <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                        <pre><code class="language-python">page.run_task(async_function)  # ✓ Works in tests with proper fixture</code></pre>
+                    </div>
+                </li>
+            </ul>
+
+        </details>
+
+        <hr>
+
+        <h2 id="how-to-debug">How to Debug</h2>
+
+        <p>When something goes wrong and you can't find the error in the docs, use this systematic approach:</p>
+
+        <h3>1. Read the Full Error Message</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">Traceback (most recent call last):
+  File "lib/views/users.py", line 45, in on_create_click
+    user = self.user_service.create(data)
+  File "lib/services/user_service.py", line 52, in create
+    existing = repo.list(username=username)
+  File "lib/repositories/user_repository.py", line 78, in list
+    return session.query(User).filter(User.username == username).all()
+sqlalchemy.exc.OperationalError: no such table: users</code></pre>
+        </div>
+
+        <p><strong>What you learn:</strong></p>
+        <ul>
+            <li>Line 78 of <code>user_repository.py</code> crashes</li>
+            <li>The error is &ldquo;no such table: users&rdquo;</li>
+            <li>The call chain: view &rarr; service &rarr; repository &rarr; database</li>
+        </ul>
+
+        <p><strong>Next step:</strong> Look at the &ldquo;database errors&rdquo; section above. This is &ldquo;no such table: users&rdquo;.</p>
+
+        <h3>2. Isolate the Problem</h3>
+
+        <p>Don't test the whole app. Test the piece that broke in isolation.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># If the error is in UserRepository, test it alone:
+from lib.repositories.user_repository import UserRepository
+from lib.database.session import SessionFactory
+
+factory = SessionFactory("sqlite:///dev.db")
+repo = UserRepository(factory)
+
+# Try the operation that failed
+try:
+    users = repo.list(username="alice")
+    print(f"✓ Found {len(users)} users")
+except Exception as e:
+    print(f"✗ Error: {e}")
+    print(f"  Type: {type(e).__name__}")</code></pre>
+        </div>
+
+        <p>This tells you: Is it the repository? The database? The query?</p>
+
+        <h3>3. Add Print Statements</h3>
+
+        <p>Don't be shy. Debugging is about seeing what's actually happening.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># In the failing function
+def create(self, data: dict) -> dict:
+    username = data.get("username", "")
+    print(f"DEBUG: create() called with username={username}")
+
+    repo = UserRepository(self._factory)
+    print(f"DEBUG: created repo = {repo}")
+
+    existing = repo.list(username=username)
+    print(f"DEBUG: existing = {existing}")
+
+    if existing:
+        raise ValueError(f"Username taken")
+
+    user = repo.create(data)
+    print(f"DEBUG: created user = {user}")
+
+    return {"id": str(user.id)}</code></pre>
+        </div>
+
+        <p>Run the test and look at the debug output. Where does it stop?</p>
+
+        <h3>4. Check the Database</h3>
+
+        <p>Is the data actually there?</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># Open a database shell
+sqlite3 dev.db
+
+# Run raw SQL
+sqlite&gt; SELECT * FROM users;
+sqlite&gt; SELECT COUNT(*) FROM users;
+sqlite&gt; SELECT * FROM sqlite_master WHERE type='table';</code></pre>
+        </div>
+
+        <p>Or from Python:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.database.session import SessionFactory
+
+factory = SessionFactory("sqlite:///dev.db")
+
+with factory.session() as session:
+    # Run raw SQL
+    result = session.execute("SELECT * FROM users")
+    for row in result:
+        print(row)</code></pre>
+        </div>
+
+        <h3>5. Check the Service Isolation</h3>
+
+        <p>If you're testing a service, isolate it from the database:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Mock the factory (UserService takes a SessionFactory, not a repo)
+from unittest.mock import Mock
+
+mock_factory = Mock()
+# You can mock individual repo() calls if needed:
+# mock_factory.session.return_value = MockSession()
+
+service = UserService(mock_factory)
+
+# Now test the service without touching the database
+result = service.create({"username": "alice", "email": "alice@example.com"})
+print(result)</code></pre>
+        </div>
+
+        <p>If this works but the real service fails, the problem is in the repository or database, not the service.</p>
+
+        <h3>6. Use Repository Directly</h3>
+
+        <p>Test the repository without the service:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.repositories.user_repository import UserRepository
+from lib.database.session import SessionFactory
+from lib.database.base import Base
+
+factory = SessionFactory("sqlite:///:memory:")
+factory.create_tables(Base)
+
+repo = UserRepository(factory)
+
+# Create a user
+user = repo.create({"username": "alice", "email": "alice@example.com"})
+print(f"Created: {user.id}")
+
+# Get it back
+retrieved = repo.get(user.id)
+print(f"Retrieved: {retrieved.username}")
+
+# List all
+all_users = repo.list()
+print(f"Total: {len(all_users)}")</code></pre>
+        </div>
+
+        <p>If this works, the repository is fine. If it fails, the problem is in the repository or ORM model.</p>
+
+        <h3>7. Check Imports and Wiring</h3>
+
+        <p>If you get <code>ModuleNotFoundError</code> or <code>KeyError: 'service_name'</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># Check that the module exists
+ls lib/services/my_service.py
+
+# Check that it's importable
+python -c "from lib.services.my_service import MyService; print('✓')"
+
+# Check that it's in the container
+grep -n "my_service" lib/container.py
+
+# Check that it's in props
+grep -n "my_service" main.py</code></pre>
+        </div>
+
+        <h3>8. Run One Test at a Time</h3>
+
+        <p>Don't run all tests. Run the one that's failing:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># Run one test file
+pytest tests/test_services.py -v
+
+# Run one test function
+pytest tests/test_services.py::test_create_user -v
+
+# Run with debug output
+pytest tests/test_services.py::test_create_user -vv -s
+
+# -s means "don't capture print statements" — you'll see your debug prints</code></pre>
+        </div>
+
+        <h3>9. Check the Test Fixtures</h3>
+
+        <p>If a test uses a fixture and it fails, check conftest.py:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># What fixtures are available?
+pytest --fixtures tests/conftest.py
+
+# Is your fixture listed?
+grep "@pytest.fixture" tests/conftest.py</code></pre>
+        </div>
+
+        <h3>10. Search the Codebase</h3>
+
+        <p>If you still can't figure it out, search:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># Search for a class
+grep -r "class UserService" lib/
+
+# Search for a function
+grep -r "def create_user" lib/
+
+# Search for an error message
+grep -r "User not found" lib/
+
+# Search for where something is imported
+grep -r "from lib.services.user_service" .</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Quick Reference</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Error</th>
+                    <th>Section</th>
+                    <th>Quick Fix</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>database is locked</code></td>
+                    <td>Database Errors</td>
+                    <td>Use in-memory SQLite, run tests serially</td>
+                </tr>
+                <tr>
+                    <td><code>no such table</code></td>
+                    <td>Database Errors</td>
+                    <td>Run <code>factory.create_tables(Base)</code> or <code>alembic upgrade head</code></td>
+                </tr>
+                <tr>
+                    <td><code>UNIQUE constraint failed</code></td>
+                    <td>Database Errors</td>
+                    <td>Check before creating, use <code>repo.list()</code> to verify</td>
+                </tr>
+                <tr>
+                    <td><code>FOREIGN KEY constraint failed</code></td>
+                    <td>Database Errors</td>
+                    <td>Create parent before child, use cascade in model</td>
+                </tr>
+                <tr>
+                    <td><code>ModuleNotFoundError: lib</code></td>
+                    <td>Import Errors</td>
+                    <td>Run <code>pip install -e .</code></td>
+                </tr>
+                <tr>
+                    <td><code>ImportError: cannot import name</code></td>
+                    <td>Import Errors</td>
+                    <td>Check spelling, verify export in <code>__init__.py</code></td>
+                </tr>
+                <tr>
+                    <td><code>KeyError: 'service_name'</code> (props)</td>
+                    <td>Import Errors</td>
+                    <td>Add service to props factory in <code>main.py</code></td>
+                </tr>
+                <tr>
+                    <td><code>Vault is locked</code></td>
+                    <td>Vault Errors</td>
+                    <td>Call <code>vault_service.execute(ActionRequest(action="unlock"))</code></td>
+                </tr>
+                <tr>
+                    <td><code>Secret not found</code></td>
+                    <td>Vault Errors</td>
+                    <td>Use <code>list_keys</code> action to see available secrets</td>
+                </tr>
+                <tr>
+                    <td><code>TypeError: Button() got text=</code></td>
+                    <td>Flet Errors</td>
+                    <td>Use <code>ft.ElevatedButton("text")</code> or <code>content=ft.Text("text")</code></td>
+                </tr>
+                <tr>
+                    <td><code>ValueError: Username already taken</code></td>
+                    <td>Service Errors</td>
+                    <td>Check before creating, validate input</td>
+                </tr>
+                <tr>
+                    <td><code>AttributeError: 'NoneType'</code></td>
+                    <td>Service/UI Errors</td>
+                    <td>Check for <code>None</code> before calling methods</td>
+                </tr>
+                <tr>
+                    <td><code>fixture not found</code></td>
+                    <td>Testing Errors</td>
+                    <td>Add to <code>tests/conftest.py</code></td>
+                </tr>
+                <tr>
+                    <td><code>Async test hangs</code></td>
+                    <td>Testing Errors</td>
+                    <td>Use sync fixtures with <code>asyncio.run()</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>Need More Help?</h2>
+
+        <ol>
+            <li><strong>For architecture questions:</strong> See <a href="architecture.html">Architecture Overview</a></li>
+            <li><strong>For design patterns:</strong> See <a href="api-development.html">API Development Guide</a></li>
+            <li><strong>For vault operations:</strong> See the Vault &amp; Configuration Errors section above</li>
+            <li><strong>For testing:</strong> See the Testing Errors section above</li>
+        </ol>
+
+        <nav class="page-nav">
+            <div class="nav-group">
+                <button class="btn-secondary" onclick="window.location.href='index.html'">&#8592; Back to Hub</button>
+                <button class="btn-secondary" disabled>&#8592; Previous</button>
+            </div>
+            <span class="progress">Troubleshooting &amp; Reference &middot; 1 of 2</span>
+            <div class="nav-group">
+                <button class="btn-primary" onclick="window.location.href='anti-patterns.html'">Anti-Patterns &#8594;</button>
+            </div>
+        </nav>
+    </main>
+    <script src="js/script.js"></script>
+</body>
+</html>
