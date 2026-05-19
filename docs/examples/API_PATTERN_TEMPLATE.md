@@ -1,3 +1,13 @@
+---
+title: "Step-by-Step: Adding a New Entity"
+category: example
+audience: [developer, agent]
+related:
+  - ../guides/API_DEVELOPMENT.md
+  - ../core/CONVENTIONS.md
+agent_priority: low
+---
+
 # Reusable API Pattern Template
 
 ## Overview

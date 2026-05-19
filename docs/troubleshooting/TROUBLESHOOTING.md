@@ -1,3 +1,13 @@
+---
+title: "Troubleshooting Guide: 20 Common Errors"
+category: troubleshooting
+audience: [developer, agent]
+related:
+  - ANTI_PATTERNS.md
+  - ../reference/DECISION_TREES.md
+agent_priority: high
+---
+
 # Troubleshooting Guide — FlexTemplates 2.0
 
 When things break, this is where you find the fix. Each error has:
@@ -1716,9 +1726,9 @@ grep -r "from lib.services.user_service" .
 
 ## Need More Help?
 
-1. **For architecture questions:** See [GETTING_STARTED.md](GETTING_STARTED.md)
-2. **For design patterns:** See [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md)
-3. **For complete example:** See [PONG_EXAMPLE.md](PONG_EXAMPLE.md)
-4. **For vault operations:** See [VAULT_USAGE.md](VAULT_USAGE.md)
-5. **For testing:** See [TESTING.md](TESTING.md)
-6. **For conventions:** See [CONVENTIONS.md](CONVENTIONS.md)
+1. **For architecture questions:** See [GETTING_STARTED.md](../core/ARCHITECTURE.md)
+2. **For design patterns:** See [API_PATTERN_TEMPLATE.md](../guides/API_DEVELOPMENT.md)
+3. **For complete example:** See [PONG_EXAMPLE.md](../examples/PONG_EXAMPLE.md)
+4. **For vault operations:** See [VAULT_USAGE.md](../reference/VAULT_USAGE.md)
+5. **For testing:** See [TESTING.md](../guides/WRAPPERS.md)
+6. **For conventions:** See [CONVENTIONS.md](../core/CONVENTIONS.md)

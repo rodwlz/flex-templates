@@ -1,6 +1,16 @@
+---
+title: "Anti-Patterns Guide: What NOT to Do"
+category: troubleshooting
+audience: [developer, agent]
+related:
+  - TROUBLESHOOTING.md
+  - ../core/CONVENTIONS.md
+agent_priority: high
+---
+
 # FlexTemplates Anti-Patterns Guide
 
-A guide to common mistakes in FlexTemplates and how to fix them. Read this to learn what *not* to do and why the patterns in [CONVENTIONS.md](CONVENTIONS.md) matter.
+A guide to common mistakes in FlexTemplates and how to fix them. Read this to learn what *not* to do and why the patterns in [CONVENTIONS.md](../core/CONVENTIONS.md) matter.
 
 ---
 
@@ -22,7 +32,7 @@ This guide shows the problem, why it breaks, the correct way, and the benefits. 
 
 **The Problem**
 
-Importing a service class directly inside another service, burning the dependency into the class definition:
+Importing a service class directly inside another service, burning the dependency into the class definition (see [CONVENTIONS.md](../core/CONVENTIONS.md)):
 
 ```python
 # WRONG — hardcoded import
@@ -965,7 +975,7 @@ def view(page: ft.Page, props: dict) -> ft.View:
 2. **Tight coupling**: View is tightly bound to `UserService` implementation
 3. **Hidden dependencies**: Callers don't know the view needs a factory and service
 4. **Configuration leak**: View has database configuration baked in
-5. **Violates CONVENTIONS.md**: Rule explicitly forbids direct imports in views
+5. **Violates [CONVENTIONS.md](../core/CONVENTIONS.md)**: Rule explicitly forbids direct imports in views
 
 **The Correct Way**
 
@@ -1035,7 +1045,7 @@ class SettingsView(BaseView):
 - ✅ Testable: inject mock services in tests
 - ✅ Flexible: swap services without touching view code
 - ✅ Clear dependencies: props dict shows what the view needs
-- ✅ Follows CONVENTIONS.md: aligns with framework rules
+- ✅ Follows [CONVENTIONS.md](../core/CONVENTIONS.md): aligns with framework rules
 - ✅ Decoupled: view doesn't know about factories, sessions, or ORM
 
 ---
@@ -1912,9 +1922,9 @@ def test_user_service_create(user_service):
 
 ## Cross-References
 
-- [CONVENTIONS.md](CONVENTIONS.md) — Rules for naming, structure, imports, and docstrings
-- [ARCHITECTURE.md](ARCHITECTURE.md) — System overview and design decisions
-- [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) — `ActionRequest` and `ActionResult` contracts
-- [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) — How to add new API endpoints
-- [TESTING.md](TESTING.md) — Testing strategies that depend on these patterns
+- [CONVENTIONS.md](../core/CONVENTIONS.md) — Rules for naming, structure, imports, and docstrings
+- [ARCHITECTURE.md](../core/ARCHITECTURE.md) — System overview and design decisions
+- [CONTRACTS_GUIDE.md](../core/CONTRACTS_GUIDE.md) — `ActionRequest` and `ActionResult` contracts
+- [API_PATTERN_TEMPLATE.md](../examples/API_PATTERN_TEMPLATE.md) — How to add new API endpoints
+- [TESTING.md](../guides/WRAPPERS.md) — Testing strategies that depend on these patterns
 

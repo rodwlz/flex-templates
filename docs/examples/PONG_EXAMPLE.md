@@ -1,3 +1,13 @@
+---
+title: "Complete Example: Pong Game API"
+category: example
+audience: [developer, agent]
+related:
+  - ../core/ARCHITECTURE.md
+  - ../core/CONTRACTS_GUIDE.md
+agent_priority: low
+---
+
 # FlexTemplates 2.0 — Complete Pong Example
 
 ## Why Pong?
