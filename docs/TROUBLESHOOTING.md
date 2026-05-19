@@ -741,13 +741,14 @@ When things break, this is where you find the fix. Each error has:
    python -c "
    from lib.security.vault_service import VaultService
    from lib.security.vault_store import VaultStore
+   from lib.contracts.base import ActionRequest
    
    vault = VaultService(
        VaultStore('.secrets/vault.json'),
        master_key='your-key',
        env_path='.secrets/.env'
    )
-   result = vault.execute({'action': 'bootstrap'})
+   result = vault.execute(ActionRequest(action='bootstrap'))
    print(result)
    "
    ```
@@ -1020,9 +1021,9 @@ When things break, this is where you find the fix. Each error has:
    from lib.contracts.base import ActionRequest
    
    nav_service = NavigationService(event_bus)
-   # Use the execute(ActionRequest) API with action="navigate"
+   # Use the execute(ActionRequest) API with action="visit"
    result = nav_service.execute(
-       ActionRequest(action="navigate", data={"route": "/users"})
+       ActionRequest(action="visit", data={"url": "/users"})
    )
    page.update()  # Still need to update the page
    ```
@@ -1057,7 +1058,8 @@ When things break, this is where you find the fix. Each error has:
   ```
 - Use the router to navigate:
   ```python
-  nav_service.go("/users")  # Better than page.route = "..."
+  nav_service.execute(ActionRequest(action="visit", data={"url": "/users"}))
+  page.update()  # Still required
   ```
 - Add a smoke test that loads each view:
   ```python
