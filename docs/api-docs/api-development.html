@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Development Guide — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>API Development Guide</h1>
+        <p class="breadcrumb">Builder Guides &rsaquo; API Development Guide</p>
+    </header>
+    <main>
+
+        <p>How to build HTTP endpoints in FlexTemplates &mdash; validation, error handling, testing,
+        and the common CRUD patterns used throughout the codebase.</p>
+
+        <p><strong>Prerequisites:</strong> Read <a href="template.html">CONTRACTS_GUIDE.md</a> first. Every route
+        calls <code>service.execute(ActionRequest(...))</code> and reads an <code>ActionResult</code>. If you
+        understand that contract, the rest of this guide is just mechanics.</p>
+
+        <p><strong>Related docs:</strong></p>
+        <ul>
+            <li><a href="architecture.html">CONVENTIONS.md</a> &mdash; naming rules, import rules, module layout</li>
+            <li><a href="template.html">CONTRACTS_GUIDE.md</a> &mdash; <code>ActionRequest</code> / <code>ActionResult</code> / <code>Event</code></li>
+            <li><a href="anti-patterns.html">ANTI_PATTERNS.md</a> &mdash; what not to do and why</li>
+            <li><a href="template.html">API_PATTERN_TEMPLATE.md</a> &mdash; step-by-step walkthrough for adding a new entity</li>
+        </ul>
+
+        <hr>
+
+        <h2>Quick Example</h2>
+
+        <p>A complete POST endpoint with validation, a service call, and error handling &mdash; all
+        in one place. This is the canonical shape every endpoint in the codebase follows.</p>
+
+        <h3>The route</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/roles.py
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from lib.contracts.base import ActionRequest
+from lib.database.session import ConnectionRegistry
+from lib.services.role_service import RoleService
+
+router = APIRouter(prefix="/roles", tags=["roles"])
+
+
+def get_service() -&gt; RoleService:
+    return RoleService(ConnectionRegistry.get())
+
+
+@router.post("")
+def create_role(data: dict, service: RoleService = Depends(get_service)):
+    """Create a role immediately."""
+    result = service.execute(ActionRequest(action="create", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <h3>The test</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># tests/test_roles_api.py
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from lib.api.routes import roles as roles_routes
+from lib.api.routes import users as users_routes
+from lib.database.session import ConnectionRegistry, SessionFactory
+from lib.database.base import Base
+
+
+def _shared_memory_factory() -&gt; SessionFactory:
+    factory = SessionFactory.__new__(SessionFactory)
+    factory._engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    factory._Session = sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False,
+        bind=factory._engine
+    )
+    return factory
+
+
+@pytest.fixture
+def api_client(monkeypatch):
+    factory = _shared_memory_factory()
+    factory.create_tables(Base)
+    monkeypatch.setattr(ConnectionRegistry, "_factories", {"postgres": factory})
+    app = FastAPI()
+    app.include_router(roles_routes.router)
+    app.include_router(users_routes.router)
+    return TestClient(app)
+
+
+def test_create_role_returns_id_and_name(api_client):
+    response = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "admin"
+    assert "id" in data</code></pre>
+        </div>
+
+        <h3>What the three pieces do</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Piece</th>
+                    <th>Job</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>ActionRequest(action="create", data=data)</code></td>
+                    <td>Carries the verb and payload to the service</td>
+                </tr>
+                <tr>
+                    <td><code>result.success</code></td>
+                    <td><code>True</code> = the service did its job; <code>False</code> = something went wrong</td>
+                </tr>
+                <tr>
+                    <td><code>raise HTTPException(...)</code></td>
+                    <td>Turns <code>result.error</code> into a 4xx HTTP response</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>That's the complete pattern. Everything else in this guide expands on one of these three pieces.</p>
+
+        <hr>
+
+        <h2>Request Validation</h2>
+
+        <h3>Using Pydantic models for typed request bodies</h3>
+
+        <p>The route receives <code>data: dict</code> by default. When a body has required fields or type
+        constraints, define a Pydantic model as the body type instead. FastAPI validates it
+        before the handler runs &mdash; no boilerplate needed.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/products.py
+from pydantic import BaseModel, Field
+
+
+class CreateProductBody(BaseModel):
+    name: str
+    price: float = Field(gt=0, description="Must be positive")
+    description: str | None = None
+
+
+@router.post("")
+def create_product(
+    body: CreateProductBody,
+    service: ProductService = Depends(get_service),
+):
+    result = service.execute(ActionRequest(action="create", data=body.model_dump()))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>If <code>price</code> is missing or negative, FastAPI returns a 422 Unprocessable Entity
+        automatically &mdash; the handler never runs. The <code>data: dict</code> form is fine when you
+        trust the caller to send the right shape; use a model when you want a contract
+        enforced at the HTTP boundary.</p>
+
+        <h3>Validating body fields with constraints</h3>
+
+        <p>Use Pydantic's <code>Field</code> validators for simple constraints, and <code>@field_validator</code> for
+        anything involving logic:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from pydantic import BaseModel, Field, field_validator
+
+
+class CreateUserBody(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
+    email: str
+    password: str = Field(min_length=8)
+
+    @field_validator("email")
+    @classmethod
+    def email_must_have_at(cls, v: str) -&gt; str:
+        if "@" not in v:
+            raise ValueError("not a valid email address")
+        return v.lower()
+
+
+@router.post("")
+def create_user(body: CreateUserBody, service: UserService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="create", data=body.model_dump()))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>Pydantic validators check <strong>shape and type</strong>. They should not call the database or
+        enforce business rules. See <a href="template.html">CONTRACTS_GUIDE.md &mdash; Common mistakes</a>
+        for the distinction between shape validation and business validation.</p>
+
+        <h3>Returning validation errors from the service</h3>
+
+        <p>When the service catches a business-rule violation, it sets <code>result.success = False</code>
+        and populates <code>result.error</code>. The route translates that to the right HTTP status:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">@router.post("")
+def create_role(data: dict, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="create", data=data))
+    if not result.success:
+        # result.error carries the message from the service exception
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>The service raises, <code>SimpleService</code> catches, wraps into <code>ActionResult(success=False,
+        error=str(exc))</code>. The route reads <code>result.error</code> and puts it in the HTTP detail.
+        The caller receives:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-json">{
+  "detail": "Role 'admin' already exists"
+}</code></pre>
+        </div>
+
+        <p>No try/except in the route itself &mdash; the contract does that job.</p>
+
+        <hr>
+
+        <h2>Error Handling</h2>
+
+        <h3>Service exceptions become ActionResult errors</h3>
+
+        <p><code>SimpleService</code> and <code>StagingService</code> catch all exceptions from action methods and
+        return <code>ActionResult(success=False, error=str(exc))</code>. Route handlers never need to
+        catch exceptions from <code>service.execute()</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/role_service.py  — raises ValueError on missing entity
+def get(self, data: dict) -&gt; dict:
+    repo = RoleRepository(self._factory)
+    role = repo.get(uuid.UUID(data["id"]))
+    if role is None:
+        raise ValueError(f"Role {data['id']} not found")   # caught by SimpleService
+    return {"id": str(role.id), "name": role.name, "description": role.description}
+
+
+# lib/api/routes/roles.py  — reads result.success, never catches
+@router.get("/{role_id}")
+def get_role(role_id: str, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="get", data={"id": role_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>Raise in the service, read <code>result.success</code> in the route. This is the only pattern
+        used in this codebase.</p>
+
+        <h3>Mapping errors to HTTP status codes</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Condition</th>
+                    <th>Status</th>
+                    <th>When to use</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Missing resource (by ID)</td>
+                    <td>404</td>
+                    <td><code>"Role X not found"</code>, <code>"User X not found"</code></td>
+                </tr>
+                <tr>
+                    <td>Invalid input / constraint violation</td>
+                    <td>400</td>
+                    <td>Bad field value, duplicate key, missing required field</td>
+                </tr>
+                <tr>
+                    <td>Pydantic body validation failure</td>
+                    <td>422</td>
+                    <td>Automatic from FastAPI &mdash; no code needed</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># GET / DELETE — resource not found → 404
+@router.get("/{user_id}")
+def get_user(user_id: str, service: UserService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="get", data={"id": user_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data
+
+
+# POST — creation failure (e.g. duplicate) → 400
+@router.post("")
+def create_user(data: dict, service: UserService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="create", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+# DELETE — not found → 404
+@router.delete("/{user_id}")
+def delete_user(user_id: str, service: UserService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="delete", data={"id": user_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>The rule of thumb: if the caller asked for something that does not exist, return
+        404; if the caller sent something the service cannot process, return 400.</p>
+
+        <h3>When the service is not responsible for the error</h3>
+
+        <p>For errors that happen before the service runs &mdash; a missing query parameter, a
+        registered resource not found in a registry &mdash; raise <code>HTTPException</code> directly:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/caches.py
+from lib.services.cache_registry import CacheRegistry
+
+def _get_or_404(name: str):
+    try:
+        return CacheRegistry.get(name)
+    except RuntimeError:
+        raise HTTPException(404, detail=f"Cache adapter {name!r} not registered")
+
+@router.get("/{name}")
+def get_cache_status(name: str) -&gt; dict:
+    _get_or_404(name)
+    result = _tester.execute(ActionRequest(action="test", data={"name": name}))
+    return result.model_dump()</code></pre>
+        </div>
+
+        <p>The registry check happens before the service call. <code>CacheRegistry.get()</code> raises
+        <code>RuntimeError</code> when the name is unknown &mdash; the <code>_get_or_404</code> helper converts that to
+        a 404. If the name is unknown there is nothing for the service to do, so skip it
+        and raise immediately.</p>
+
+        <hr>
+
+        <h2>Testing Endpoints</h2>
+
+        <h3>Setting up the in-memory test database</h3>
+
+        <p>All API tests use a <code>TestClient</code> backed by an in-memory SQLite database. The setup
+        helper creates a <code>SessionFactory</code> with a <code>StaticPool</code> (one shared connection &mdash; required
+        so the schema creator and the route handler use the same in-memory database):</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Pattern used in tests/test_api.py and tests/test_api_routes.py
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from lib.api.routes import roles as roles_routes
+from lib.api.routes import users as users_routes
+from lib.database.session import ConnectionRegistry, SessionFactory
+from lib.database.base import Base
+
+
+def _shared_memory_factory() -&gt; SessionFactory:
+    factory = SessionFactory.__new__(SessionFactory)
+    factory._engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    factory._Session = sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False,
+        bind=factory._engine,
+    )
+    return factory
+
+
+@pytest.fixture
+def api_client(monkeypatch):
+    factory = _shared_memory_factory()
+    factory.create_tables(Base)
+    monkeypatch.setattr(ConnectionRegistry, "_factories", {"postgres": factory})
+    app = FastAPI()
+    app.include_router(roles_routes.router)
+    app.include_router(users_routes.router)
+    return TestClient(app)</code></pre>
+        </div>
+
+        <p><code>monkeypatch.setattr</code> replaces the real <code>ConnectionRegistry._factories</code> for the
+        duration of the test. Route handlers call <code>ConnectionRegistry.get()</code>, which now
+        returns the test factory. No mocking of service methods required.</p>
+
+        <h3>Testing happy paths</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def test_post_role_creates_role(api_client):
+    """POST /roles creates a role and returns it."""
+    response = api_client.post("/roles", json={
+        "name": "admin",
+        "description": "Administrator",
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "admin"
+    assert data["description"] == "Administrator"
+    assert "id" in data
+
+
+def test_list_roles_returns_all(api_client):
+    """GET /roles returns every created role."""
+    api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    api_client.post("/roles", json={"name": "editor", "description": "Editor"})
+
+    response = api_client.get("/roles")
+    assert response.status_code == 200
+    assert len(response.json()["roles"]) == 2
+
+
+def test_get_user_includes_roles_array(api_client):
+    """GET /users/{id} returns the user with a roles field."""
+    create_resp = api_client.post("/users", json={
+        "username": "bob",
+        "email": "bob@example.com",
+        "password_hash": "hash",
+        "salt": "salt",
+    })
+    user_id = create_resp.json()["id"]
+
+    response = api_client.get(f"/users/{user_id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["username"] == "bob"
+    assert "roles" in body
+    assert body["roles"] == []</code></pre>
+        </div>
+
+        <h3>Testing error paths (404s and 400s)</h3>
+
+        <p>Always test the failure path. The error message shape matters to clients.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def test_get_role_404_when_missing(api_client):
+    """GET /roles/{id} with an unknown UUID returns 404."""
+    import uuid
+    response = api_client.get(f"/roles/{uuid.uuid4()}")
+    assert response.status_code == 404
+
+
+def test_delete_role_404_when_missing(api_client):
+    """DELETE /roles/{id} returns 404 for a UUID that does not exist."""
+    import uuid
+    response = api_client.delete(f"/roles/{uuid.uuid4()}")
+    assert response.status_code == 404
+
+
+def test_get_user_404_on_malformed_uuid(api_client):
+    """A non-UUID path segment surfaces as 404.
+
+    The route parameter is typed `str`. The service calls `uuid.UUID(data['id'])`,
+    which raises ValueError on a malformed string. SimpleService wraps that as
+    ActionResult(success=False), and the route returns 404.
+    """
+    response = api_client.get("/users/not-a-uuid")
+    assert response.status_code == 404
+
+
+def test_get_user_404_detail_contains_id(api_client):
+    """The 404 detail string includes the missing ID so the caller knows what went wrong."""
+    import uuid
+    missing_id = str(uuid.uuid4())
+    response = api_client.get(f"/users/{missing_id}")
+    assert response.status_code == 404
+    assert missing_id in response.json()["detail"]</code></pre>
+        </div>
+
+        <h3>Testing validation failures</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def test_create_user_400_on_missing_username(api_client):
+    """POST /users without a username returns 400 (the service raises ValueError)."""
+    response = api_client.post("/users", json={
+        "email": "no-username@example.com",
+        "password_hash": "hash",
+        "salt": "salt",
+    })
+    # Missing username causes a KeyError in the service, wrapped as success=False
+    assert response.status_code == 400
+
+
+def test_create_product_422_on_invalid_price(api_client):
+    """When the route uses a Pydantic body model, bad input returns 422 before the
+    handler runs. This tests the FastAPI validation layer, not the service."""
+    response = api_client.post("/products", json={
+        "name": "Widget",
+        "price": -5.00,  # Field(gt=0) rejects negative prices
+    })
+    assert response.status_code == 422
+    errors = response.json()["detail"]
+    assert any("price" in str(e) for e in errors)</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Response Shaping</h2>
+
+        <h3>When to return data directly vs wrapping it</h3>
+
+        <p>Routes always call <code>result.data</code> &mdash; never <code>result.model_dump()</code> unless the caller
+        needs the full <code>ActionResult</code> envelope including <code>success</code>, <code>events</code>, and <code>error</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># CORRECT — return just the data dict
+@router.get("/{role_id}")
+def get_role(role_id: str, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="get", data={"id": role_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data   # {"id": "...", "name": "admin", "description": "..."}
+
+
+# WHEN model_dump IS appropriate — diagnostic / status endpoints
+# lib/api/routes/caches.py
+@router.get("/{name}")
+def get_cache_status(name: str) -&gt; dict:
+    _get_or_404(name)   # raises 404 if not registered; see _get_or_404 helper above
+    result = _tester.execute(ActionRequest(action="test", data={"name": name}))
+    return result.model_dump()   # {"success": true, "data": {...}, "events": [], "error": null}</code></pre>
+        </div>
+
+        <p>Diagnostic endpoints (health checks, test probes) reasonably return the full
+        <code>ActionResult</code> shape. CRUD endpoints return <code>result.data</code> only.</p>
+
+        <h3>What goes in the response dict</h3>
+
+        <p>Services translate ORM objects to plain dicts before returning. UUID fields become
+        strings. Relationships are expanded inline if the consumer needs them, omitted if not.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/user_service.py  — full user response
+def get(self, data: dict) -&gt; dict:
+    repo = UserRepository(self._factory)
+    user = repo.get(uuid.UUID(data["id"]))
+    if user is None:
+        raise ValueError(f"User {data['id']} not found")
+    return {
+        "id": str(user.id),          # UUID → str
+        "username": user.username,
+        "email": user.email,
+        "roles": [                    # relationship expanded inline
+            {"id": str(r.id), "name": r.name}
+            for r in user.roles
+        ],
+    }
+
+
+# lib/services/user_service.py  — list response (fewer fields, faster)
+def list(self, data: dict) -&gt; dict:
+    repo = UserRepository(self._factory)
+    users = repo.list()
+    return {
+        "users": [
+            {
+                "id": str(u.id),
+                "username": u.username,
+                "email": u.email,
+                "role_count": len(u.roles),  # count, not the full list
+            }
+            for u in users
+        ]
+    }</code></pre>
+        </div>
+
+        <p>The list endpoint returns <code>role_count</code> instead of expanding each role &mdash; the consumer
+        can call <code>GET /users/{id}</code> to fetch the full detail. This is a deliberate tradeoff
+        between payload size and round-trips.</p>
+
+        <h3>Serializing ORM objects safely</h3>
+
+        <p>ORM objects must be serialized <strong>inside</strong> the session context. Accessing a lazy
+        relationship after the session closes raises <code>DetachedInstanceError</code>. The correct
+        pattern is to read every field you need inside <code>with factory.session() as s:</code> and
+        return a plain dict.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># CORRECT — serialize inside the session, inside the repository
+# Illustrative pattern: UserRepository doesn't have get_with_roles(), but shows how to use session correctly
+class UserRepository(AbstractRepository[User]):
+    model = User
+
+    def get_with_roles(self, id) -&gt; dict | None:
+        with self._factory.session() as s:
+            user = s.get(self.model, id)
+            if not user:
+                return None
+            # All ORM access happens here, before the context manager exits
+            return {
+                "id": str(user.id),
+                "username": user.username,
+                "email": user.email,
+                "roles": [
+                    {"id": str(r.id), "name": r.name}
+                    for r in user.roles        # safe — session still open
+                ],
+            }
+
+
+# WRONG — accessing relationships after the session closes
+def get_with_roles_broken(self, id) -&gt; User | None:
+    with self._factory.session() as s:
+        return s.get(self.model, id)          # session closes here
+
+# Later in the service:
+user = repo.get_with_roles_broken(some_id)
+roles = user.roles                            # DetachedInstanceError</code></pre>
+        </div>
+
+        <p>For the full guidance on session management, see
+        <a href="anti-patterns.html">ANTI_PATTERNS.md &mdash; Anti-Pattern 7</a>.</p>
+
+        <hr>
+
+        <h2>Common Patterns</h2>
+
+        <h3>Full CRUD &mdash; immediate operations</h3>
+
+        <p>The four CRUD endpoints follow a fixed structure. The role routes are the canonical
+        reference:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/roles.py  — complete CRUD example
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from lib.contracts.base import ActionRequest
+from lib.database.session import ConnectionRegistry
+from lib.services.role_service import RoleService
+
+router = APIRouter(prefix="/roles", tags=["roles"])
+
+
+def get_service() -&gt; RoleService:
+    return RoleService(ConnectionRegistry.get())
+
+
+@router.post("")
+def create_role(data: dict, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="create", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+@router.get("")
+def list_roles(service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="list", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+@router.get("/{role_id}")
+def get_role(role_id: str, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="get", data={"id": role_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data
+
+
+@router.delete("/{role_id}")
+def delete_role(role_id: str, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="delete", data={"id": role_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p><strong>GET and DELETE use 404.</strong> POST uses 400. This is the consistent pattern across
+        all route files &mdash; check <code>lib/api/routes/users.py</code> and
+        <code>lib/api/routes/roles.py</code> for the live examples.</p>
+
+        <h3>Filtering and pagination via query parameters</h3>
+
+        <p>Pass query parameters through <code>ActionRequest.data</code> by collecting them in the handler
+        signature. FastAPI parses them from the URL automatically:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">@router.get("")
+def list_users(
+    skip: int = 0,
+    limit: int = 10,
+    service: UserService = Depends(get_service),
+):
+    """GET /users?skip=0&amp;limit=10"""
+    result = service.execute(ActionRequest(
+        action="list",
+        data={"skip": skip, "limit": limit},
+    ))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>The service method reads <code>data["skip"]</code> and <code>data["limit"]</code> and passes them to the
+        repository:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Example pattern for adding pagination — UserService.list() doesn't yet support skip/limit.
+# To implement: add skip/limit parameters to UserService.list() and AbstractRepository.list()
+# lib/services/user_service.py
+def list(self, data: dict) -&gt; dict:
+    repo = UserRepository(self._factory)
+    users = repo.list(
+        skip=data.get("skip", 0),
+        limit=data.get("limit", 10),
+    )
+    return {
+        "users": [
+            {"id": str(u.id), "username": u.username, "email": u.email}
+            for u in users
+        ]
+    }</code></pre>
+        </div>
+
+        <p>For filtering by a field value, add the filter as a query parameter and pass it
+        the same way:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">@router.get("")
+def list_products(
+    status: str | None = None,
+    tag: str | None = None,
+    limit: int = 50,
+    service: ProductService = Depends(get_service),
+):
+    """GET /products?status=active&amp;tag=sale&amp;limit=20"""
+    result = service.execute(ActionRequest(
+        action="list",
+        data={"status": status, "tag": tag, "limit": limit},
+    ))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <h3>Staged and approval-required operations</h3>
+
+        <p>Some operations are too complex or risky to commit in one step. The framework
+        provides two multi-step patterns:</p>
+
+        <p><strong>Staged (preview &rarr; confirm or cancel):</strong></p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/users.py  — staged user creation with roles
+
+# The service carries open unit-of-work between stage and confirm.
+# Cache one instance per factory so both calls hit the same object.
+# Note: For multi-worker deployments, use a database or Redis-backed store instead of module-level dicts.
+# This pattern is safe for development/single-process deployments.
+_service_cache: dict[int, UserService] = {}
+
+
+def get_service() -&gt; UserService:
+    factory = ConnectionRegistry.get()
+    key = id(factory)
+    if key not in _service_cache:
+        _service_cache[key] = UserService(factory)
+    return _service_cache[key]
+
+
+@router.post("/with-roles/stage")
+def stage_user_with_roles(data: dict, service: UserService = Depends(get_service)):
+    """Stage creation — returns a preview diff. Nothing is committed yet."""
+    result = service.execute(ActionRequest(action="stage", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data   # {"preview": {"new": [...], "modified": [...], "deleted": []}, ...}
+
+
+@router.post("/with-roles/confirm")
+def confirm_user_with_roles(service: UserService = Depends(get_service)):
+    """Commit the staged operation."""
+    result = service.execute(ActionRequest(action="confirm", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+@router.post("/with-roles/cancel")
+def cancel_user_with_roles(service: UserService = Depends(get_service)):
+    """Roll back the staged operation."""
+    result = service.execute(ActionRequest(action="cancel", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p><strong>Approval-required (same shape, different signal):</strong></p>
+
+        <p>Use <code>requires_approval=True</code> on the <code>ActionRequest</code> to tell clients that an
+        explicit second step is mandatory before commit. The flag does not change service
+        behavior on its own &mdash; the service or a policy layer enforces it:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">@router.post("/bulk-delete/request")
+def request_bulk_delete(data: dict, service: UserService = Depends(get_service)):
+    """Stage a bulk delete. Requires explicit approval before it commits."""
+    result = service.execute(
+        ActionRequest(action="stage", data=data, requires_approval=True)
+    )
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+@router.post("/bulk-delete/approve")
+def approve_bulk_delete(data: dict, service: UserService = Depends(get_service)):
+    """Approve and commit the staged bulk delete."""
+    result = service.execute(ActionRequest(action="confirm", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p><strong>Testing the staged flow:</strong></p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def test_stage_user_with_roles(api_client):
+    """stage returns preview; confirm commits."""
+    role_resp = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    role_id = role_resp.json()["id"]
+
+    stage_resp = api_client.post("/users/with-roles/stage", json={
+        "username": "charlie",
+        "email": "charlie@example.com",
+        "password_hash": "hash",
+        "salt": "salt",
+        "role_ids": [role_id],
+    })
+    assert stage_resp.status_code == 200
+    assert "preview" in stage_resp.json()
+
+    confirm_resp = api_client.post("/users/with-roles/confirm")
+    assert confirm_resp.status_code == 200
+
+    users_resp = api_client.get("/users")
+    assert any(u["username"] == "charlie" for u in users_resp.json()["users"])
+
+
+def test_cancel_staged_user_does_not_persist(api_client):
+    """stage followed by cancel leaves the database unchanged."""
+    api_client.post("/users/with-roles/stage", json={
+        "username": "dave",
+        "email": "dave@example.com",
+        "password_hash": "hash",
+        "salt": "salt",
+        "role_ids": [],
+    })
+
+    cancel_resp = api_client.post("/users/with-roles/cancel")
+    assert cancel_resp.status_code == 200
+
+    users_resp = api_client.get("/users")
+    assert not any(u["username"] == "dave" for u in users_resp.json()["users"])
+
+
+def test_approval_required_request_then_approve(api_client):
+    """approval flow: request stages, approve commits."""
+    request_resp = api_client.post("/users/bulk-delete/request", json={
+        "username": "frank",
+        "email": "frank@example.com",
+        "password_hash": "hash",
+        "salt": "salt",
+        "role_ids": [],
+    })
+    assert request_resp.status_code == 200
+    assert "preview" in request_resp.json()
+
+    approve_resp = api_client.post("/users/bulk-delete/approve", json={})
+    assert approve_resp.status_code == 200
+    assert approve_resp.json()["confirmed"] is True</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Three Operation Types at a Glance</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>When to use</th>
+                    <th>HTTP shape</th>
+                    <th>Service base</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Immediate</td>
+                    <td>Simple CRUD, no preview needed</td>
+                    <td><code>POST/GET/DELETE /entity</code></td>
+                    <td><code>SimpleService</code></td>
+                </tr>
+                <tr>
+                    <td>Staged</td>
+                    <td>Multi-step with relationships, user needs a diff before committing</td>
+                    <td><code>POST /entity/stage</code>, <code>POST /entity/confirm</code>, <code>POST /entity/cancel</code></td>
+                    <td><code>StagingService</code></td>
+                </tr>
+                <tr>
+                    <td>Approval</td>
+                    <td>High-risk or irreversible &mdash; explicit second confirmation required</td>
+                    <td><code>POST /entity/action/request</code>, <code>POST /entity/action/approve</code></td>
+                    <td><code>StagingService</code> with <code>requires_approval=True</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>Auto-Discovery</h2>
+
+        <p>Drop a route file in <code>lib/api/routes/</code> with a module-level <code>router</code> variable and
+        <code>mount_routes()</code> picks it up automatically on startup:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/router_registry.py  — nothing to change when adding new routes
+import importlib
+import pkgutil
+from fastapi import FastAPI
+
+
+def mount_routes(app: FastAPI, package: str = "lib.api.routes") -&gt; None:
+    mod = importlib.import_module(package)
+    for _, name, _ in pkgutil.iter_modules(mod.__path__):
+        sub = importlib.import_module(f"{package}.{name}")
+        if hasattr(sub, "router"):
+            app.include_router(sub.router)</code></pre>
+        </div>
+
+        <p>No registration, no list to update. Verify: start the server and open
+        <code>http://localhost:8080/docs</code> &mdash; your new routes appear under their tag automatically.</p>
+
+        <hr>
+
+        <h2>Checklist Before Merging a New Endpoint</h2>
+
+        <ul>
+            <li>Route file is in <code>lib/api/routes/</code> and defines <code>router = APIRouter(...)</code></li>
+            <li><code>get_service()</code> calls <code>ConnectionRegistry.get()</code> &mdash; no <code>SessionFactory()</code> inline</li>
+            <li><code>HTTPException(404)</code> for missing resources, <code>HTTPException(400)</code> for bad input</li>
+            <li>No try/except around <code>service.execute()</code> &mdash; the contract handles that</li>
+            <li>Tests cover: happy path, 404 on unknown ID, 400 on bad input</li>
+            <li>Services raise exceptions with clear messages (the message becomes <code>result.error</code>)</li>
+            <li>ORM objects serialized to dicts inside the session context, not outside</li>
+        </ul>
+
+        <p>For the full entity checklist (model &rarr; repository &rarr; service &rarr; route &rarr; tests),
+        see <a href="template.html">API_PATTERN_TEMPLATE.md &mdash; Testing Checklist</a>.</p>
+
+        <nav class="page-nav">
+            <div class="nav-group">
+                <button class="btn-secondary" onclick="window.location.href='index.html'">&#8592; Back to Hub</button>
+                <button class="btn-secondary" disabled>&#8592; Previous</button>
+            </div>
+            <span class="progress">Builder Guides &middot; 1 of 3</span>
+            <div class="nav-group">
+                <button class="btn-primary" onclick="window.location.href='view-development.html'">View Development &#8594;</button>
+            </div>
+        </nav>
+    </main>
+    <script src="js/script.js"></script>
+</body>
+</html>
