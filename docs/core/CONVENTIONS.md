@@ -1,3 +1,13 @@
+---
+title: "Naming & Structure Conventions"
+category: core
+audience: [developer, agent]
+related:
+  - ARCHITECTURE.md
+  - CONTRACTS_GUIDE.md
+agent_priority: high
+---
+
 # FlexTemplates 2.0 — Conventions
 
 Single source of truth for naming, module structure, and action contracts.

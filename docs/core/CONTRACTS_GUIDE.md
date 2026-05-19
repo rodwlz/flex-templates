@@ -1,3 +1,14 @@
+---
+title: "Contracts Guide: ActionRequest, ActionResult, Event"
+category: core
+audience: [developer, agent]
+related:
+  - ARCHITECTURE.md
+  - CONVENTIONS.md
+  - ../guides/API_DEVELOPMENT.md
+agent_priority: high
+---
+
 # FlexTemplates 2.0 — Contracts Guide
 
 ## What's a contract?
@@ -135,8 +146,8 @@ class ConnectionRegistry:
 ```
 
 Registries are class-level singletons (no instances). Per
-[CONVENTIONS.md §6](CONVENTIONS.md), they're exempt from the props-dict rule —
-treat them as global lookup tables, not stateful services.
+[CONVENTIONS.md §6](CONVENTIONS.md) — same file, no change needed — they're exempt from the props-dict rule.
+Treat them as global lookup tables, not stateful services.
 
 ### 4. The wiring is in `main.py`
 
@@ -270,7 +281,7 @@ The engine has zero imports from `lib`, zero awareness of who's driving,
 zero awareness of who's rendering. The contracts are the only coupling.
 That's the whole architectural pitch in 30 lines of code.
 
-For the full walkthrough, see [docs/PONG_EXAMPLE.md](PONG_EXAMPLE.md).
+For the full walkthrough, see [PONG_EXAMPLE.md](../examples/PONG_EXAMPLE.md).
 
 ---
 
@@ -325,8 +336,8 @@ Three things to notice:
 For services where the dispatcher would collide with an existing property
 (like `NavigationService.current` which is both a property and an action), or
 where every action needs custom `events` payloads, write a plain `IService`
-with a `match request.action` block. See [CONVENTIONS.md §9](CONVENTIONS.md)
-for the full guidance and `NavigationService` for the canonical example.
+with a `match request.action` block. See [CONVENTIONS.md §9](CONVENTIONS.md) — same file, no change needed
+— for the full guidance and `NavigationService` for the canonical example.
 
 ---
 

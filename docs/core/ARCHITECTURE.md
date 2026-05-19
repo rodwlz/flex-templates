@@ -1,3 +1,14 @@
+---
+title: "Architecture Overview"
+category: core
+audience: [developer, agent]
+related:
+  - CONVENTIONS.md
+  - CONTRACTS_GUIDE.md
+  - ../guides/QUICKSTART.md
+agent_priority: high
+---
+
 # FlexTemplates 2.0 — Architecture
 
 > **Land here first.** This is the "you are here" map. Five-minute read; jump
@@ -114,7 +125,7 @@ class Event(BaseModel):
 ```
 
 That's the entire vocabulary the system uses to talk between layers.
-Deep dive: [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md).
+Deep dive: [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) — same file, no change needed.
 
 ### Services — `lib/services/`
 
@@ -132,7 +143,7 @@ class ConnectionTester(SimpleService):
 ```
 
 Real services live in `lib/services/`. The action signatures are pinned in
-[CONVENTIONS.md §7](CONVENTIONS.md).
+[CONVENTIONS.md §7](CONVENTIONS.md) — same file, no change needed.
 
 ### Registries — `ConnectionRegistry`, `CacheRegistry`
 
@@ -204,7 +215,7 @@ def view(page, props):     # required entry point
 
 Encrypted secrets store with a two-key design (master + confirm). `main.py`
 unlocks it at startup; services read secrets via `vault.get("KEY")`.
-Deep dive: [VAULT_USAGE.md](VAULT_USAGE.md).
+Deep dive: [VAULT_USAGE.md](../reference/VAULT_USAGE.md).
 
 ### API server — `lib/api/`
 
@@ -221,12 +232,12 @@ view both call the same `CacheTester` — that's the contract paying off.
 |---|---|
 | Understand the contract pattern in depth | [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) |
 | Know the naming / structure / import rules | [CONVENTIONS.md](CONVENTIONS.md) |
-| Add a new SQL DB / cache / view / service | [ADDING_STUFF.md](ADDING_STUFF.md) |
-| Use the snap-in API (`self.nav`, `self.vault`, `self.events`) | [WRAPPERS.md](WRAPPERS.md) |
-| Manage secrets | [VAULT_USAGE.md](VAULT_USAGE.md) |
-| See a complete worked example | [PONG_EXAMPLE.md](PONG_EXAMPLE.md) |
-| Get the project booting locally | [QUICKSTART.md](QUICKSTART.md) |
-| Write tests | [TESTING.md](TESTING.md) |
+| Add a new SQL DB / cache / view / service | [ADDING_STUFF.md](../guides/ADDING_STUFF.md) |
+| Use the snap-in API (`self.nav`, `self.vault`, `self.events`) | [WRAPPERS.md](../guides/WRAPPERS.md) |
+| Manage secrets | [VAULT_USAGE.md](../reference/VAULT_USAGE.md) |
+| See a complete worked example | [PONG_EXAMPLE.md](../examples/PONG_EXAMPLE.md) |
+| Get the project booting locally | [QUICKSTART.md](../guides/QUICKSTART.md) |
+| Write tests | [TESTING.md](../reference/TESTING.md) |
 
 ---
 
@@ -289,7 +300,7 @@ Tests double as runnable specifications. A few that are worth reading as docs:
 - [tests/test_navigation_service.py](../tests/test_navigation_service.py) —
   back/forward stack behaviour
 
-Strategy and patterns: [TESTING.md](TESTING.md).
+Strategy and patterns: [TESTING.md](../reference/TESTING.md).
 
 ---
 
@@ -317,10 +328,10 @@ Plain sync handlers are fine for everything else.
 
 ## Getting started
 
-1. Boot the app locally — [QUICKSTART.md](QUICKSTART.md).
+1. Boot the app locally — [QUICKSTART.md](../guides/QUICKSTART.md).
 2. Read this doc plus [CONVENTIONS.md](CONVENTIONS.md) (~30 min total).
 3. Skim [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) for one canonical end-to-end
    walkthrough (`ConnectionTester`).
-4. When adding code, look at [ADDING_STUFF.md](ADDING_STUFF.md) for recipes.
+4. When adding code, look at [ADDING_STUFF.md](../guides/ADDING_STUFF.md) for recipes.
 
 You've got the foundation. Now make it yours.
