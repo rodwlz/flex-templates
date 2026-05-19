@@ -594,7 +594,7 @@ roles = user.roles                            # DetachedInstanceError
 ```
 
 For the full guidance on session management, see
-[ANTI_PATTERNS.md — Anti-Pattern 7](ANTI_PATTERNS.md).
+[ANTI_PATTERNS.md — Anti-Pattern 7](../troubleshooting/ANTI_PATTERNS.md).
 
 ---
 
