@@ -1,3 +1,13 @@
+---
+title: "API Architecture Summary"
+category: reference
+audience: [developer, agent]
+related:
+  - ../core/ARCHITECTURE.md
+  - ../examples/API_PATTERN_TEMPLATE.md
+agent_priority: low
+---
+
 # API Architecture Phase — Implementation Summary
 
 ## What Was Built

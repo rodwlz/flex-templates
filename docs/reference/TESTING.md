@@ -1,3 +1,13 @@
+---
+title: "Testing Patterns"
+category: reference
+audience: [developer, agent]
+related:
+  - ../core/CONVENTIONS.md
+  - ../guides/API_DEVELOPMENT.md
+agent_priority: medium
+---
+
 # Testing — When You Break Stuff
 
 You will break things. That's fine. The tests are here to tell you *what* you broke so you don't have to guess.

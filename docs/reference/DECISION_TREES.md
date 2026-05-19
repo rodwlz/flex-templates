@@ -1,3 +1,14 @@
+---
+title: "Decision Trees: When to Use Which Pattern"
+category: reference
+audience: [developer, agent]
+related:
+  - ../core/CONVENTIONS.md
+  - ../guides/API_DEVELOPMENT.md
+  - ../guides/VIEW_DEVELOPMENT.md
+agent_priority: medium
+---
+
 # FlexTemplates 2.0 — Decision Trees
 
 Pattern selection guide. Answers the five questions developers ask most often.
@@ -416,7 +427,7 @@ Wire it in `container.py` and drop `lib/api/routes/orders.py` — the router aut
 | New business action on existing records | New method on existing service |
 | Business action that spans two existing models | Decide by primary domain; the service can instantiate both repositories |
 
-See [CONVENTIONS.md §5](CONVENTIONS.md) for the full module placement rules and [CONVENTIONS.md §6](CONVENTIONS.md) for import boundaries.
+See [CONVENTIONS.md §5](../core/CONVENTIONS.md) for the full module placement rules and [CONVENTIONS.md §6](../core/CONVENTIONS.md) for import boundaries.
 
 ---
 
@@ -518,13 +529,13 @@ Do not refactor `NavigationService` or `VaultService` to `SimpleService` — the
 
 | Topic | Docs |
 |---|---|
-| `SimpleService` and `StagingService` interfaces | [CONVENTIONS.md §4, §9](CONVENTIONS.md) |
-| Full action reference for every built-in service | [CONVENTIONS.md §7](CONVENTIONS.md) |
-| Step-by-step guide for adding a new entity | [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) |
+| `SimpleService` and `StagingService` interfaces | [CONVENTIONS.md §4, §9](../core/CONVENTIONS.md) |
+| Full action reference for every built-in service | [CONVENTIONS.md §7](../core/CONVENTIONS.md) |
+| Step-by-step guide for adding a new entity | [API_PATTERN_TEMPLATE.md](../examples/API_PATTERN_TEMPLATE.md) |
 | Live example of all three endpoint types | `lib/api/routes/users.py` |
 | Live example of `SimpleService` | `lib/services/role_service.py` |
 | Live example of `StagingService` | `lib/services/user_service.py` |
 | Live example of custom `execute()` | `lib/services/navigation_service.py` |
-| EventBus subscribe/publish mechanics | [ARCHITECTURE.md — EventBus section](ARCHITECTURE.md) |
-| Import boundary rules | [CONVENTIONS.md §6](CONVENTIONS.md) |
+| EventBus subscribe/publish mechanics | [ARCHITECTURE.md — EventBus section](../core/ARCHITECTURE.md) |
+| Import boundary rules | [CONVENTIONS.md §6](../core/CONVENTIONS.md) |
 | Test patterns for each service type | [TESTING.md](TESTING.md) |

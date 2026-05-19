@@ -1,3 +1,12 @@
+---
+title: "Vault Usage: Encrypted Secrets Management"
+category: reference
+audience: [developer, agent]
+related:
+  - ../core/ARCHITECTURE.md
+agent_priority: medium
+---
+
 # Vault Usage Guide
 
 The vault is an encrypted secrets manager built into the framework. Use it to store and retrieve sensitive data like database passwords, API keys, and credentials without hardcoding them.
