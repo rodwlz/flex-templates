@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Development Guide — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>View Development Guide</h1>
+        <p class="breadcrumb">Builder Guides &rsaquo; View Development Guide</p>
+    </header>
+    <main>
+
+        <p>How to build Flet UI views in FlexTemplates &mdash; the props pattern, calling services,
+        handling events safely, async patterns, and the common UI shapes you'll reuse.</p>
+
+        <p><strong>Prerequisites:</strong> Read <a href="template.html">GETTING_STARTED.md</a> and
+        <a href="architecture.html">CONVENTIONS.md</a>. Every view subclasses <code>BaseView</code>, receives
+        services through a <code>props</code> dict, and calls them via <code>service.execute(ActionRequest(...))</code>.
+        If you understand that, the rest is just Flet mechanics.</p>
+
+        <p><strong>Related docs:</strong></p>
+        <ul>
+            <li><a href="architecture.html">CONVENTIONS.md</a> &mdash; naming rules, import rules, module layout</li>
+            <li><a href="template.html">GETTING_STARTED.md</a> &mdash; end-to-end walkthrough</li>
+            <li><a href="anti-patterns.html">ANTI_PATTERNS.md</a> &mdash; view anti-patterns and how to avoid them</li>
+            <li><a href="template.html">CONTRACTS_GUIDE.md</a> &mdash; <code>ActionRequest</code> / <code>ActionResult</code></li>
+        </ul>
+
+        <hr>
+
+        <h2>Table of Contents</h2>
+
+        <ol>
+            <li><a href="#quick-example">Quick Example</a></li>
+            <li><a href="#the-props-pattern">The Props Pattern</a></li>
+            <li><a href="#calling-services-from-views">Calling Services from Views</a></li>
+            <li><a href="#event-handlers">Event Handlers</a></li>
+            <li><a href="#common-patterns">Common Patterns</a></li>
+            <li><a href="#reference-view-file-structure">Reference: View File Structure</a></li>
+        </ol>
+
+        <hr>
+
+        <h2 id="quick-example">Quick Example</h2>
+
+        <p>A complete view that calls a service and displays results with error handling.
+        This is the canonical shape every view in the codebase follows.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/views/users.py
+import flet as ft
+
+from lib.contracts.base import ActionRequest
+from lib.ui.layouts.base_view import BaseView
+
+
+class UsersView(BaseView):
+    title = "Users"
+    show_sidebar = True
+
+    def build_content(self):
+        user_service = self.props["user_service"]
+
+        # 1. Call the service
+        # Old way (still works):
+        result = user_service.execute(ActionRequest(action="list"))
+        # New way (easier): result = user_service.list_users()  # Wrapper method
+
+        # 2. Handle failure
+        if not result.success:
+            return ft.Text(f"Failed to load users: {result.error}",
+                           color=ft.Colors.RED_400)
+
+        users = result.data.get("users", [])
+
+        # 3. Handle empty state
+        if not users:
+            return ft.Text("No users yet.", color=ft.Colors.BLUE_GREY_300)
+
+        # 4. Render the data
+        return ft.Column(
+            [
+                ft.Text("Users", size=24, weight=ft.FontWeight.BOLD),
+                *[ft.Text(f"{u['username']} ({u['email']})") for u in users],
+            ],
+            spacing=10,
+        )
+
+
+def view(page: ft.Page, props: dict) -&gt; ft.View:
+    """Router entry point &mdash; every view module exports this function."""
+    return UsersView(page, props).render()</code></pre>
+        </div>
+
+        <p>Three things every view does:</p>
+
+        <ol>
+            <li><strong>Subclass <code>BaseView</code></strong> &mdash; gives you <code>self.page</code>, <code>self.props</code>, <code>self.nav_service</code>, and the <code>render()</code> wiring.</li>
+            <li><strong>Implement <code>build_content()</code></strong> &mdash; returns one <code>ft.Control</code> (usually a <code>Column</code>).</li>
+            <li><strong>Export <code>view(page, props)</code></strong> &mdash; the router calls this. Always <code>return SomeView(page, props).render()</code>.</li>
+        </ol>
+
+        <p>The four steps inside <code>build_content</code> &mdash; call, check <code>success</code>, handle empty, render &mdash; show up in 90% of views. Internalize that shape before reaching for anything fancier.</p>
+
+        <p>See <code>lib/views/home.py</code>, <code>lib/views/products.py</code>, and <code>lib/views/admin/databases.py</code> for live examples in the codebase.</p>
+
+        <hr>
+
+        <h2 id="the-props-pattern">The Props Pattern</h2>
+
+        <p>Views never import services directly. They receive everything through a <code>props</code>
+        dict that the router injects on every navigation. This is the project's form of
+        dependency injection &mdash; and it's the single rule that keeps the UI layer swappable.</p>
+
+        <h3>2.1 Receiving Props</h3>
+
+        <p>Every view module ends with a top-level <code>view(page, props)</code> function. The
+        <code>BaseView</code> constructor takes those two arguments and stores them:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class MyView(BaseView):
+    def build_content(self):
+        # props is available as self.props
+        user_service = self.props["user_service"]
+        nav_service  = self.nav_service   # shortcut &mdash; same as self.props["nav_service"]
+        page         = self.page          # the Flet page object
+        ...
+
+
+def view(page: ft.Page, props: dict) -&gt; ft.View:
+    return MyView(page, props).render()</code></pre>
+        </div>
+
+        <p><code>BaseView.__init__</code> enforces that <code>props["nav_service"]</code> is present and raises
+        a clear <code>KeyError</code> if it isn't. Everything else is optional &mdash; your view decides
+        what it needs.</p>
+
+        <p>For services your view always uses, cache them in <code>__init__</code> rather than
+        re-fetching every render:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class SecurityView(BaseView):
+    def __init__(self, page, props):
+        super().__init__(page, props)      # always call this first
+        self._vault_service = props["vault_service"]</code></pre>
+        </div>
+
+        <p>That's the pattern in <code>lib/views/security.py</code>.</p>
+
+        <h3>2.2 What's Available in Props</h3>
+
+        <p>The router builds <code>props</code> from <code>set_props_factory()</code> in <code>main.py</code>.
+        The current factory provides:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Type</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>nav</code></td>
+                    <td><code>Nav</code></td>
+                    <td>Simple navigation API: <code>self.nav.go("/login")</code></td>
+                </tr>
+                <tr>
+                    <td><code>vault</code></td>
+                    <td><code>Vault</code></td>
+                    <td>Simple secrets API: <code>self.vault.get("KEY")</code></td>
+                </tr>
+                <tr>
+                    <td><code>events</code></td>
+                    <td><code>Events</code></td>
+                    <td>Simple event bus: <code>self.events.emit(...)</code></td>
+                </tr>
+                <tr>
+                    <td><code>nav_service</code></td>
+                    <td><code>NavigationService</code></td>
+                    <td>Full service &mdash; used by framework internals</td>
+                </tr>
+                <tr>
+                    <td><code>vault_service</code></td>
+                    <td><code>VaultService</code></td>
+                    <td>Full service &mdash; <code>.execute(ActionRequest(...))</code></td>
+                </tr>
+                <tr>
+                    <td><code>user_repo</code></td>
+                    <td><code>UserRepository</code></td>
+                    <td>Direct data access</td>
+                </tr>
+                <tr>
+                    <td><code>redis</code></td>
+                    <td><code>RedisAdapter</code></td>
+                    <td>Default cache adapter, if registered</td>
+                </tr>
+                <tr>
+                    <td><code>config</code></td>
+                    <td><code>AppConfig</code></td>
+                    <td>App configuration</td>
+                </tr>
+                <tr>
+                    <td><code>connection_tester</code></td>
+                    <td><code>ConnectionTester</code></td>
+                    <td>DB liveness probe</td>
+                </tr>
+                <tr>
+                    <td><code>cache_tester</code></td>
+                    <td><code>CacheTester</code></td>
+                    <td>Cache liveness probe</td>
+                </tr>
+                <tr>
+                    <td><code>params</code></td>
+                    <td><code>dict</code></td>
+                    <td>URL path params (e.g. <code>{"id": "42"}</code> from <code>/users/{id}</code>)</td>
+                </tr>
+                <tr>
+                    <td><code>query</code></td>
+                    <td><code>dict</code></td>
+                    <td>Parsed query string (e.g. <code>{"tab": "stock"}</code> from <code>?tab=stock</code>)</td>
+                </tr>
+                <tr>
+                    <td><code>dev_nav</code></td>
+                    <td><code>bool</code></td>
+                    <td>Show the orange floating dev nav</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>Note:</strong> The table above shows <code>main.py</code>'s default props. The rest of this guide assumes you've added <code>user_service</code> and <code>role_service</code> to the props factory as shown in section 2.2.</p>
+
+        <p>Add a new key when you wire a new service &mdash; edit the lambda in <code>main.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">router.set_props_factory(lambda: {
+    ...
+    "user_service": user_service,    # add this line
+    "order_service": order_service,  # and this one
+})</code></pre>
+        </div>
+
+        <p>The router calls the factory fresh on every navigation, so swapping
+        implementations at runtime works without restarts.</p>
+
+        <h3>2.3 Injection vs Hardcoding</h3>
+
+        <p>The single biggest mistake in view code is reaching for an import when you
+        should reach for <code>self.props</code>. Compare:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># WRONG &mdash; views must never import services directly
+from lib.services.user_service import UserService
+
+class UsersView(BaseView):
+    def build_content(self):
+        service = UserService(SessionFactory(...))   # builds its own deps
+        result = service.execute(ActionRequest(action="list"))
+        ...</code></pre>
+        </div>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># CORRECT &mdash; services arrive via props
+class UsersView(BaseView):
+    def build_content(self):
+        service = self.props["user_service"]
+        result = service.execute(ActionRequest(action="list"))
+        ...</code></pre>
+        </div>
+
+        <p>Why the rule matters:</p>
+
+        <ul>
+            <li><strong>Tests can swap services.</strong> A test rendering the view passes a mock service in <code>props</code>. Hardcoded imports leave no seam.</li>
+            <li><strong>No circular imports.</strong> Views depend on <code>props</code>. Services don't reach back into UI.</li>
+            <li><strong>Container is the single wiring point.</strong> Want to change <code>UserService</code> to a remote API client? Change <code>main.py</code>. The views don't move.</li>
+        </ul>
+
+        <p><strong>Exception &mdash; registries.</strong> <code>ConnectionRegistry</code> and <code>CacheRegistry</code> are
+        class-level singletons (no instance state). Views may import them directly to
+        enumerate names, as <code>admin/databases.py</code> does:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># OK &mdash; registries are global lookup tables, not stateful services
+from lib.database.session import ConnectionRegistry
+
+names = ConnectionRegistry.list()</code></pre>
+        </div>
+
+        <p>For everything else: if it has a constructor, it goes through props.</p>
+
+        <hr>
+
+        <h2 id="calling-services-from-views">Calling Services from Views</h2>
+
+        <p>Services speak one language: <code>service.execute(ActionRequest(...))</code> returns an
+        <code>ActionResult</code>. Views handle both halves of that contract.</p>
+
+        <h3>3.1 The Standard Call</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from pydantic import BaseModel
+from lib.contracts.base import ActionRequest
+
+class UserDetailView(BaseView):
+    class Params(BaseModel):
+        id: str
+
+    def build_content(self):
+        user_service = self.props["user_service"]
+
+        result = user_service.execute(
+            ActionRequest(action="get", data={"id": self.params.id})
+        )
+
+        if not result.success:
+            return ft.Text(result.error, color=ft.Colors.RED_400)
+
+        user = result.data
+        return ft.Column([
+            ft.Text(user["username"], size=24, weight=ft.FontWeight.BOLD),
+            ft.Text(user["email"]),
+        ])</code></pre>
+        </div>
+
+        <p>The shape is always the same:</p>
+
+        <ol>
+            <li>Build an <code>ActionRequest(action=..., data={...})</code>.</li>
+            <li>Call <code>service.execute(request)</code>.</li>
+            <li>Check <code>result.success</code>.</li>
+            <li>Read <code>result.data</code> on success, <code>result.error</code> on failure.</li>
+        </ol>
+
+        <p><code>ActionResult</code> is defined in <code>lib/contracts/base.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class ActionResult(BaseModel):
+    success: bool
+    data: dict[str, Any] = {}
+    events: list[Event] = []
+    error: str | None = None</code></pre>
+        </div>
+
+        <h3>3.2 Wrapper Methods (the Easier Way)</h3>
+
+        <p>Services often expose convenience wrapper methods that skip the <code>ActionRequest</code>
+        boilerplate. <code>UserService</code> and <code>RoleService</code> both do this. Prefer them when
+        they exist:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Long form &mdash; works everywhere
+result = user_service.execute(ActionRequest(action="get", data={"id": user_id}))
+user = result.data if result.success else None
+
+# Short form &mdash; equivalent, easier to read
+user = user_service.get_user(user_id)   # returns dict (empty on miss/error)</code></pre>
+        </div>
+
+        <p><strong>Available wrapper methods:</strong> See <a href="template.html">WRAPPERS.md</a> for the full list (<code>list_users</code>, <code>get_user</code>, <code>create_user</code>, <code>delete_user</code>, <code>stage_user_with_roles</code>, etc.)</p>
+
+        <p>When to use which:</p>
+
+        <ul>
+            <li><strong>Wrappers</strong> &mdash; for one-shot reads where you trust the service to raise on bad input. Cleaner in view code.</li>
+            <li><strong><code>execute(ActionRequest)</code></strong> &mdash; for actions you build dynamically, when you need <code>result.events</code>, or when you want the full <code>success</code>/<code>error</code> envelope without try/except.</li>
+        </ul>
+
+        <p>See <a href="template.html">GETTING_STARTED.md &rarr; Step 4</a>
+        for the wrapper-method cheat sheet on <code>UserService</code> and <code>RoleService</code>.</p>
+
+        <p>The <code>Nav</code> and <code>Vault</code> helpers in props are pure wrapper objects:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Instead of:
+self.nav_service.execute(ActionRequest(action="visit", data={"url": "/login"}))
+
+# Use:
+self.nav.go("/login")
+
+# Instead of:
+result = self.vault_service.execute(ActionRequest(action="get", data={"key": "POSTGRES_URL"}))
+url = result.data["value"] if result.success else None
+
+# Use:
+url = self.vault.get("POSTGRES_URL")</code></pre>
+        </div>
+
+        <h3>3.3 Handling <code>ActionResult</code></h3>
+
+        <p>Three things to check on every result:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">result = user_service.execute(ActionRequest(action="create", data=form_data))
+
+# 1. success &mdash; always the first branch
+if not result.success:
+    self._error_text.value = result.error
+    self.page.update()
+    return
+
+# 2. data &mdash; the payload, shape depends on the action
+new_user = result.data        # e.g. {"id": "...", "username": "..."}
+
+# 3. events &mdash; domain events the service emitted (often empty)
+for event in result.events:
+    if event.type == "user.created":
+        self._show_snackbar(f"Welcome, {event.payload['username']}!")</code></pre>
+        </div>
+
+        <p>Most views don't touch <code>result.events</code>. They become useful once you wire the
+        <code>EventBus</code> into UI side effects (toast notifications, audit logs). For a
+        read-heavy view, <code>success</code> + <code>data</code> is all you need.</p>
+
+        <h3>3.4 Displaying Errors</h3>
+
+        <p>Two patterns cover everything:</p>
+
+        <p><strong>Inline error text</strong> &mdash; for forms and validation:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class CreateUserView(BaseView):
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._error_text = ft.Text("", color=ft.Colors.RED_400, size=12)
+
+    def _on_submit(self, e):
+        result = self.props["user_service"].execute(
+            ActionRequest(action="create", data={
+                "username": self._username.value,
+                "email": self._email.value,
+            })
+        )
+        if result.success:
+            self.nav.go("/users")
+        else:
+            self._error_text.value = result.error or "Create failed"
+            self.page.update()</code></pre>
+        </div>
+
+        <p><strong>Snackbar toast</strong> &mdash; for transient feedback after a successful action:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def _show_snackbar(self, message: str, duration: int = 1500):
+    snack = ft.SnackBar(content=ft.Text(message), duration=duration)
+    self.page.overlay.append(snack)
+    snack.open = True
+    self.page.update()
+
+
+def _on_delete(self, user_id):
+    result = self.props["user_service"].execute(
+        ActionRequest(action="delete", data={"id": user_id})
+    )
+    if result.success:
+        self._show_snackbar(f"User deleted")
+        self._refresh_list()
+    else:
+        self._show_snackbar(f"Failed: {result.error}", duration=3000)</code></pre>
+        </div>
+
+        <p>Helper lives on <code>BaseView</code> subclasses or any view &mdash; see
+        <code>lib/views/security.py</code> <code>_show_snackbar</code> for the working version.</p>
+
+        <hr>
+
+        <h2 id="event-handlers">Event Handlers</h2>
+
+        <p>Flet calls your handler with a single event argument when a button is clicked,
+        a field changes, or a route fires. Handlers run on the Flet event loop &mdash; they
+        must not crash silently and must explicitly call <code>page.update()</code> when they
+        mutate UI state.</p>
+
+        <h3>4.1 The Safe Handler Pattern</h3>
+
+        <p>Wrap every handler in try/except. An uncaught exception inside Flet's loop
+        disappears into the console without a traceback in the UI:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class CreateUserView(BaseView):
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._username = ft.TextField(label="Username")
+        self._email    = ft.TextField(label="Email")
+        self._error    = ft.Text("", color=ft.Colors.RED_400, size=12)
+
+    def _on_submit(self, e):
+        try:
+            result = self.props["user_service"].execute(
+                ActionRequest(action="create", data={
+                    "username": self._username.value.strip(),
+                    "email":    self._email.value.strip(),
+                })
+            )
+            if result.success:
+                self._error.value = ""
+                self.nav.go("/users")
+            else:
+                self._error.value = result.error or "Create failed"
+                self.page.update()
+        except Exception as exc:
+            self._error.value = f"Unexpected error: {exc}"
+            self.page.update()
+
+    def build_content(self):
+        return ft.Column([
+            ft.Text("New User", size=24, weight=ft.FontWeight.BOLD),
+            self._username,
+            self._email,
+            self._error,
+            ft.ElevatedButton("Create", on_click=self._on_submit),
+        ], spacing=15)</code></pre>
+        </div>
+
+        <p>Rules of thumb:</p>
+
+        <ul>
+            <li>Validate inputs <strong>before</strong> the service call. Empty strings, bad emails, etc.</li>
+            <li>Set error text on failure, call <code>page.update()</code>, and <code>return</code> early.</li>
+            <li>Navigate (<code>self.nav.go(...)</code>) on success &mdash; the route change triggers a fresh render.</li>
+        </ul>
+
+        <h3>4.2 Calling Services in Event Handlers</h3>
+
+        <p>The same pattern as <code>build_content</code>, but the handler is responsible for
+        refreshing the UI afterwards (Flet doesn't auto-rebuild views):</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def _on_delete_user(self, user_id):
+    """Delete handler &mdash; bound via lambda in the row builder."""
+    result = self.props["user_service"].execute(
+        ActionRequest(action="delete", data={"id": user_id})
+    )
+    if result.success:
+        # Mutate local state, then redraw the affected control
+        self._users = [u for u in self._users if u["id"] != user_id]
+        self._refresh_list()
+    else:
+        self._error.value = result.error
+        self.page.update()</code></pre>
+        </div>
+
+        <p><strong>Beware the lambda closure trap.</strong> This binds <code>user_id</code> correctly because
+        each iteration captures it as a default-argument value:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># CORRECT &mdash; uid is captured at definition time
+for u in users:
+    rows.append(
+        ft.IconButton(
+            ft.Icons.DELETE,
+            on_click=lambda e, uid=u["id"]: self._on_delete_user(uid),
+        )
+    )</code></pre>
+        </div>
+
+        <p>This does NOT work &mdash; every button ends up deleting the last user, because the
+        <code>u</code> name is rebound on each loop:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># WRONG &mdash; late-binding closure
+for u in users:
+    rows.append(
+        ft.IconButton(
+            ft.Icons.DELETE,
+            on_click=lambda e: self._on_delete_user(u["id"]),  # u is the LAST iteration
+        )
+    )</code></pre>
+        </div>
+
+        <h3>4.3 Async in Flet</h3>
+
+        <p>Flet handlers are synchronous by default, but the page exposes an event loop
+        for long work. Two cases come up:</p>
+
+        <p><strong>Quick service call</strong> &mdash; just call it. Service execute is sync, returns
+        immediately:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def _on_refresh(self, e):
+    result = self.props["user_service"].execute(ActionRequest(action="list"))
+    if not result.success:
+        self.page.snack_bar = ft.SnackBar(ft.Text(f"Error: {result.error}"))
+        self.page.snack_bar.open = True
+        self.page.update()
+        return
+    self._users = result.data.get("users", [])
+    self._refresh_list()</code></pre>
+        </div>
+
+        <p><strong>Slow work (network, DB probe, file I/O)</strong> &mdash; schedule it on the Flet event loop
+        so the UI stays responsive. The pattern in <code>admin/databases.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+def build_content(self):
+    body = ft.Column(spacing=10)
+    names = ["Postgres", "Redis", "MongoDB"]   # or: [c for c in CacheRegistry.list()]
+
+    async def _run_probe():
+        # Run blocking work in a thread pool so we don't freeze the UI
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor() as ex:
+            results = await loop.run_in_executor(
+                None, lambda: list(ex.map(self._probe, names))
+            )
+        # Back on the event loop &mdash; safe to mutate UI and call page.update()
+        type(self)._status_cache.update(dict(zip(names, results)))
+        self._fill_body(body)
+        self.page.update()
+
+    self._fill_body(body)              # immediate render with placeholders
+    self.page.run_task(_run_probe)     # kick off async refresh
+    return body</code></pre>
+        </div>
+
+        <p>Key calls:</p>
+
+        <ul>
+            <li><code>self.page.run_task(coro)</code> &mdash; schedule an <code>async def</code> on the Flet loop. Use this from any handler when you want async work.</li>
+            <li><code>loop.run_in_executor(None, blocking_fn)</code> &mdash; push a blocking call into a thread pool.</li>
+            <li><code>self.page.update()</code> &mdash; call this once you mutate UI state. It pushes the deltas to the client.</li>
+        </ul>
+
+        <h3>4.4 Page Updates</h3>
+
+        <p>Three update calls. Use the smallest that covers your change:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Call</th>
+                    <th>Use when</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>self.page.update()</code></td>
+                    <td>You changed multiple controls anywhere on the page. Safe default.</td>
+                </tr>
+                <tr>
+                    <td><code>control.update()</code></td>
+                    <td>You changed exactly one control. Cheaper if you have the reference.</td>
+                </tr>
+                <tr>
+                    <td><code>self.page.go(url)</code></td>
+                    <td>You want to navigate &mdash; triggers a full route change and re-render.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Common mistake: forgetting <code>page.update()</code> after mutating a state variable.
+        The view doesn't auto-refresh:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">def _on_toggle_reveal(self, key):
+    self._reveal_key = key if self._reveal_key != key else None
+    self.page.update()   # without this, nothing visibly changes</code></pre>
+        </div>
+
+        <p>If you swap a control's <code>content</code>, you can update just the container:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">self._content_container.content = self._build_unlocked()
+self._content_container.update()</code></pre>
+        </div>
+
+        <p>That's how <code>security.py</code> swaps between locked /
+        unlocked / show-keys states without rebuilding the whole view.</p>
+
+        <hr>
+
+        <h2 id="common-patterns">Common Patterns</h2>
+
+        <p>The four UI shapes that cover most views.</p>
+
+        <blockquote>
+            <p><strong>Helper used throughout this section</strong> &mdash; several examples call
+            <code>self._refresh_list()</code> to rebuild a <code>ft.Column</code> of user rows from the cached
+            <code>self._users</code> list. Define it once on your view class:</p>
+
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">def _refresh_list(self):
+    """Rebuild the users list control from self._users."""
+    self.body.controls.clear()
+    for u in self._users:
+        self.body.controls.append(
+            ft.ListTile(
+                title=ft.Text(u["username"]),
+                on_click=lambda e, uid=u["id"]: self._view_user(uid),
+            )
+        )
+    self.page.update()</code></pre>
+            </div>
+
+            <p>The examples below assume <code>self.body</code> is the <code>ft.Column</code> returned from
+            <code>build_content()</code> and <code>self._users</code> is the cached list of user dicts.</p>
+        </blockquote>
+
+        <h3>5.1 Forms</h3>
+
+        <p>Capture user input, validate, call a service, render success/error:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class CreateRoleView(BaseView):
+    title = "New Role"
+
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._name        = ft.TextField(label="Name", width=320)
+        self._description = ft.TextField(label="Description", multiline=True, width=320)
+        self._error       = ft.Text("", color=ft.Colors.RED_400, size=12)
+
+    def _on_submit(self, e):
+        name = self._name.value.strip()
+        if not name:
+            self._error.value = "Name is required"
+            self.page.update()
+            return
+
+        result = self.props["role_service"].execute(
+            ActionRequest(action="create", data={
+                "name": name,
+                "description": self._description.value.strip(),
+            })
+        )
+        if result.success:
+            self.nav.go("/roles")
+        else:
+            self._error.value = result.error or "Failed to create role"
+            self.page.update()
+
+    def build_content(self):
+        return ft.Column([
+            ft.Text("New Role", size=24, weight=ft.FontWeight.BOLD),
+            self._name,
+            self._description,
+            self._error,
+            ft.Row([
+                ft.ElevatedButton("Create", on_click=self._on_submit),
+                ft.TextButton("Cancel", on_click=lambda e: self.nav.go("/roles")),
+            ], spacing=10),
+        ], spacing=15)
+
+
+def view(page, props):
+    return CreateRoleView(page, props).render()</code></pre>
+        </div>
+
+        <p>Form discipline:</p>
+
+        <ul>
+            <li>Keep field references on <code>self</code> so handlers can read them.</li>
+            <li>Validate before calling the service.</li>
+            <li>One <code>_error</code> Text control &mdash; easier than scattering errors per field.</li>
+            <li>On success, navigate away. The next view re-renders from scratch.</li>
+        </ul>
+
+        <h3>5.2 Lists and Tables</h3>
+
+        <p>The empty / loading / loaded states are the trick. Always render all three:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class UsersListView(BaseView):
+    title = "Users"
+
+    def build_content(self):
+        result = self.props["user_service"].execute(ActionRequest(action="list"))
+
+        if not result.success:
+            return ft.Text(f"Error: {result.error}", color=ft.Colors.RED_400)
+
+        users = result.data.get("users", [])
+
+        if not users:
+            return ft.Column([
+                ft.Icon(ft.Icons.PEOPLE_OUTLINE, size=42,
+                        color=ft.Colors.BLUE_GREY_400),
+                ft.Text("No users yet", size=18),
+                ft.ElevatedButton("Create User",
+                                  on_click=lambda e: self.nav.go("/users/new")),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
+
+        rows = [
+            ft.DataRow([
+                ft.DataCell(ft.Text(u["username"])),
+                ft.DataCell(ft.Text(u["email"])),
+                ft.DataCell(
+                    ft.IconButton(
+                        ft.Icons.DELETE,
+                        on_click=lambda e, uid=u["id"]: self._on_delete(uid),
+                    )
+                ),
+            ])
+            for u in users
+        ]
+
+        return ft.Column([
+            ft.Text(f"Users ({len(users)})", size=24, weight=ft.FontWeight.BOLD),
+            ft.DataTable(
+                columns=[
+                    ft.DataColumn(ft.Text("Username")),
+                    ft.DataColumn(ft.Text("Email")),
+                    ft.DataColumn(ft.Text("Actions")),
+                ],
+                rows=rows,
+            ),
+        ], spacing=15)
+
+    def _on_delete(self, user_id):
+        result = self.props["user_service"].execute(
+            ActionRequest(action="delete", data={"id": user_id})
+        )
+        if not result.success:
+            self._error.value = result.error
+            self.page.update()
+            return
+
+        # Refresh the users list from the database (page.go(page.route) is a
+        # no-op in Flet, so we re-fetch and rebuild explicitly).
+        list_result = self.props["user_service"].execute(
+            ActionRequest(action="list")
+        )
+        if list_result.success:
+            self._users = list_result.data.get("users", [])
+            self._refresh_list()</code></pre>
+        </div>
+
+        <p>For card-style lists, the pattern is the same but with <code>Card</code> components from
+        <code>lib/ui/components/</code>. See <code>lib/views/products.py</code>.</p>
+
+        <h3>5.3 Navigation</h3>
+
+        <p>Three ways to navigate, in order of preference:</p>
+
+        <p><strong>Simple API on <code>self.nav</code></strong> &mdash; for hand-written buttons:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">ft.ElevatedButton("Go Home", on_click=lambda e: self.nav.go("/"))</code></pre>
+        </div>
+
+        <p><strong><code>NavButton</code> component</strong> &mdash; declarative, reusable:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.ui.components.nav_button import NavButton
+
+NavButton("Open Login", "/login", self.nav_service)</code></pre>
+        </div>
+
+        <p><strong>Path + query parameters</strong> &mdash; read them from <code>self.params</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from pydantic import BaseModel
+
+class ProductDetailView(BaseView):
+    class Params(BaseModel):
+        id: int                      # from /products/{id}
+        tab: str = "overview"        # from ?tab=stock
+
+    def build_content(self):
+        p = self.params              # validated Pydantic model
+        return ft.Text(f"Product {p.id}, tab={p.tab}")</code></pre>
+        </div>
+
+        <p>The router merges <code>props["params"]</code> (path) and <code>props["query"]</code> (query string)
+        into <code>self.params</code> if you set a <code>Params</code> class. See
+        <code>lib/views/product_detail.py</code>.</p>
+
+        <p>To navigate <strong>with</strong> query params, build the URL yourself:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">self.nav.go(f"/products/{product_id}?tab=stock")</code></pre>
+        </div>
+
+        <p>To register a parameterized route, edit <code>main.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">router.register("/products/{id}", "lib.views.product_detail")</code></pre>
+        </div>
+
+        <h3>5.4 Loading States</h3>
+
+        <p>For slow work, render placeholders first, then refresh once the data arrives.
+        The pattern lives in <code>admin/databases.py</code>
+        and <code>admin/caches.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class DashboardView(BaseView):
+    _status_cache: dict[str, dict] = {}    # class-level &mdash; survives navigation
+
+    def build_content(self):
+        body = ft.Column(spacing=10)
+
+        def _fill_body():
+            # Rebuild body controls from current cache state
+            cards = self._make_cards()
+            body.controls = [
+                ft.Text("Status", size=24, weight=ft.FontWeight.BOLD),
+                *cards,
+                ft.TextButton("&#8635; Refresh", on_click=lambda e: _on_refresh()),
+            ]
+
+        async def _run_probe():
+            # Slow work: probe every backend in parallel
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as ex:
+                results = await loop.run_in_executor(
+                    None, lambda: list(ex.map(self._probe, self._names()))
+                )
+            type(self)._status_cache.update(dict(zip(self._names(), results)))
+            _fill_body()
+            self.page.update()
+
+        def _on_refresh():
+            type(self)._status_cache.clear()
+            _fill_body()
+            self.page.update()
+            self.page.run_task(_run_probe)
+
+        _fill_body()                       # render placeholders immediately
+        self.page.run_task(_run_probe)     # kick off the slow refresh
+        return body</code></pre>
+        </div>
+
+        <p>Key ideas:</p>
+
+        <ul>
+            <li><strong>Class-level cache</strong> &mdash; <code>_status_cache</code> survives navigation, so the second visit shows cached results instantly.</li>
+            <li><strong>Render twice</strong> &mdash; first with placeholders, then with real data when the async task finishes.</li>
+            <li><strong><code>page.run_task</code></strong> &mdash; schedules the coroutine on Flet's event loop without blocking.</li>
+        </ul>
+
+        <p>For a manual loading spinner pattern:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class SlowUserDetailView(BaseView):
+    class Params(BaseModel):
+        id: str
+
+    def build_content(self):
+        self._content = ft.Container(
+            content=ft.ProgressRing(),     # spinner while we wait
+            alignment=ft.Alignment(0, 0),
+            expand=True,
+        )
+
+        async def _load():
+            result = self.props["user_service"].execute(
+                ActionRequest(action="get", data={"id": self.params.id})
+            )
+            if result.success:
+                user = result.data
+                self._content.content = ft.Text(
+                    f"{user['username']} ({user['email']})"
+                )
+            else:
+                self._content.content = ft.Text(result.error, color=ft.Colors.RED_400)
+            self._content.update()
+
+        self.page.run_task(_load)
+        return self._content</code></pre>
+        </div>
+
+        <hr>
+
+        <h2 id="reference-view-file-structure">Reference: View File Structure</h2>
+
+        <p>The minimum view module:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/views/&lt;page&gt;.py
+import flet as ft
+from lib.ui.layouts.base_view import BaseView
+
+
+class MyView(BaseView):
+    title = "My Page"
+
+    def build_content(self):
+        return ft.Text("Hello")
+
+
+def view(page: ft.Page, props: dict) -&gt; ft.View:
+    return MyView(page, props).render()</code></pre>
+        </div>
+
+        <p>A view file is reached automatically by URL &mdash; <code>/my-page</code> loads
+        <code>lib/views/my_page.py</code>. No route registration needed unless you have path
+        params, in which case add one line to <code>main.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">router.register("/users/{id}", "lib.views.user_detail")</code></pre>
+        </div>
+
+        <p>Class-level toggles you can override:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Attribute</th>
+                    <th>Default</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>title</code></td>
+                    <td><code>"FlexApp"</code></td>
+                    <td>Shown in the appbar.</td>
+                </tr>
+                <tr>
+                    <td><code>show_appbar</code></td>
+                    <td><code>True</code></td>
+                    <td>Set <code>False</code> for fullscreen pages.</td>
+                </tr>
+                <tr>
+                    <td><code>show_sidebar</code></td>
+                    <td><code>True</code></td>
+                    <td>Set <code>False</code> for login / standalone pages.</td>
+                </tr>
+                <tr>
+                    <td><code>show_bottombar</code></td>
+                    <td><code>False</code></td>
+                    <td>Set <code>True</code> and override <code>build_bottombar</code>.</td>
+                </tr>
+                <tr>
+                    <td><code>Params</code></td>
+                    <td><code>None</code></td>
+                    <td>A Pydantic <code>BaseModel</code> for typed path/query params.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Overridable methods:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>When to override</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>build_content()</code></td>
+                    <td><strong>Always.</strong> The page body.</td>
+                </tr>
+                <tr>
+                    <td><code>build_appbar()</code></td>
+                    <td>Custom app bar (defaults to <code>NavBar</code>).</td>
+                </tr>
+                <tr>
+                    <td><code>build_sidebar()</code></td>
+                    <td>Custom sidebar (defaults to <code>SideBar</code> with <code>SIDEBAR_ITEMS</code>).</td>
+                </tr>
+                <tr>
+                    <td><code>build_bottombar()</code></td>
+                    <td>Bottom nav.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Read <code>lib/ui/layouts/base_view.py</code> &mdash; the whole base class is 127 lines.</p>
+
+        <hr>
+
+        <h2>Checklist Before Committing a View</h2>
+
+        <ul>
+            <li>Subclasses <code>BaseView</code> and exports <code>view(page, props)</code> at module level.</li>
+            <li>Services come from <code>self.props</code> &mdash; no direct imports of service modules.</li>
+            <li>Every <code>service.execute(...)</code> checks <code>result.success</code> before reading <code>result.data</code>.</li>
+            <li>Event handlers either navigate, set state and call <code>page.update()</code>, or both.</li>
+            <li>Slow work (network, DB probes) uses <code>self.page.run_task(...)</code>.</li>
+            <li>Lambda handlers in loops capture loop variables with <code>lambda e, x=x: ...</code>.</li>
+            <li>Empty states, error states, and success states all render readable UI.</li>
+            <li>No business logic in the view &mdash; that belongs in the service.</li>
+        </ul>
+
+        <p>If you're stuck, the reference implementations are:</p>
+
+        <ul>
+            <li>Simple read view: <code>lib/views/home.py</code></li>
+            <li>Form + navigation: <code>lib/views/login.py</code></li>
+            <li>List with detail: <code>lib/views/products.py</code> &rarr; <code>lib/views/product_detail.py</code></li>
+            <li>Stateful view with multiple modes: <code>lib/views/security.py</code></li>
+            <li>Async loading + class-level cache: <code>lib/views/admin/databases.py</code></li>
+        </ul>
+
+        <p>That's the whole pattern. Build a view, wire its service into <code>main.py</code>, and
+        let the router pick it up by filename.</p>
+
+        <nav class="page-nav">
+            <div class="nav-group">
+                <button class="btn-secondary" onclick="window.location.href='index.html'">&#8592; Back to Hub</button>
+                <button class="btn-secondary" onclick="window.location.href='api-development.html'">&#8592; API Development</button>
+            </div>
+            <span class="progress">Builder Guides &middot; 2 of 3</span>
+            <div class="nav-group">
+                <button class="btn-primary" onclick="window.location.href='decision-trees.html'">Decision Trees &#8594;</button>
+            </div>
+        </nav>
+    </main>
+    <script src="js/script.js"></script>
+</body>
+</html>
