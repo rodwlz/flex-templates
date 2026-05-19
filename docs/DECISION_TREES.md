@@ -296,7 +296,7 @@ class NavigationService(IService):
         self._history.append(url)
         self._current = url
         # Other parts of the app need to react — emit rather than call them directly
-        self.event_bus.publish(Event(
+        self._event_bus.publish(Event(
             type="nav.route_changed",
             payload={"url": url, "can_go_back": len(self._history) > 1}
         ))
@@ -306,8 +306,11 @@ class NavigationService(IService):
 ```python
 # lib/ui/adapter.py — the subscriber
 class FletNavigationAdapter:
-    def __init__(self, event_bus, page):
-        event_bus.subscribe("nav.route_changed", self._on_route_changed)
+    def __init__(self, navigation_service):
+        navigation_service._event_bus.subscribe("nav.route_changed", self._on_route_changed)
+
+    def bind_page(self, page):
+        self.page = page
 
     def _on_route_changed(self, event: Event):
         self.page.go(event.payload["url"])
@@ -493,9 +496,7 @@ class NavigationService(IService):
                 steps = int(request.data.get("steps", 1))   # coercion before dispatch
                 return self._back(steps)
             case "current":
-                # returns ActionResult with events — no dict shortcut needed
-                return ActionResult(success=True, data=self._nav_state(),
-                                    events=[Event(type="nav.polled", payload={})])
+                return ActionResult(success=True, data=self._nav_state())
             case _:
                 return ActionResult(success=False, error=f"Unknown action: {request.action}")
 ```
