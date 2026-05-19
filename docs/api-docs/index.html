@@ -3,52 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Documentation Learning Path</title>
+    <title>FlexTemplates Developer Documentation</title>
     <link rel="stylesheet" href="css/docs.css">
 </head>
 <body>
     <header>
-        <h1>API Documentation Learning Path</h1>
-        <p class="breadcrumb">Learn the FlexTemplates API pattern in three steps</p>
+        <h1>FlexTemplates Developer Documentation</h1>
+        <p class="breadcrumb">Everything you need to build, extend, and debug.</p>
     </header>
 
     <div class="hub-container">
         <main>
-            <h2>Welcome to the API Documentation</h2>
-            <p>This learning path will guide you through the core concepts and patterns used in FlexTemplates. Start with the architecture overview, learn the reusable pattern template, and see it all come together in a complete example.</p>
 
-            <div class="cards-grid">
-                <!-- Card 1: Architecture -->
-                <a href="architecture.html" class="card">
-                    <h3>📐 Architecture Overview</h3>
-                    <p>Understand the core design principles behind the API: layers, contracts, and how services communicate with clients through standardized request/response patterns.</p>
-                    <button class="btn-primary">Start Learning →</button>
-                </a>
+            <!-- Section 1: Core Concepts -->
+            <section class="doc-section doc-section--core">
+                <h2 class="section-title">&#127959; Core Concepts</h2>
+                <p class="section-desc">Understand the architecture before you build anything.</p>
+                <div class="cards-grid">
+                    <a href="architecture.html" class="card">
+                        <h3>&#128208; Architecture Overview</h3>
+                        <p>Layers, contracts, and how services communicate. The "you are here" map for the entire framework.</p>
+                        <button class="btn-primary">Start Learning &#8594;</button>
+                    </a>
+                    <a href="template.html" class="card">
+                        <h3>&#129513; Pattern Template</h3>
+                        <p>Step-by-step approach to adding new entities. Follow along with practical, reusable examples.</p>
+                        <button class="btn-primary">Learn the Pattern &#8594;</button>
+                    </a>
+                    <a href="pong.html" class="card">
+                        <h3>&#127918; Complete Example: Pong</h3>
+                        <p>A game engine driven by keyboard or neural net — same code, swap one line. LEGO architecture in action.</p>
+                        <button class="btn-primary">See Example &#8594;</button>
+                    </a>
+                </div>
+            </section>
 
-                <!-- Card 2: Pattern Template -->
-                <a href="template.html" class="card">
-                    <h3>🧩 Pattern Template</h3>
-                    <p>Learn the step-by-step approach to adding new entities to your API. Follow along with practical examples and reusable code snippets.</p>
-                    <button class="btn-primary">Learn the Pattern →</button>
-                </a>
+            <!-- Section 2: Builder Guides -->
+            <section class="doc-section doc-section--builder">
+                <h2 class="section-title">&#9889; Builder Guides</h2>
+                <p class="section-desc">Task-focused guides for building API endpoints and Flet views.</p>
+                <div class="cards-grid">
+                    <a href="api-development.html" class="card">
+                        <h3>&#128268; API Development</h3>
+                        <p>Request validation, HTTP error codes, response shaping, and testing endpoints. The canonical FastAPI route shape.</p>
+                        <button class="btn-primary">Build Endpoints &#8594;</button>
+                    </a>
+                    <a href="view-development.html" class="card">
+                        <h3>&#128444; View Development</h3>
+                        <p>Props pattern, calling services safely, event handlers, async in Flet, and the canonical view file structure.</p>
+                        <button class="btn-primary">Build Views &#8594;</button>
+                    </a>
+                    <a href="decision-trees.html" class="card">
+                        <h3>&#127795; Decision Trees</h3>
+                        <p>Five YES/NO decision trees: SimpleService vs StagingService, immediate vs staged vs approval, when to emit events.</p>
+                        <button class="btn-primary">Choose Patterns &#8594;</button>
+                    </a>
+                </div>
+            </section>
 
-                <!-- Card 3: Complete Example -->
-                <a href="pong.html" class="card">
-                    <h3>🎮 Complete Example: Pong</h3>
-                    <p>See everything in action with a worked example. Understand how a game engine becomes an HTTP API with the same architecture.</p>
-                    <button class="btn-primary">See Example →</button>
-                </a>
-            </div>
+            <!-- Section 3: Troubleshooting & Reference -->
+            <section class="doc-section doc-section--troubleshoot">
+                <h2 class="section-title">&#128295; Troubleshooting &amp; Reference</h2>
+                <p class="section-desc">Fix issues fast. Avoid mistakes before they happen.</p>
+                <div class="cards-grid">
+                    <a href="troubleshooting.html" class="card">
+                        <h3>&#128295; Troubleshooting Guide</h3>
+                        <p>20 common errors organized by symptom. Each entry: what it means, why it happens, how to fix, how to prevent.</p>
+                        <button class="btn-primary">Fix Issues &#8594;</button>
+                    </a>
+                    <a href="anti-patterns.html" class="card">
+                        <h3>&#128683; Anti-Patterns</h3>
+                        <p>15 patterns that break the architecture. Before/after code for every mistake, grouped by layer.</p>
+                        <button class="btn-primary">Avoid Mistakes &#8594;</button>
+                    </a>
+                </div>
+            </section>
 
-            <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--neutral-200);">
-                <h3>How to Use This Guide</h3>
-                <ol>
-                    <li><strong>Start with Architecture</strong> — Get the big picture of how FlexTemplates organizes code</li>
-                    <li><strong>Follow the Pattern</strong> — Learn the step-by-step approach to building new API endpoints</li>
-                    <li><strong>Study the Example</strong> — See a complete, worked implementation</li>
-                </ol>
-                <p><em>Each page has navigation buttons. You can move forward and backward through the learning path at any time.</em></p>
-            </div>
         </main>
     </div>
 </body>
