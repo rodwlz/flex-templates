@@ -4,10 +4,15 @@ Interactive HTML documentation for the FlexTemplates API architecture and patter
 
 ## Pages
 
-- **index.html** — Hub page with three learning cards
-- **architecture.html** — Page 1/3: Core design principles (from API_ARCHITECTURE_SUMMARY.md)
-- **template.html** — Page 2/3: Step-by-step pattern guide (from API_PATTERN_TEMPLATE.md)
-- **pong.html** — Page 3/3: Complete worked example (from PONG_EXAMPLE.md)
+- **index.html** — Hub with three category sections (8 cards total)
+- **architecture.html** — Core Concepts 1/3: Architecture overview
+- **template.html** — Core Concepts 2/3: Step-by-step pattern guide
+- **pong.html** — Core Concepts 3/3: Complete worked example
+- **api-development.html** — Builder Guides 1/3: API endpoint development
+- **view-development.html** — Builder Guides 2/3: Flet view development
+- **decision-trees.html** — Builder Guides 3/3: Pattern selection trees
+- **troubleshooting.html** — Troubleshooting 1/2: 20 common errors
+- **anti-patterns.html** — Troubleshooting 2/2: 15 anti-patterns
 
 ## Features
 
@@ -45,12 +50,14 @@ docs/api-docs/
 
 ### Content Source Files
 
-Documentation content is sourced from markdown:
-- `docs/API_ARCHITECTURE_SUMMARY.md` → `architecture.html`
-- `docs/API_PATTERN_TEMPLATE.md` → `template.html`
-- `docs/PONG_EXAMPLE.md` → `pong.html`
-
-To update content: Edit the markdown files, then convert to HTML preserving all structure.
+- `docs/core/ARCHITECTURE.md` → `architecture.html`
+- `docs/examples/API_PATTERN_TEMPLATE.md` → `template.html`
+- `docs/examples/PONG_EXAMPLE.md` → `pong.html`
+- `docs/guides/API_DEVELOPMENT.md` → `api-development.html`
+- `docs/guides/VIEW_DEVELOPMENT.md` → `view-development.html`
+- `docs/reference/DECISION_TREES.md` → `decision-trees.html`
+- `docs/troubleshooting/TROUBLESHOOTING.md` → `troubleshooting.html`
+- `docs/troubleshooting/ANTI_PATTERNS.md` → `anti-patterns.html`
 
 ### Styling
 
@@ -85,25 +92,16 @@ To update content: Edit the markdown files, then convert to HTML preserving all 
 
 **Note:** Clipboard API (used for copy buttons) requires HTTPS or localhost. Works in all modern browsers.
 
-## Navigation Guide
+## Navigation
 
-### Learning Path Flow
+### Core Concepts
+index.html → architecture.html → template.html → pong.html
 
-```
-index.html (Hub)
-  ├─ Card 1: Architecture Overview → architecture.html (Page 1/3)
-  │   Next → template.html
-  │
-  ├─ Card 2: Pattern Template → template.html (Page 2/3)
-  │   Previous → architecture.html
-  │   Next → pong.html
-  │
-  └─ Card 3: Complete Example → pong.html (Page 3/3)
-      Previous → template.html
-      (Next disabled on last page)
-```
+### Builder Guides
+index.html → api-development.html → view-development.html → decision-trees.html
 
-Each page has buttons to navigate forward/backward or return to hub at any time.
+### Troubleshooting & Reference
+index.html → troubleshooting.html → anti-patterns.html
 
 ## Development
 
