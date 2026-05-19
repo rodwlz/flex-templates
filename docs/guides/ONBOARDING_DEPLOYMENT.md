@@ -1,3 +1,12 @@
+---
+title: "Deployment & Onboarding"
+category: guide
+audience: [developer]
+related:
+  - ../core/ARCHITECTURE.md
+agent_priority: low
+---
+
 # Interactive Onboarding Dashboard — Deployment Guide
 
 ## Overview

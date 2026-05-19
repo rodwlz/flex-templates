@@ -1,3 +1,13 @@
+---
+title: "Quickstart Cheat Sheet"
+category: guide
+audience: [developer, agent]
+related:
+  - ../core/ARCHITECTURE.md
+  - ../core/CONVENTIONS.md
+agent_priority: medium
+---
+
 # FlexTemplates 2.0 — Quick Start & Cheat Sheet
 
 ## The 5-Minute TL;DR
@@ -470,7 +480,7 @@ async def create_user(username: str, service = Depends(...)):
 
 ## Next Steps
 
-1. **[Read ARCHITECTURE_AND_CONCEPTS.md](ARCHITECTURE_AND_CONCEPTS.md)** — Detailed explanation of EventBus, BaseView, FletRouter, async in Flet, and what's missing
+1. **[Read ARCHITECTURE.md](../core/ARCHITECTURE.md)** — System overview and architecture decisions
 2. **[Read ADDING_STUFF.md](ADDING_STUFF.md)** — Step-by-step recipes for common tasks
-3. **[Read TESTING.md](TESTING.md)** — How to test, common failures, 5 quick fixes
-4. **[Read CONVENTIONS.md](../CONVENTIONS.md)** — Naming, structure, and full action reference
+3. **[Read TESTING.md](../reference/TESTING.md)** — How to test, common failures, 5 quick fixes
+4. **[Read CONVENTIONS.md](../core/CONVENTIONS.md)** — Naming, structure, and full action reference

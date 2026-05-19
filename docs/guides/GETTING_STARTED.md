@@ -1,3 +1,13 @@
+---
+title: "Getting Started Guide"
+category: guide
+audience: [developer]
+related:
+  - ../core/ARCHITECTURE.md
+  - QUICKSTART.md
+agent_priority: low
+---
+
 # Getting Started with FlexTemplates 2.0
 
 **Time: ~1 hour to go from zero to understanding**
@@ -394,6 +404,6 @@ You now understand:
 - ✅ How to debug (traces, print statements, repo checks)
 - ✅ Where to find examples (the code itself)
 
-**Next:** Read [docs/API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) to learn how to add a whole new entity from scratch.
+**Next:** Read [docs/API_PATTERN_TEMPLATE.md](../examples/API_PATTERN_TEMPLATE.md) to learn how to add a whole new entity from scratch.
 
 **Questions?** Check [docs/QUICKSTART.md](QUICKSTART.md) — it's a cheat sheet.

@@ -1,3 +1,14 @@
+---
+title: "Recipes: Adding Services, Views, Routes, Models"
+category: guide
+audience: [developer, agent]
+related:
+  - ../core/CONVENTIONS.md
+  - API_DEVELOPMENT.md
+  - VIEW_DEVELOPMENT.md
+agent_priority: medium
+---
+
 # Adding Stuff — The Easy Guide
 
 This is the cheat sheet for everyday tasks. No theory, just copy/paste recipes.

@@ -1,18 +1,29 @@
+---
+title: "View Development Guide (Flet)"
+category: guide
+audience: [developer, agent]
+related:
+  - WRAPPERS.md
+  - ../core/CONTRACTS_GUIDE.md
+  - ../troubleshooting/ANTI_PATTERNS.md
+agent_priority: medium
+---
+
 # View Development Guide
 
 How to build Flet UI views in FlexTemplates — the props pattern, calling services,
 handling events safely, async patterns, and the common UI shapes you'll reuse.
 
 **Prerequisites:** Read [GETTING_STARTED.md](GETTING_STARTED.md) and
-[CONVENTIONS.md](CONVENTIONS.md). Every view subclasses `BaseView`, receives
+[CONVENTIONS.md](../core/CONVENTIONS.md). Every view subclasses `BaseView`, receives
 services through a `props` dict, and calls them via `service.execute(ActionRequest(...))`.
 If you understand that, the rest is just Flet mechanics.
 
 **Related docs:**
-- [CONVENTIONS.md](CONVENTIONS.md) — naming rules, import rules, module layout
+- [CONVENTIONS.md](../core/CONVENTIONS.md) — naming rules, import rules, module layout
 - [GETTING_STARTED.md](GETTING_STARTED.md) — end-to-end walkthrough
-- [ANTI_PATTERNS.md](ANTI_PATTERNS.md) — view anti-patterns and how to avoid them
-- [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) — `ActionRequest` / `ActionResult`
+- [ANTI_PATTERNS.md](../troubleshooting/ANTI_PATTERNS.md) — view anti-patterns and how to avoid them
+- [CONTRACTS_GUIDE.md](../core/CONTRACTS_GUIDE.md) — `ActionRequest` / `ActionResult`
 
 ---
 

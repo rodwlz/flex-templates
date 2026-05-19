@@ -1,3 +1,13 @@
+---
+title: "Service Wrapper Methods (Snap API)"
+category: guide
+audience: [developer, agent]
+related:
+  - ../core/CONTRACTS_GUIDE.md
+  - VIEW_DEVELOPMENT.md
+agent_priority: medium
+---
+
 # Wrappers — The Simple Snap API
 
 Every major service in the framework follows the same three-layer pattern.

@@ -1,17 +1,28 @@
+---
+title: "API Development Guide"
+category: guide
+audience: [developer, agent]
+related:
+  - ../core/CONTRACTS_GUIDE.md
+  - ../reference/DECISION_TREES.md
+  - ../examples/API_PATTERN_TEMPLATE.md
+agent_priority: medium
+---
+
 # API Development Guide
 
 How to build HTTP endpoints in FlexTemplates — validation, error handling, testing,
 and the common CRUD patterns used throughout the codebase.
 
-**Prerequisites:** Read [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) first. Every route
+**Prerequisites:** Read [CONTRACTS_GUIDE.md](../core/CONTRACTS_GUIDE.md) first. Every route
 calls `service.execute(ActionRequest(...))` and reads an `ActionResult`. If you
 understand that contract, the rest of this guide is just mechanics.
 
 **Related docs:**
-- [CONVENTIONS.md](CONVENTIONS.md) — naming rules, import rules, module layout
-- [CONTRACTS_GUIDE.md](CONTRACTS_GUIDE.md) — `ActionRequest` / `ActionResult` / `Event`
-- [ANTI_PATTERNS.md](ANTI_PATTERNS.md) — what not to do and why
-- [API_PATTERN_TEMPLATE.md](API_PATTERN_TEMPLATE.md) — step-by-step walkthrough for adding a new entity
+- [CONVENTIONS.md](../core/CONVENTIONS.md) — naming rules, import rules, module layout
+- [CONTRACTS_GUIDE.md](../core/CONTRACTS_GUIDE.md) — `ActionRequest` / `ActionResult` / `Event`
+- [ANTI_PATTERNS.md](../troubleshooting/ANTI_PATTERNS.md) — what not to do and why
+- [API_PATTERN_TEMPLATE.md](../examples/API_PATTERN_TEMPLATE.md) — step-by-step walkthrough for adding a new entity
 
 ---
 
