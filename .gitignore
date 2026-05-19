@@ -31,6 +31,7 @@ ENV/
 *.swo
 *~
 .claude
+.ruff_cache/
 
 # Testing
 .pytest_cache/
