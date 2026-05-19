@@ -74,6 +74,14 @@ code, swap one line. The architecture pitch as runnable code.
 In-memory SQLite, `FakePage` for view tests, fixture conventions, how to
 exercise a service without Flet or a real DB.
 
+### [DECISION_TREES.md](DECISION_TREES.md)
+**When should I use X vs Y?**
+
+Five decision trees with YES/NO branches and concrete code examples:
+`SimpleService` vs `StagingService`, immediate vs staged vs approval endpoints,
+when to emit an `Event`, new service vs new method, and `SimpleService` vs
+custom `execute()`.
+
 ---
 
 ## Files in this folder
@@ -89,6 +97,7 @@ exercise a service without Flet or a real DB.
 | [VAULT_USAGE.md](VAULT_USAGE.md) | Vault API + secrets workflow |
 | [PONG_EXAMPLE.md](PONG_EXAMPLE.md) | LEGO architecture in 30 lines of code |
 | [TESTING.md](TESTING.md) | Test patterns and fixtures |
+| [DECISION_TREES.md](DECISION_TREES.md) | When to use X vs Y — 5 decision trees |
 | [DOCS_INDEX.md](DOCS_INDEX.md) | This file |
 | `superpowers/` | Plans, specs, and audit reports tracking the project's history |
 
