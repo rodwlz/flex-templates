@@ -1,6 +1,6 @@
 import uuid
 
-from lib.contracts.base import ActionRequest, ActionResult
+from lib.contracts.base import ActionRequest
 from lib.core.interfaces import StagingService
 from lib.database.session import SessionFactory
 from lib.repositories.role_repository import RoleRepository
@@ -86,3 +86,47 @@ class UserService(StagingService):
                     user.roles.append(role)
 
         return {"user_id": str(user.id), "role_count": len(user.roles)}
+
+    # ===== CONVENIENCE WRAPPERS (no ActionRequest needed) =====
+
+    def get_user(self, user_id: str | uuid.UUID) -> dict:
+        user_id_str = str(user_id)
+        return self.execute(ActionRequest(action="get", data={"id": user_id_str})).data
+
+    def list_users(self) -> list[dict]:
+        result = self.execute(ActionRequest(action="list", data={}))
+        return result.data.get("users", [])
+
+    def create_user(self, username: str, email: str, password_hash: str = "", salt: str = "") -> dict:
+        result = self.execute(ActionRequest(action="create", data={
+            "username": username,
+            "email": email,
+            "password_hash": password_hash,
+            "salt": salt,
+        }))
+        return result.data
+
+    def delete_user(self, user_id: str | uuid.UUID) -> bool:
+        user_id_str = str(user_id)
+        result = self.execute(ActionRequest(action="delete", data={"id": user_id_str}))
+        return result.success
+
+    def stage_user_with_roles(self, username: str, email: str, role_ids: list[str | uuid.UUID]) -> dict:
+        """Stage user creation with roles for preview before confirm."""
+        role_ids_str = [str(rid) for rid in role_ids]
+        result = self.execute(ActionRequest(action="stage", data={
+            "username": username,
+            "email": email,
+            "role_ids": role_ids_str,
+        }))
+        return result.data
+
+    def confirm_staged(self) -> bool:
+        """Confirm the staged user creation with roles."""
+        result = self.execute(ActionRequest(action="confirm", data={}))
+        return result.success
+
+    def cancel_staged(self) -> bool:
+        """Cancel the staged user creation."""
+        result = self.execute(ActionRequest(action="cancel", data={}))
+        return result.success

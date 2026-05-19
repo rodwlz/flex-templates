@@ -1,6 +1,6 @@
 import uuid
 
-from lib.contracts.base import ActionRequest, ActionResult
+from lib.contracts.base import ActionRequest
 from lib.core.interfaces import SimpleService
 from lib.database.session import SessionFactory
 from lib.repositories.role_repository import RoleRepository
@@ -38,3 +38,21 @@ class RoleService(SimpleService):
         if not deleted:
             raise ValueError(f"Role {data['id']} not found")
         return {"deleted": True}
+
+    # ===== CONVENIENCE WRAPPERS (no ActionRequest needed) =====
+
+    def create_role(self, name: str, description: str = "") -> dict:
+        return self.execute(ActionRequest(action="create", data={"name": name, "description": description})).data
+
+    def get_role(self, role_id: str | uuid.UUID) -> dict:
+        role_id_str = str(role_id)
+        return self.execute(ActionRequest(action="get", data={"id": role_id_str})).data
+
+    def list_roles(self) -> list[dict]:
+        result = self.execute(ActionRequest(action="list", data={}))
+        return result.data.get("roles", [])
+
+    def delete_role(self, role_id: str | uuid.UUID) -> bool:
+        role_id_str = str(role_id)
+        result = self.execute(ActionRequest(action="delete", data={"id": role_id_str}))
+        return result.success
