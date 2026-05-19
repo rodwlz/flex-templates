@@ -30,6 +30,22 @@ class UserRepository(AbstractRepository[User]):
             user.roles = [r for r in user.roles if r.id != role_id]
             return len(user.roles) < before_count  # True only if a role was actually removed
 
+    def find_for_auth(self, login: str) -> dict | None:
+        """Find user by username or email, return dict for auth (no detached ORM objects)."""
+        with self._factory.session() as s:
+            user = s.query(User).filter(User.username == login).first()
+            if user is None:
+                user = s.query(User).filter(User.email == login).first()
+            if user is None:
+                return None
+            return {
+                "id": str(user.id),
+                "username": user.username,
+                "email": user.email,
+                "password_hash": user.password_hash,
+                "roles": [r.name for r in user.roles],
+            }
+
     def list_by_role(self, role_name: str) -> list[User]:
         """List all users with a specific role."""
         with self._factory.session() as s:

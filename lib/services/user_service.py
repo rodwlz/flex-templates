@@ -5,6 +5,7 @@ from lib.core.interfaces import StagingService
 from lib.database.session import SessionFactory
 from lib.repositories.role_repository import RoleRepository
 from lib.repositories.user_repository import UserRepository
+from lib.security.password import hash_password, verify_password
 
 
 class UserService(StagingService):
@@ -49,7 +50,6 @@ class UserService(StagingService):
 
     def create(self, data: dict) -> dict:
         """Immediate create. Accepts either 'password' (plain) or 'password_hash'+'salt'."""
-        from lib.security.password import hash_password
         plain = data.get("password", "")
         if plain:
             password_hash, salt = hash_password(plain)
@@ -74,22 +74,17 @@ class UserService(StagingService):
 
     def authenticate(self, data: dict) -> dict:
         """Verify login + password. Returns user dict on success, raises ValueError on failure."""
-        from lib.security.password import verify_password
         login = data.get("username", "")
         password = data.get("password", "")
         repo = UserRepository(self._factory)
-        # Try username first, then email — same field for login
-        users = repo.list(username=login)
-        if not users:
-            users = repo.list(email=login)
-        if not users or not verify_password(password, users[0].password_hash):
+        user = repo.find_for_auth(login)
+        if user is None or not verify_password(password, user["password_hash"]):
             raise ValueError("Invalid credentials")
-        user = users[0]
         return {
-            "id": str(user.id),
-            "username": user.username,
-            "email": user.email,
-            "roles": [r.name for r in user.roles],
+            "id": user["id"],
+            "username": user["username"],
+            "email": user["email"],
+            "roles": user["roles"],
         }
 
     # ===== STAGED OPERATION (StagingService style) =====
@@ -124,10 +119,11 @@ class UserService(StagingService):
         result = self.execute(ActionRequest(action="list", data={}))
         return result.data.get("users", [])
 
-    def create_user(self, username: str, email: str, password_hash: str = "", salt: str = "") -> dict:
+    def create_user(self, username: str, email: str, password: str = "", password_hash: str = "", salt: str = "") -> dict:
         result = self.execute(ActionRequest(action="create", data={
             "username": username,
             "email": email,
+            "password": password,
             "password_hash": password_hash,
             "salt": salt,
         }))

@@ -188,3 +188,27 @@ def test_authenticate_unknown_user(db_factory):
         "username": "nobody", "password": "secret",
     }))
     assert not result.success
+
+
+def test_authenticate_by_email(db_factory):
+    from lib.services.user_service import UserService
+    from lib.contracts.base import ActionRequest
+
+    service = UserService(db_factory)
+    service.execute(ActionRequest(action="create", data={
+        "username": "authuser5", "email": "authuser5@test.com", "password": "emailpass",
+    }))
+    result = service.execute(ActionRequest(action="authenticate", data={
+        "username": "authuser5@test.com", "password": "emailpass",
+    }))
+    assert result.success
+    assert result.data["username"] == "authuser5"
+
+
+def test_authenticate_user_wrapper_raises_on_bad_creds(db_factory):
+    import pytest
+    from lib.services.user_service import UserService
+
+    service = UserService(db_factory)
+    with pytest.raises(ValueError, match="Invalid credentials"):
+        service.authenticate_user("nobody_at_all", "wrong")
