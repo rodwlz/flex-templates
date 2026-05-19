@@ -518,9 +518,10 @@ When things break, this is where you find the fix. Each error has:
 1. **Always check for None before using:**
    ```python
    from lib.repositories.user_repository import UserRepository
+   import uuid
    
    repo = UserRepository(factory)
-   user = repo.get(user_id="123")
+   user = repo.get(uuid.UUID("123e4567-e89b-12d3-a456-426614174000"))
    
    # ✓ Check first
    if user is None:
@@ -916,7 +917,7 @@ When things break, this is where you find the fix. Each error has:
    ```
 
 **How to prevent:**
-- Update the docs: [See Flet 0.84 Migration Guide](../docs/feedback_flet_84_text_kwarg.md)
+- Check your Flet version and ensure all controls use the new API (0.84+)
 - Search for `text=ft.` in your code:
   ```bash
   grep -r "text=ft\." lib/
@@ -1013,12 +1014,17 @@ When things break, this is where you find the fix. Each error has:
    page.update()
    ```
 
-2. **Or use the NavigationService:**
+2. **Or use the NavigationService (if available):**
    ```python
    from lib.services.navigation_service import NavigationService
+   from lib.contracts.base import ActionRequest
    
    nav_service = NavigationService(event_bus)
-   nav_service.go("/users")  # Handles route + update
+   # Use the execute(ActionRequest) API with action="navigate"
+   result = nav_service.execute(
+       ActionRequest(action="navigate", data={"route": "/users"})
+   )
+   page.update()  # Still need to update the page
    ```
 
 3. **Verify the view module exists and has the view() function:**
@@ -1190,16 +1196,21 @@ When things break, this is where you find the fix. Each error has:
        # Commits automatically on exit
    ```
 
-2. **Or use the Unit of Work pattern:**
+2. **Or use the Unit of Work pattern (if available):**
    ```python
-   from lib.database.uow import UnitOfWork
+   from lib.repositories.user_repository import UserRepository
    
    uow = factory.unit_of_work()
    try:
-       user = User(username="alice", email="alice@example.com")
-       uow.session.add(user)
-       uow.flush()  # Flush but don't commit yet
-       # Preview changes if needed
+       # Use repo() to get repository within transaction
+       repo = uow.repo(UserRepository)
+       user = repo.create({"username": "alice", "email": "alice@example.com"})
+       
+       # Preview changes before committing
+       diff = uow.stage()
+       print(f"Will create: {diff}")
+       
+       # Commit the transaction
        uow.commit()
    except Exception:
        uow.rollback()
@@ -1568,13 +1579,14 @@ with factory.session() as session:
 If you're testing a service, isolate it from the database:
 
 ```python
-# Mock the repository so you test service logic, not database
+# Mock the factory (UserService takes a SessionFactory, not a repo)
 from unittest.mock import Mock
 
-mock_repo = Mock()
-mock_repo.list.return_value = []  # No users exist
+mock_factory = Mock()
+# You can mock individual repo() calls if needed:
+# mock_factory.session.return_value = MockSession()
 
-service = UserService(mock_repo)
+service = UserService(mock_factory)
 
 # Now test the service without touching the database
 result = service.create({"username": "alice", "email": "alice@example.com"})
