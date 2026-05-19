@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Trees — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Decision Trees</h1>
+        <p class="breadcrumb">Builder Guides &rsaquo; Decision Trees</p>
+    </header>
+    <main>
+
+        <p>Pattern selection guide. Answers the five questions developers ask most often.</p>
+
+        <hr>
+
+        <h2>Quick Reference Table</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Question</th>
+                    <th>Answer</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Should my service extend <code>SimpleService</code> or <code>StagingService</code>?</td>
+                    <td>One-shot operations &rarr; <code>SimpleService</code>. Operations that span a transaction and benefit from a preview diff &rarr; <code>StagingService</code>.</td>
+                </tr>
+                <tr>
+                    <td>Should this endpoint be immediate, staged, or approval-required?</td>
+                    <td>No side-effects to preview &rarr; immediate. Complex transaction user should review before commit &rarr; staged. Destructive / irreversible &rarr; approval.</td>
+                </tr>
+                <tr>
+                    <td>Should I emit an <code>Event</code>?</td>
+                    <td>Other parts of the app need to react (UI, adapter, another service) &rarr; yes. Caller already holds the result and no other layer cares &rarr; no.</td>
+                </tr>
+                <tr>
+                    <td>Should I create a new service or add a method to an existing one?</td>
+                    <td>Different repository (different ORM model) &rarr; new service. Same data domain &rarr; add a method.</td>
+                </tr>
+                <tr>
+                    <td>Should this be a <code>SimpleService</code> or a custom <code>execute()</code> with <code>match</code>?</td>
+                    <td>Default &rarr; <code>SimpleService</code>. Action names collide with properties, or every branch returns custom <code>events=[...]</code> &rarr; custom <code>execute()</code>.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Jump to any section:</p>
+
+        <ul>
+            <li><a href="#tree-1">Tree 1 &mdash; SimpleService vs StagingService</a></li>
+            <li><a href="#tree-2">Tree 2 &mdash; Immediate vs Staged vs Approval endpoints</a></li>
+            <li><a href="#tree-3">Tree 3 &mdash; When to emit an Event</a></li>
+            <li><a href="#tree-4">Tree 4 &mdash; New service vs new method</a></li>
+            <li><a href="#tree-5">Tree 5 &mdash; SimpleService vs custom execute()</a></li>
+        </ul>
+
+        <hr>
+
+        <h2 id="tree-1">Tree 1 &mdash; SimpleService vs StagingService</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">Does the operation touch more than one repository table
+in a way that needs to be atomic and previewed before commit?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                             Use StagingService.
+         │                                                    Implement _stage_impl().
+         │                                                    Add stage/confirm/cancel
+         │                                                    methods automatically.
+         ▼
+Does the operation simply read or write one record / one table?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                              Use SimpleService.
+         │                                                    One public method per action.
+         │                                                    Exceptions auto-trapped.
+         ▼
+Does the operation write one record but also modify a relationship
+(many-to-many join table)?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                   Use StagingService when the
+         │                                                   user needs a preview before
+         ▼                                                   the join table is committed.
+  Use SimpleService.                                         Use SimpleService when the
+  No preview needed.                                         relationship is a detail the
+                                                            caller handles directly.</code></pre>
+        </div>
+
+        <h3>Example &mdash; SimpleService: RoleService</h3>
+
+        <p><code>Role</code> has no relationships. Every operation is one query. Use <code>SimpleService</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/role_service.py
+from lib.core.interfaces import SimpleService
+from lib.database.session import SessionFactory
+from lib.repositories.role_repository import RoleRepository
+import uuid
+
+class RoleService(SimpleService):
+    def __init__(self, factory: SessionFactory):
+        self._factory = factory
+
+    def create(self, data: dict) -> dict:
+        repo = RoleRepository(self._factory)
+        role = repo.create(data)
+        return {"id": str(role.id), "name": role.name}
+
+    def delete(self, data: dict) -> dict:
+        repo = RoleRepository(self._factory)
+        deleted = repo.delete(uuid.UUID(data["id"]))
+        if not deleted:
+            raise ValueError(f"Role {data['id']} not found")
+        return {"deleted": True}</code></pre>
+        </div>
+
+        <p><code>SimpleService</code> dispatches <code>ActionRequest.action</code> to the matching method name automatically. Raising a <code>ValueError</code> inside any method becomes <code>ActionResult(success=False, error="Role ... not found")</code> &mdash; no try/except needed.</p>
+
+        <h3>Example &mdash; StagingService: UserService</h3>
+
+        <p>Creating a <code>User</code> with roles touches two tables atomically (<code>users</code> + <code>user_roles</code>). The caller needs to see what will be written before committing. Use <code>StagingService</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/user_service.py
+from lib.core.interfaces import StagingService
+from lib.database.session import SessionFactory
+from lib.repositories.user_repository import UserRepository
+from lib.repositories.role_repository import RoleRepository
+import uuid
+
+class UserService(StagingService):
+    def __init__(self, factory: SessionFactory):
+        super().__init__(factory)
+
+    # Immediate operations still work — defined as plain methods
+    def get(self, data: dict) -> dict:
+        repo = UserRepository(self._factory)
+        user = repo.get(uuid.UUID(data["id"]))
+        if user is None:
+            raise ValueError(f"User {data['id']} not found")
+        return {"id": str(user.id), "username": user.username, "roles": [r.name for r in user.roles]}
+
+    # Staged operation — override _stage_impl, not stage()
+    def _stage_impl(self, uow, data: dict) -> dict:
+        repo = uow.repo(UserRepository)
+        role_repo = uow.repo(RoleRepository)
+        user = repo.create({"username": data["username"], "email": data["email"], "password_hash": "", "salt": ""})
+        for role_id in data.get("role_ids", []):
+            role = role_repo.get(uuid.UUID(role_id) if isinstance(role_id, str) else role_id)
+            if role:
+                user.roles.append(role)
+        return {"user_id": str(user.id), "role_count": len(user.roles)}</code></pre>
+        </div>
+
+        <p>Calling <code>service.execute(ActionRequest(action="stage", data={...}))</code> opens a unit-of-work and runs <code>_stage_impl</code>. The transaction stays open. Calling <code>confirm</code> commits; calling <code>cancel</code> rolls back.</p>
+
+        <p><strong>Rule of thumb:</strong> If you find yourself writing <code>with session:</code> and making multiple <code>repo.create()</code> calls inside a single service method, that is a staged operation.</p>
+
+        <hr>
+
+        <h2 id="tree-2">Tree 2 &mdash; Immediate vs Staged vs Approval endpoints</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">Is the HTTP operation a simple read (GET)?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                          Immediate endpoint.
+         │                                                          GET /resource/{id}
+         ▼
+Does the operation change the database in a way that could be
+previewed before commit (e.g. creates records across multiple tables)?
+         │
+        NO ───────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        YES                                                        Immediate endpoint.
+         │                                                         POST /resource
+         ▼                                                         DELETE /resource/{id}
+Is the operation destructive, irreversible, or a bulk change
+that carries significant risk if made in error?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                          Approval-required.
+         │                                                          POST /resource/action/request
+         ▼                                                          POST /resource/action/approve
+Staged endpoint.
+POST /resource/with-{detail}/stage
+POST /resource/with-{detail}/confirm
+POST /resource/with-{detail}/cancel</code></pre>
+        </div>
+
+        <h3>Example &mdash; Immediate: roles.py</h3>
+
+        <p><code>Role</code> is a simple record. No relationships, no risk of partial writes. All four endpoints are immediate.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/roles.py
+@router.post("")
+def create_role(data: dict, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="create", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+@router.delete("/{role_id}")
+def delete_role(role_id: str, service: RoleService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="delete", data={"id": role_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <h3>Example &mdash; Staged: POST /users/with-roles/stage + confirm + cancel</h3>
+
+        <p>Creating a <code>User</code> with roles must be atomic &mdash; either both the user row and the <code>user_roles</code> rows land together, or neither does. The client previews the diff before committing.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/users.py (staged section)
+@router.post("/with-roles/stage", tags=["staged"])
+def stage_user_with_roles(data: dict, service: UserService = Depends(get_service)):
+    """Stage creation of a user with roles. Returns a preview diff."""
+    result = service.execute(ActionRequest(action="stage", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+@router.post("/with-roles/confirm", tags=["staged"])
+def confirm_user_with_roles(service: UserService = Depends(get_service)):
+    """Commit the staged user-with-roles creation."""
+    result = service.execute(ActionRequest(action="confirm", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+@router.post("/with-roles/cancel", tags=["staged"])
+def cancel_user_with_roles(service: UserService = Depends(get_service)):
+    """Roll back the staged user-with-roles creation."""
+    result = service.execute(ActionRequest(action="cancel", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p>Note the service cache: <code>UserService</code> keeps the in-flight unit-of-work in <code>self._pending</code> between the <code>stage</code> and <code>confirm</code> calls. A fresh service instance per request would lose that state. Route files that use <code>StagingService</code> use a module-level <code>_service_cache</code> keyed by the factory identity.</p>
+
+        <h3>Example &mdash; Approval: POST /users/bulk-delete/request + approve</h3>
+
+        <p>Deleting many users is irreversible. The <code>requires_approval=True</code> flag on the <code>ActionRequest</code> signals to the client that an explicit confirmation step is mandatory before the data is gone.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/users.py (approval section)
+@router.post("/bulk-delete/request", tags=["approval"])
+def request_bulk_delete(data: dict, service: UserService = Depends(get_service)):
+    """Stage a bulk delete — preview only, does NOT commit."""
+    request = ActionRequest(action="stage", data=data, requires_approval=True)
+    result = service.execute(request)
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+@router.post("/bulk-delete/approve", tags=["approval"])
+def approve_bulk_delete(data: dict, service: UserService = Depends(get_service)):
+    """Approve and commit the previously staged bulk delete."""
+    result = service.execute(ActionRequest(action="confirm", data={}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data</code></pre>
+        </div>
+
+        <p><code>requires_approval=True</code> does not change how <code>StagingService</code> processes the request at the framework level &mdash; it is a signal for client code and policy layers to enforce a second explicit step before calling <code>confirm</code>.</p>
+
+        <p><strong>Endpoint naming convention:</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Operation type</th>
+                    <th>URL shape</th>
+                    <th>Tags</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Immediate</td>
+                    <td><code>POST /resource</code>, <code>GET /resource/{id}</code>, <code>DELETE /resource/{id}</code></td>
+                    <td><code>["immediate"]</code></td>
+                </tr>
+                <tr>
+                    <td>Staged</td>
+                    <td><code>POST /resource/with-{detail}/stage</code>, <code>.../confirm</code>, <code>.../cancel</code></td>
+                    <td><code>["staged"]</code></td>
+                </tr>
+                <tr>
+                    <td>Approval</td>
+                    <td><code>POST /resource/action/request</code>, <code>.../approve</code></td>
+                    <td><code>["approval"]</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2 id="tree-3">Tree 3 &mdash; When to emit an Event</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">After this operation completes, does any other part of the application
+need to react — without the caller explicitly notifying it?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                           Emit an Event.
+         │                                                    event_bus.publish(Event(
+         ▼                                                      type="entity.verb",
+Is the caller itself going to read the result from ActionResult.data           payload={...}))
+and update whatever needs updating?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                       Return ActionResult only.
+         │                                                       No event needed.
+         ▼
+Is this a side effect that could recur from many places
+(multiple services, multiple routes, multiple views)?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                           Emit an Event.
+         │                                                    Centralise the reaction in
+         ▼                                                    one subscriber rather than
+  Return ActionResult only.                                  repeating the logic everywhere.
+  Direct return is enough.</code></pre>
+        </div>
+
+        <h3>Example &mdash; Emit: NavigationService publishes nav.route_changed</h3>
+
+        <p><code>NavigationService</code> has no knowledge of Flet. When a route changes, it cannot call <code>page.go()</code> directly &mdash; that would couple the service to the UI layer. Instead it emits an event; <code>FletNavigationAdapter</code> subscribes and calls <code>page.go()</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/navigation_service.py (simplified)
+from lib.contracts.base import ActionResult, Event
+
+class NavigationService(IService):
+    def _visit(self, url: str) -> ActionResult:
+        self._history.append(url)
+        self._current = url
+        # Other parts of the app need to react — emit rather than call them directly
+        self._event_bus.publish(Event(
+            type="nav.route_changed",
+            payload={"url": url, "can_go_back": len(self._history) &gt; 1}
+        ))
+        return ActionResult(success=True, data=self._nav_state())</code></pre>
+        </div>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/ui/adapter.py — the subscriber
+class FletNavigationAdapter:
+    def __init__(self, navigation_service):
+        navigation_service._event_bus.subscribe("nav.route_changed", self._on_route_changed)
+
+    def bind_page(self, page):
+        self.page = page
+
+    def _on_route_changed(self, event: Event):
+        self.page.go(event.payload["url"])</code></pre>
+        </div>
+
+        <p><code>NavigationService</code> and <code>FletNavigationAdapter</code> are fully decoupled. Swapping the Flet UI for a web frontend means replacing only <code>FletNavigationAdapter</code>, not touching <code>NavigationService</code>.</p>
+
+        <h3>Example &mdash; No event: RoleService.delete returns ActionResult directly</h3>
+
+        <p>When a role is deleted, the caller (the API route) already has the result and displays it immediately. No other layer needs to react asynchronously. Emitting an event here would add noise with no subscriber.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/role_service.py
+def delete(self, data: dict) -> dict:
+    repo = RoleRepository(self._factory)
+    deleted = repo.delete(uuid.UUID(data["id"]))
+    if not deleted:
+        raise ValueError(f"Role {data['id']} not found")
+    # Caller holds the result. No other layer cares. No event needed.
+    return {"deleted": True}</code></pre>
+        </div>
+
+        <h3>Event naming convention</h3>
+
+        <p>Events use <code>entity.verb</code> dot-notation: <code>user.created</code>, <code>nav.route_changed</code>, <code>cache.disconnected</code>. The payload carries whatever subscribers need &mdash; the <code>id</code> of the affected record is usually enough.</p>
+
+        <hr>
+
+        <h2 id="tree-4">Tree 4 &mdash; New service vs new method</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">Does the new behaviour read from or write to a different ORM model
+than the models the existing service already uses?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                           Create a new service.
+         │                                                    lib/services/&lt;domain&gt;_service.py
+         ▼                                                    lib/repositories/&lt;model&gt;_repository.py
+Does the new behaviour belong to the same conceptual domain
+as an existing service?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                      Add a method to the
+         │                                                       existing service.
+         ▼                                                  Keep one method per action.
+  Create a new service.
+  The fact that it does not share a repository is enough
+  to justify a separate class.</code></pre>
+        </div>
+
+        <h3>Example &mdash; Add a method: UserService gains list_by_role</h3>
+
+        <p><code>list_by_role</code> queries the <code>User</code> table via <code>UserRepository</code>, which <code>UserService</code> already owns. The behaviour is still about users. Add a method.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/user_service.py — new method added
+def list_by_role(self, data: dict) -> dict:
+    """Return all users that carry a given role name."""
+    repo = UserRepository(self._factory)
+    users = repo.list_by_role(data["role_name"])
+    return {
+        "users": [{"id": str(u.id), "username": u.username} for u in users]
+    }</code></pre>
+        </div>
+
+        <p>No new file. No new class. The action is called via <code>service.execute(ActionRequest(action="list_by_role", data={"role_name": "admin"}))</code> and <code>SimpleService</code> dispatches it automatically.</p>
+
+        <h3>Example &mdash; New service: OrderService for a new Order model</h3>
+
+        <p>Orders live in an <code>orders</code> table, served by <code>OrderRepository</code>. They are a different conceptual domain from users. Create <code>OrderService</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/order_service.py — new file, new service
+from lib.core.interfaces import SimpleService
+from lib.database.session import SessionFactory
+from lib.repositories.order_repository import OrderRepository
+import uuid
+
+class OrderService(SimpleService):
+    def __init__(self, factory: SessionFactory):
+        self._factory = factory
+
+    def create(self, data: dict) -> dict:
+        repo = OrderRepository(self._factory)
+        order = repo.create(data)
+        return {"id": str(order.id), "status": order.status}
+
+    def list(self, data: dict) -> dict:
+        repo = OrderRepository(self._factory)
+        return {"orders": [{"id": str(o.id)} for o in repo.list()]}</code></pre>
+        </div>
+
+        <p>Wire it in <code>container.py</code> and drop <code>lib/api/routes/orders.py</code> &mdash; the router auto-discovers it.</p>
+
+        <h3>Boundary rules</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Indicator</th>
+                    <th>Decision</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>New ORM model (<code>lib/models/*.py</code>)</td>
+                    <td>New service + new repository</td>
+                </tr>
+                <tr>
+                    <td>New query on an existing model</td>
+                    <td>New method on existing repository</td>
+                </tr>
+                <tr>
+                    <td>New business action on existing records</td>
+                    <td>New method on existing service</td>
+                </tr>
+                <tr>
+                    <td>Business action that spans two existing models</td>
+                    <td>Decide by primary domain; the service can instantiate both repositories</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>See <a href="architecture.html">CONVENTIONS.md &sect;5</a> for the full module placement rules and <a href="architecture.html">CONVENTIONS.md &sect;6</a> for import boundaries.</p>
+
+        <hr>
+
+        <h2 id="tree-5">Tree 5 &mdash; SimpleService vs custom execute()</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">Do any of the action names you need to define collide with
+existing Python properties or attributes on the class?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                       Use custom execute() with match.
+         │                                                    SimpleService resolves action names
+         ▼                                                    via getattr — a property named
+Does every action need to return an ActionResult with              "current" would shadow the
+a custom events=[...] list rather than a plain dict?              action method.
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                       Use custom execute() with match.
+         │                                                    The dict-auto-wrap shortcut
+         ▼                                                    adds no value when every branch
+Do any actions require argument coercion or default-injection      already constructs ActionResult.
+before dispatch (e.g. int(data.get("steps", 1)))?
+         │
+        YES ──────────────────────────────────────────────────────────────────►
+         │                                                                     │
+        NO                                                       Use custom execute() with match.
+         │                                                    Coercion before dispatch is not
+         ▼                                                    expressible in a SimpleService method.
+  Use SimpleService.
+  One public method per action name. Plain dict returns.
+  Exceptions auto-trapped. This is the right choice
+  for 90 % of services.</code></pre>
+        </div>
+
+        <h3>Example &mdash; SimpleService: RoleService (default choice)</h3>
+
+        <p>No property collisions. No custom events. No argument coercion. Use <code>SimpleService</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/role_service.py
+class RoleService(SimpleService):
+    def create(self, data: dict) -> dict:
+        ...                     # return a plain dict — auto-wrapped
+    def get(self, data: dict) -> dict:
+        ...
+    def list(self, data: dict) -> dict:
+        ...
+    def delete(self, data: dict) -> dict:
+        ...</code></pre>
+        </div>
+
+        <p>Calling <code>service.execute(ActionRequest(action="list", data={}))</code> routes to <code>list()</code> automatically. No <code>execute()</code> needed.</p>
+
+        <h3>Example &mdash; Custom execute(): NavigationService</h3>
+
+        <p><code>NavigationService</code> exposes <code>nav.current</code> as a Python property (returns the current URL for direct reads). <code>SimpleService</code> resolves action names with <code>getattr</code> &mdash; <code>getattr(self, "current")</code> returns the property value (a string), not a callable, which breaks dispatch.</p>
+
+        <p>Additionally, every branch returns <code>ActionResult</code> with <code>events=[...]</code> directly, and several actions need <code>int(data.get("steps", 1))</code> coercion. All three reasons apply: use a custom <code>execute()</code>.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/navigation_service.py (simplified)
+from lib.contracts.base import ActionRequest, ActionResult, Event
+from lib.core.interfaces import IService
+
+class NavigationService(IService):
+    @property
+    def current(self) -> str:          # property — would collide with SimpleService dispatch
+        return self._current
+
+    def execute(self, request: ActionRequest) -> ActionResult:
+        match request.action:
+            case "visit":
+                return self._visit(request.data["url"])
+            case "back":
+                steps = int(request.data.get("steps", 1))   # coercion before dispatch
+                return self._back(steps)
+            case "current":
+                return ActionResult(success=True, data=self._nav_state())
+            case _:
+                return ActionResult(success=False, error=f"Unknown action: {request.action}")</code></pre>
+        </div>
+
+        <p>Do not refactor <code>NavigationService</code> or <code>VaultService</code> to <code>SimpleService</code> &mdash; they hit all three reasons above intentionally.</p>
+
+        <h3>Decision summary</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Use <code>SimpleService</code> when&hellip;</th>
+                    <th>Use custom <code>execute()</code> when&hellip;</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Each action is an independent self-contained method</td>
+                    <td>An action name collides with a class property</td>
+                </tr>
+                <tr>
+                    <td>Return values are plain dicts (auto-wrapped)</td>
+                    <td>Every branch builds <code>ActionResult</code> with custom <code>events</code></td>
+                </tr>
+                <tr>
+                    <td>No argument coercion or merging needed before dispatch</td>
+                    <td>Arguments need coercion or defaulting before dispatch</td>
+                </tr>
+                <tr>
+                    <td>~90&nbsp;% of new services</td>
+                    <td><code>NavigationService</code>, <code>VaultService</code>, and similar edge cases</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>Cross-references</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Topic</th>
+                    <th>Docs</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>SimpleService</code> and <code>StagingService</code> interfaces</td>
+                    <td><a href="architecture.html">CONVENTIONS.md &sect;4, &sect;9</a></td>
+                </tr>
+                <tr>
+                    <td>Full action reference for every built-in service</td>
+                    <td><a href="architecture.html">CONVENTIONS.md &sect;7</a></td>
+                </tr>
+                <tr>
+                    <td>Step-by-step guide for adding a new entity</td>
+                    <td><a href="template.html">API_PATTERN_TEMPLATE.md</a></td>
+                </tr>
+                <tr>
+                    <td>Live example of all three endpoint types</td>
+                    <td><code>lib/api/routes/users.py</code></td>
+                </tr>
+                <tr>
+                    <td>Live example of <code>SimpleService</code></td>
+                    <td><code>lib/services/role_service.py</code></td>
+                </tr>
+                <tr>
+                    <td>Live example of <code>StagingService</code></td>
+                    <td><code>lib/services/user_service.py</code></td>
+                </tr>
+                <tr>
+                    <td>Live example of custom <code>execute()</code></td>
+                    <td><code>lib/services/navigation_service.py</code></td>
+                </tr>
+                <tr>
+                    <td>EventBus subscribe/publish mechanics</td>
+                    <td><a href="architecture.html">ARCHITECTURE.md &mdash; EventBus section</a></td>
+                </tr>
+                <tr>
+                    <td>Import boundary rules</td>
+                    <td><a href="architecture.html">CONVENTIONS.md &sect;6</a></td>
+                </tr>
+                <tr>
+                    <td>Test patterns for each service type</td>
+                    <td><a href="template.html">TESTING.md</a></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <nav class="page-nav">
+            <div class="nav-group">
+                <button class="btn-secondary" onclick="window.location.href='index.html'">&#8592; Back to Hub</button>
+                <button class="btn-secondary" onclick="window.location.href='view-development.html'">&#8592; View Development</button>
+            </div>
+            <span class="progress">Builder Guides &middot; 3 of 3</span>
+            <div class="nav-group">
+                <button class="btn-primary" disabled>Next &#8594;</button>
+            </div>
+        </nav>
+    </main>
+    <script src="js/script.js"></script>
+</body>
+</html>
