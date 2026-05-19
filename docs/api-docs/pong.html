@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Complete Example: Pong</title>
     <link rel="stylesheet" href="css/docs.css">
+    <!-- Prism.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </head>
 <body>
     <header>
@@ -29,7 +36,9 @@
         <section>
             <h2>Step 1: Define the Contracts (The Plugs)</h2>
             <p>The contracts define what data flows in and out of the engine. Write these first.</p>
-            <pre><code class="language-python"># games/contracts.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># games/contracts.py
 
 from pydantic import BaseModel
 
@@ -48,6 +57,7 @@ class PongState(BaseModel):
     score_right: int
     game_over: bool = False
     winner: str | None = None  # "left" or "right"</code></pre>
+            </div>
             <p><strong>Why these two?</strong></p>
             <ul>
                 <li><code>PongInput</code> is the "request" — what the controller wants to happen</li>
@@ -61,7 +71,9 @@ class PongState(BaseModel):
         <section>
             <h2>Step 2: Build the Pure Engine</h2>
             <p>The engine is pure game logic. <strong>No Flet, no FastAPI, no neural nets.</strong> It only knows about <code>PongInput</code> and <code>PongState</code>.</p>
-            <pre><code class="language-python"># games/engine.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># games/engine.py
 
 from games.contracts import PongInput, PongState
 
@@ -132,6 +144,7 @@ class PongEngine:
         self.state.ball_x = CANVAS_WIDTH / 2
         self.state.ball_y = CANVAS_HEIGHT / 2
         self.state.ball_vx *= -1  # serve to other side</code></pre>
+            </div>
             <p><strong>Notice:</strong> This class has zero imports from Flet, FastAPI, or any neural network library. It only uses the contracts defined in <code>games/contracts.py</code>.</p>
         </section>
 
@@ -140,7 +153,9 @@ class PongEngine:
         <section>
             <h2>Step 3: Write the Keyboard Adapter (Flet Input)</h2>
             <p>The keyboard adapter translates Flet keyboard events into <code>PongInput</code> contracts.</p>
-            <pre><code class="language-python"># games/keyboard_adapter.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># games/keyboard_adapter.py
 
 import flet as ft
 from games.contracts import PongInput
@@ -177,6 +192,7 @@ class KeyboardAdapter:
 
         # Notify the view to re-render
         self.on_state_update(state)</code></pre>
+            </div>
             <p><strong>Key points:</strong></p>
             <ul>
                 <li><code>KeyboardAdapter</code> knows about Flet (it receives <code>ft.KeyboardEvent</code>)</li>
@@ -190,7 +206,9 @@ class KeyboardAdapter:
         <section>
             <h2>Step 4: Write the Neural Net Adapter</h2>
             <p>The neural net adapter translates model output into <code>PongInput</code> contracts.</p>
-            <pre><code class="language-python"># games/neural_adapter.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># games/neural_adapter.py
 
 from games.contracts import PongInput, PongState
 from games.engine import PongEngine
@@ -229,6 +247,7 @@ class NeuralAdapter:
             state.ball_vy / 10,
             state.paddle_y / 600,
         ]</code></pre>
+            </div>
             <p><strong>Notice:</strong> From <code>engine.step(input)</code> onward, this code is identical to the keyboard adapter. The engine doesn't know or care who is calling it.</p>
         </section>
 
@@ -237,7 +256,9 @@ class NeuralAdapter:
         <section>
             <h2>Step 5: Wrap in a Service (ActionRequest / ActionResult)</h2>
             <p>If you want to expose Pong over an API, wrap it in a service:</p>
-            <pre><code class="language-python"># games/pong_service.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># games/pong_service.py
 
 from lib.contracts.base import ActionRequest, ActionResult
 from lib.core.interfaces import IService
@@ -273,13 +294,16 @@ class PongService(IService):
     def _reset(self) -> ActionResult:
         self.engine = PongEngine()
         return ActionResult(success=True, data=self.engine.state.model_dump())</code></pre>
+            </div>
         </section>
 
         <hr>
 
         <section>
             <h2>Step 6: Expose via API Endpoint</h2>
-            <pre><code class="language-python"># api/routes/pong.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># api/routes/pong.py
 
 from fastapi import APIRouter, Depends
 from dependency_injector.wiring import inject, Provide
@@ -311,13 +335,16 @@ async def pong_reset(
     """Reset the game to initial state."""
     result = service.execute(ActionRequest(action="reset"))
     return result.data</code></pre>
+            </div>
         </section>
 
         <hr>
 
         <section>
             <h2>Step 7: Use in a Training Loop (RL Agent)</h2>
-            <pre><code class="language-python"># games/train.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># games/train.py
 
 from games.engine import PongEngine
 from games.neural_adapter import NeuralAdapter
@@ -355,6 +382,7 @@ def train(episodes: int = 1000):
 
         if episode % 100 == 0:
             print(f"Episode {episode}: total_reward={total_reward}")</code></pre>
+            </div>
             <p><strong>Notice:</strong> The training loop doesn't touch Flet at all. The engine, adapter, and training code are completely decoupled from the UI.</p>
         </section>
 
@@ -362,7 +390,9 @@ def train(episodes: int = 1000):
 
         <section>
             <h2>The Full Data Flow (Visual)</h2>
-            <pre><code class="language-python">KEYBOARD INPUT:
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">KEYBOARD INPUT:
 ─────────────────────────────────────────────────────
 Flet KeyEvent("Arrow Up")
   → KeyboardAdapter.on_key_down(e)
@@ -392,6 +422,7 @@ POST /pong/step { "action": "move_up" }
                   → PongState(...)
               → ActionResult(success=True, data={...})
           → JSON response</code></pre>
+            </div>
             <p><strong>The engine runs the same code every time.</strong> Only the source of <code>PongInput</code> changes.</p>
         </section>
 
@@ -420,7 +451,9 @@ POST /pong/step { "action": "move_up" }
 
         <section>
             <h2>Complete File Structure for Pong Demo</h2>
-            <pre><code class="language-python">games/
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python">games/
 ├── contracts.py          # PongInput, PongState
 ├── engine.py             # PongEngine (pure logic, no UI)
 ├── keyboard_adapter.py   # Flet key events → PongInput
@@ -428,6 +461,7 @@ POST /pong/step { "action": "move_up" }
 ├── pong_service.py       # ActionRequest/Result wrapper
 ├── view.py               # Flet canvas renders PongState
 └── train.py              # RL training loop</code></pre>
+            </div>
             <p>Each file does one thing. The engine is the heart. The adapters are the plugs. The view is the screen.</p>
         </section>
 
@@ -436,7 +470,9 @@ POST /pong/step { "action": "move_up" }
         <section>
             <h2>Testing Pong (No Flet Needed)</h2>
             <p>Because the engine is pure logic, you can test it without starting a Flet app:</p>
-            <pre><code class="language-python"># tests/test_pong_engine.py
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># tests/test_pong_engine.py
 
 from games.engine import PongEngine
 from games.contracts import PongInput
@@ -472,6 +508,7 @@ def test_ball_moves_each_step():
     engine.step(PongInput(action="idle"))
 
     assert engine.state.ball_x != initial_x</code></pre>
+            </div>
             <p>Fast, no UI required, no network required.</p>
         </section>
 
@@ -507,5 +544,7 @@ def test_ball_moves_each_step():
             <span class="progress">Page 3 of 3</span>
         </div>
     </nav>
+
+    <script src="js/script.js"></script>
 </body>
 </html>

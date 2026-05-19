@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Pattern Template</title>
     <link rel="stylesheet" href="css/docs.css">
+    <!-- Prism.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </head>
 <body>
     <header>
@@ -17,8 +24,11 @@
 
         <p>The Users/Roles API demonstrates a repeatable, layered pattern for adding any new entity to the system. Every entity follows the same five-layer stack:</p>
 
-        <pre><code>ORM Model → Repository → Service → Route File → Router Auto-Discovery
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code>ORM Model → Repository → Service → Route File → Router Auto-Discovery
 </code></pre>
+        </div>
 
         <p>The contracts (<code>ActionRequest</code> / <code>ActionResult</code>) are the single shared interface across all layers. A UI component, a REST client, and a CLI tool all call <code>service.execute(ActionRequest(...))</code> identically. Follow the steps below in order and you will have a working, tested entity with minimal boilerplate.</p>
 
@@ -32,7 +42,9 @@
 
         <p><strong>Simple entity (no relationships) — mirrors <code>Role</code>:</strong></p>
 
-        <pre><code class="language-python"># lib/models/product.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/models/product.py
 import uuid
 from sqlalchemy import String, Uuid, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
@@ -48,10 +60,13 @@ class Product(Base):
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="active")
 </code></pre>
+        </div>
 
         <p><strong>Entity with a many-to-many relationship — mirrors <code>User</code> ↔ <code>Role</code>:</strong></p>
 
-        <pre><code class="language-python"># lib/models/product.py  (variant with tags)
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/models/product.py  (variant with tags)
 import uuid
 from typing import TYPE_CHECKING, List
 from sqlalchemy import Column, ForeignKey, String, Uuid, Numeric, Table
@@ -84,11 +99,15 @@ class Product(Base):
         lazy="joined",
     )
 </code></pre>
+        </div>
 
         <p>After creating the model, register it so SQLAlchemy includes it in <code>Base.metadata</code>. Open <code>lib/models/__init__.py</code> and add:</p>
 
-        <pre><code class="language-python">from lib.models.product import Product  # noqa: F401
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.models.product import Product  # noqa: F401
 </code></pre>
+        </div>
 
         <hr>
 
@@ -98,7 +117,9 @@ class Product(Base):
 
         <p><strong>Minimal repository (no custom queries) — mirrors <code>RoleRepository</code>:</strong></p>
 
-        <pre><code class="language-python"># lib/repositories/product_repository.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/repositories/product_repository.py
 from lib.models.product import Product
 from lib.repositories.base import AbstractRepository
 
@@ -106,10 +127,13 @@ from lib.repositories.base import AbstractRepository
 class ProductRepository(AbstractRepository[Product]):
     model = Product
 </code></pre>
+        </div>
 
         <p><strong>Repository with custom query methods — mirrors <code>UserRepository</code>:</strong></p>
 
-        <pre><code class="language-python"># lib/repositories/product_repository.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/repositories/product_repository.py
 from lib.models.product import Product
 from lib.models.tag import Tag
 from lib.repositories.base import AbstractRepository
@@ -132,6 +156,7 @@ class ProductRepository(AbstractRepository[Product]):
         """Convenience — identical to list(status=status) but self-documenting."""
         return self.list(status=status)
 </code></pre>
+        </div>
 
         <p>The base <code>list(**filters)</code> already handles equality filters on any column: <code>repo.list(status="active")</code> works without custom code.</p>
 
@@ -162,7 +187,9 @@ class ProductRepository(AbstractRepository[Product]):
 
         <p><strong>Simple service — mirrors <code>RoleService</code>:</strong></p>
 
-        <pre><code class="language-python"># lib/services/product_service.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/product_service.py
 import uuid
 from lib.core.interfaces import SimpleService
 from lib.database.session import SessionFactory
@@ -202,10 +229,13 @@ class ProductService(SimpleService):
             raise ValueError(f"Product {data['id']} not found")
         return {"deleted": True}
 </code></pre>
+        </div>
 
         <p><strong>Staging service — mirrors <code>UserService</code> for complex operations:</strong></p>
 
-        <pre><code class="language-python"># lib/services/product_service.py  (variant with staged tag assignment)
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/services/product_service.py  (variant with staged tag assignment)
 import uuid
 from lib.core.interfaces import StagingService
 from lib.database.session import SessionFactory
@@ -271,6 +301,7 @@ class ProductService(StagingService):
 
         return {"product_id": str(product.id), "tag_count": len(product.tags)}
 </code></pre>
+        </div>
 
         <p><strong>Key rule:</strong> <code>SimpleService</code> dispatches any public method by name automatically. Define a method named <code>create</code> and calling <code>service.execute(ActionRequest(action="create", data={...}))</code> routes to it. Exceptions become <code>ActionResult(success=False, error=...)</code> automatically — you never catch them yourself unless you need to add context.</p>
 
@@ -282,7 +313,9 @@ class ProductService(StagingService):
 
         <p><strong>Simple entity routes — mirrors <code>roles.py</code>:</strong></p>
 
-        <pre><code class="language-python"># lib/api/routes/products.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/products.py
 from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from lib.contracts.base import ActionRequest
@@ -327,12 +360,15 @@ def delete_product(product_id: str, service: ProductService = Depends(get_servic
         raise HTTPException(404, detail=result.error)
     return result.data
 </code></pre>
+        </div>
 
         <p><strong>Adding staged endpoints — mirrors <code>users.py</code>:</strong></p>
 
         <p>For <code>StagingService</code>, the service instance must be reused across <code>stage</code> → <code>confirm</code> because it stores <code>_pending</code> (the open unit-of-work) between calls. Cache it by factory identity:</p>
 
-        <pre><code class="language-python"># Append to lib/api/routes/products.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Append to lib/api/routes/products.py
 _service_cache: dict[int, ProductService] = {}
 
 
@@ -370,12 +406,15 @@ def cancel_product_with_tags(service: ProductService = Depends(get_service)):
         raise HTTPException(400, detail=result.error)
     return result.data
 </code></pre>
+        </div>
 
         <p><strong>Adding approval-required endpoints — mirrors <code>users.py</code> bulk-delete:</strong></p>
 
         <p>Use <code>requires_approval=True</code> on the <code>ActionRequest</code> to signal to clients that a second explicit step is mandatory. The flag does not change service behavior by itself — the service or a policy layer checks it and decides what to allow.</p>
 
-        <pre><code class="language-python">@router.post("/bulk-archive/request")
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">@router.post("/bulk-archive/request")
 def request_bulk_archive(data: dict, service: ProductService = Depends(get_service)):
     """Stage a bulk archive. Client must call /approve to commit."""
     result = service.execute(ActionRequest(action="stage", data=data, requires_approval=True))
@@ -392,6 +431,7 @@ def approve_bulk_archive(service: ProductService = Depends(get_service)):
         raise HTTPException(400, detail=result.error)
     return result.data
 </code></pre>
+        </div>
 
         <hr>
 
@@ -399,7 +439,9 @@ def approve_bulk_archive(service: ProductService = Depends(get_service)):
 
         <p>Nothing. Drop <code>lib/api/routes/products.py</code> with a <code>router = APIRouter(...)</code> and <code>mount_routes()</code> in <code>lib/api/router_registry.py</code> picks it up automatically:</p>
 
-        <pre><code class="language-python"># lib/api/router_registry.py  — nothing to change
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/router_registry.py  — nothing to change
 def mount_routes(app: FastAPI, package: str = "lib.api.routes") -> None:
     mod = importlib.import_module(package)
     for _, name, _ in pkgutil.iter_modules(mod.__path__):
@@ -407,6 +449,7 @@ def mount_routes(app: FastAPI, package: str = "lib.api.routes") -> None:
         if hasattr(sub, "router"):
             app.include_router(sub.router)
 </code></pre>
+        </div>
 
         <p>Verify: start the server and visit <code>http://localhost:8080/docs</code> — your new routes appear automatically under the <code>products</code> tag.</p>
 
@@ -416,7 +459,9 @@ def mount_routes(app: FastAPI, package: str = "lib.api.routes") -> None:
 
         <p><strong>Repository tests — mirrors <code>test_repositories.py</code>:</strong></p>
 
-        <pre><code class="language-python"># tests/test_product_repository.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># tests/test_product_repository.py
 import uuid
 import pytest
 from lib.repositories.product_repository import ProductRepository
@@ -467,10 +512,13 @@ def test_delete_nonexistent_product(db_factory):
     repo = ProductRepository(db_factory)
     assert repo.delete(uuid.uuid4()) is False
 </code></pre>
+        </div>
 
         <p><strong>Service tests — mirrors <code>test_services.py</code>:</strong></p>
 
-        <pre><code class="language-python"># tests/test_product_service.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># tests/test_product_service.py
 from lib.contracts.base import ActionRequest
 from lib.services.product_service import ProductService
 
@@ -552,10 +600,13 @@ def test_product_service_stage_cancel(db_factory):
     listed = service.execute(ActionRequest(action="list", data={}))
     assert len(listed.data["products"]) == 0
 </code></pre>
+        </div>
 
         <p><strong>API integration tests — mirrors <code>test_api.py</code>:</strong></p>
 
-        <pre><code class="language-python"># tests/test_product_api.py
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># tests/test_product_api.py
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -626,6 +677,7 @@ def test_delete_product(api_client):
     assert response.status_code == 200
     assert response.json()["deleted"] is True
 </code></pre>
+        </div>
 
         <p>The <code>db_factory</code> fixture is already defined in <code>tests/conftest.py</code> — every test that takes <code>db_factory</code> as a parameter gets a fresh in-memory SQLite database automatically.</p>
 
@@ -647,10 +699,13 @@ def test_delete_product(api_client):
 
         <p>Business logic lives in services. Repositories do not validate; services do not open sessions directly. This split keeps each layer narrow:</p>
 
-        <pre><code>Route handler  →  ActionRequest
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code>Route handler  →  ActionRequest
 Service        →  validates, orchestrates, returns dict
 Repository     →  SQL queries, returns ORM objects
 </code></pre>
+        </div>
 
         <h3>4. Three Operation Types</h3>
 
@@ -732,5 +787,7 @@ Repository     →  SQL queries, returns ORM objects
             <span class="progress">Page 2 of 3</span>
         </div>
     </nav>
+
+    <script src="js/script.js"></script>
 </body>
 </html>
