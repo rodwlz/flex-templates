@@ -1,10 +1,16 @@
 from typing import TypeVar, Generic
+from sqlalchemy import inspect as sa_inspect
 from lib.core.interfaces import IRepository
 from lib.database.session import SessionFactory
 
 T = TypeVar("T")
 
 _FILTER_OPS = frozenset({"like", "gte", "lte", "gt", "lt", "in", "ne"})
+
+
+def _obj_to_dict(obj) -> dict:
+    insp = sa_inspect(obj)
+    return {c.key: getattr(obj, c.key) for c in insp.mapper.column_attrs}
 
 
 class AbstractRepository(IRepository, Generic[T]):
@@ -54,7 +60,7 @@ class AbstractRepository(IRepository, Generic[T]):
 
         Returns:
             {
-                "items":     list of ORM objects for this page,
+                "items":     list of column-attribute dicts for this page,
                 "total":     total matching rows (ignoring pagination),
                 "page":      current page number (1-based),
                 "page_size": rows per page,
@@ -66,7 +72,8 @@ class AbstractRepository(IRepository, Generic[T]):
             for k, v in filters.items():
                 q = q.filter(getattr(self.model, k) == v)
             total = q.count()
-            items = q.offset((page - 1) * page_size).limit(page_size).all()
+            rows = q.offset((page - 1) * page_size).limit(page_size).all()
+            items = [_obj_to_dict(r) for r in rows]
             return {
                 "items": items,
                 "total": total,
@@ -118,4 +125,4 @@ class AbstractRepository(IRepository, Generic[T]):
                         q = q.filter(col != value)
                 else:
                     q = q.filter(getattr(self.model, spec) == value)
-            return q.all()
+            return [_obj_to_dict(r) for r in q.all()]

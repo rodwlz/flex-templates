@@ -1,10 +1,25 @@
 import os
+import sys
+import warnings
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 from jose import JWTError  # noqa: F401 — re-exported so callers only import from here
 
-_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
+_DEV_SECRET = "dev-secret-change-in-production"
+_SECRET_KEY = os.getenv("JWT_SECRET_KEY", _DEV_SECRET)
+
+if _SECRET_KEY == _DEV_SECRET:
+    _msg = (
+        "JWT_SECRET_KEY is using the insecure default dev secret. "
+        "Set JWT_SECRET_KEY in your environment or .env before deploying."
+    )
+    if os.getenv("API_ONLY", "").lower() in ("1", "true", "yes"):
+        # Hard fail in headless/production mode — forgeable tokens are critical
+        print(f"ERROR: {_msg}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        warnings.warn(_msg, stacklevel=2)
 _ALGORITHM = "HS256"
 _EXPIRE_MINUTES = 60
 

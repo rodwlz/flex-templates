@@ -157,7 +157,7 @@ def test_paginate_with_filter(repo):
     repo.create({"name": "pgactive2", "species": "suspended"})
     result = repo.paginate(page=1, page_size=10, species="active")
     assert result["total"] == 1
-    assert result["items"][0].name == "pgactive1"
+    assert result["items"][0]["name"] == "pgactive1"
 
 
 # ── filter_by() ───────────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ def test_filter_by_exact_match(db_factory):
                  "password_hash": "", "salt": ""})
     results = repo.filter_by(username="fb_alice")
     assert len(results) == 1
-    assert results[0].username == "fb_alice"
+    assert results[0]["username"] == "fb_alice"
 
 
 def test_filter_by_like(db_factory):
@@ -183,7 +183,7 @@ def test_filter_by_like(db_factory):
                  "password_hash": "", "salt": ""})
     results = repo.filter_by(username__like="fb_c%")
     assert len(results) == 1
-    assert results[0].username == "fb_carol"
+    assert results[0]["username"] == "fb_carol"
 
 
 def test_filter_by_in(db_factory):
@@ -205,7 +205,7 @@ def test_filter_by_ne(db_factory):
     repo.create({"username": "fb_henry", "email": "fb_henry@test.com",
                  "password_hash": "", "salt": "", "status": "suspended"})
     results = repo.filter_by(status__ne="suspended")
-    usernames = [u.username for u in results]
+    usernames = [u["username"] for u in results]
     assert "fb_grace" in usernames
     assert "fb_henry" not in usernames
 
