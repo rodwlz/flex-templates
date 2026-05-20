@@ -11,7 +11,14 @@ def get_current_user(token: str = Depends(_oauth2_scheme)) -> dict:
     """FastAPI dependency: decode Bearer JWT, return {"id": ..., "roles": [...]}."""
     try:
         payload = decode_token(token)
-        return {"id": payload["sub"], "roles": payload.get("roles", [])}
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token: missing subject",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return {"id": user_id, "roles": payload.get("roles", [])}
     except JWTError:
         raise HTTPException(
             status_code=401,
@@ -28,6 +35,9 @@ def require_roles(*role_names: str):
         def admin_page(user=Depends(require_roles("admin", "superadmin"))):
             ...
     """
+    if not role_names:
+        raise ValueError("require_roles() requires at least one role name")
+
     def _check(user: dict = Depends(get_current_user)) -> dict:
         if not set(role_names).intersection(user.get("roles", [])):
             raise HTTPException(

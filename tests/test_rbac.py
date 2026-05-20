@@ -1,5 +1,4 @@
 # tests/test_rbac.py
-import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -62,3 +61,13 @@ def test_require_roles_accepts_any_of_multiple():
     token = create_token({"sub": "uid-4", "roles": ["admin"]})
     resp = TestClient(app).get("/protected", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
+
+
+def test_get_current_user_token_missing_sub_returns_401():
+    from lib.auth.jwt_handler import create_token
+    from lib.auth.dependencies import get_current_user
+    app = _app_with(get_current_user)
+    # A valid signed token that has no 'sub' claim
+    token = create_token({"roles": ["admin"]})  # no 'sub'
+    resp = TestClient(app).get("/protected", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 401
