@@ -83,3 +83,16 @@ def test_appconfig_databases_field_is_dict(clean_env):
     """AppConfig.databases field should be a dict type."""
     config = AppConfig()
     assert isinstance(config.databases, dict)
+
+
+def test_api_only_defaults_to_false():
+    from lib.config.settings import AppConfig
+    config = AppConfig()
+    assert config.api_only is False
+
+
+def test_api_only_reads_from_env(monkeypatch):
+    monkeypatch.setenv("API_ONLY", "true")
+    from lib.config.settings import AppConfig
+    config = AppConfig()
+    assert config.api_only is True

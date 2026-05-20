@@ -177,7 +177,15 @@ def main():
         router.route_change(page)
 
     try:
-        ft.run(main=flet_main)
+        if config.api_only:
+            import signal, threading
+            _stop = threading.Event()
+            signal.signal(signal.SIGTERM, lambda *_: _stop.set())
+            signal.signal(signal.SIGINT, lambda *_: _stop.set())
+            print(f"API-only mode — http://{config.api_host}:{config.api_port}")
+            _stop.wait()
+        else:
+            ft.run(main=flet_main)
     finally:
         server.stop()
         scheduler.stop()

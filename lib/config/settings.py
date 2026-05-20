@@ -36,6 +36,9 @@ class AppConfig(BaseSettings):
     app_title: str = "FlexTemplates"
     debug: bool = False
 
+    # ── Deployment ─────────────────────────────────────────────────────────
+    api_only: bool = False  # Set API_ONLY=true in Docker to skip Flet UI
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
