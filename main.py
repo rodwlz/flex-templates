@@ -22,6 +22,7 @@ from lib.repositories.user_repository import UserRepository
 from lib.api.server import BackendServer
 from lib.api.router_registry import mount_routes
 from lib.middleware.logging import setup_logging, log_requests
+from lib.tasks.scheduler import TaskScheduler
 
 
 # Vault key prefix → adapter builder. Adding a new cache type means adding one
@@ -153,6 +154,12 @@ def main():
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
     server.start()
 
+    # ── Background task scheduler ──────────────────────────────────────────
+    # Jobs run in daemon threads. Add recurring jobs before scheduler.start().
+    scheduler = TaskScheduler()
+    # scheduler.add_job(some_cleanup_func, "interval", hours=24)
+    scheduler.start()
+
     def flet_main(page: ft.Page):
         page.title = config.app_title
         page.theme_mode = ft.ThemeMode.DARK
@@ -173,6 +180,7 @@ def main():
         ft.run(main=flet_main)
     finally:
         server.stop()
+        scheduler.stop()
 
 
 if __name__ == "__main__":

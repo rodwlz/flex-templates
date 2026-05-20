@@ -21,6 +21,7 @@ dependencies = [
     "bcrypt>=4.0",
     "python-jose[cryptography]>=3.3",
     "python-multipart>=0.0.12",
+    "apscheduler>=3.10",
 ]
 
 # Development extras — install with: pip install -e ".[dev]"
