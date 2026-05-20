@@ -28,11 +28,12 @@ from lib.ui.components.side_bar import SideBar
 
 
 SIDEBAR_ITEMS = [
-    ("Home", "/"),
-    ("Login", "/login"),
+    ("Home",     "/"),
+    ("Login",    "/login"),
     ("Products", "/products"),
+    ("Manage",   "/manage/users"),
     ("Security", "/security"),
-    ("Admin", "/admin/databases"),
+    ("Admin",    "/admin/databases"),
 ]
 
 

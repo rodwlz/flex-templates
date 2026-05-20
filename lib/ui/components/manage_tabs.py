@@ -1,4 +1,4 @@
-"""Admin section sub-navigation — pill-style tabs that highlight the active route."""
+"""Manage section sub-navigation — pill-style tabs for /manage/ views."""
 from __future__ import annotations
 
 import flet as ft
@@ -6,25 +6,22 @@ import flet as ft
 from lib.contracts.base import ActionRequest
 
 
-# Tabs available in the admin section: (label, route, icon).
-ADMIN_TABS: list[tuple[str, str, str]] = [
-    ("Databases", "/admin/databases", ft.Icons.STORAGE),
-    ("Caches",    "/admin/caches",    ft.Icons.BOLT),
-    ("Scheduler", "/admin/scheduler", ft.Icons.SCHEDULE),
+MANAGE_TABS: list[tuple[str, str, str]] = [
+    ("Users", "/manage/users", ft.Icons.PEOPLE),
+    ("Roles", "/manage/roles", ft.Icons.VERIFIED_USER),
 ]
 
 
-class AdminTabs(ft.Container):
-    """Horizontal pill bar that links between admin views.
+class ManageTabs(ft.Container):
+    """Horizontal pill bar linking between /manage/ views.
 
-    Highlights the tab matching *current_route*. Click navigates via
-    NavigationService so history/back-button stay consistent.
+    Highlights the tab matching *current_route*.
     """
 
     def __init__(self, current_route: str, nav_service):
         pills = [
             self._pill(label, route, icon, current_route, nav_service)
-            for label, route, icon in ADMIN_TABS
+            for label, route, icon in MANAGE_TABS
         ]
         super().__init__(
             content=ft.Row(pills, spacing=8),
