@@ -1,6 +1,5 @@
 """Security view — password manager for encrypted vault."""
 import flet as ft
-from lib.ui.layouts.base_view import BaseView
 from lib.ui.layouts.protected_view import ProtectedView
 from lib.ui.components.copy_button import CopyButton
 from lib.contracts.base import ActionRequest

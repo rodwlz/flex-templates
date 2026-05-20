@@ -10,7 +10,6 @@ from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
 from lib.ui.components.admin_tabs import AdminTabs
 from lib.ui.components.status_card import StatusCard
-from lib.ui.layouts.base_view import BaseView
 from lib.ui.layouts.protected_view import ProtectedView
 
 
