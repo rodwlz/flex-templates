@@ -16,35 +16,83 @@ You will break things. That's fine. The tests are here to tell you *what* you br
 
 ## Run the tests
 
-**Windows:** Double-click `test.bat`.
-
-**Any platform** (Windows / macOS / Linux), from the terminal:
-
 ```bash
-python run_test.py
+pytest tests/ -v
 ```
 
-Pass any pytest flag through:
+Pass any pytest flag:
 
 ```bash
-python run_test.py -v                       # verbose, one line per test
-python run_test.py -x                       # stop at first failure
-python run_test.py tests/test_router.py     # only one file
-python run_test.py -k "back_button"         # only tests matching "back_button"
+pytest tests/ -v                            # verbose, one line per test
+pytest tests/ -x                            # stop at first failure
+pytest tests/test_router.py                 # only one file
+pytest tests/ -k "back_button"             # only tests matching "back_button"
+pytest tests/ --tb=short -q               # quiet with short tracebacks
 ```
 
 ---
 
 ## What gets tested
 
+### Core framework
+
 | File | What it checks |
 | --- | --- |
 | `test_contracts.py` | `ActionRequest` / `ActionResult` / `Event` shapes are stable |
 | `test_event_bus.py` | Subscribe / publish / unsubscribe wiring |
+| `test_interfaces.py` | `SimpleService` dispatch, exception wrapping, `StagingService` flows |
 | `test_navigation_service.py` | Browser-like history (visit, back, forward) |
 | `test_router.py` | URL resolution, named routes, query strings, caching |
 | `test_base_view.py` | Layout toggles, swappable parts, typed params |
-| `test_smoke.py` | "Does the whole app even boot?" — runs after every change |
+| `test_smoke.py` | "Does the whole app even boot?" — imports every new module |
+
+### Data layer
+
+| File | What it checks |
+| --- | --- |
+| `test_session.py` | `SessionFactory.session()` commit / rollback semantics |
+| `test_repository_base.py` | `AbstractRepository[T]` CRUD + `paginate()` + `filter_by()` |
+| `test_repositories.py` | `UserRepository` with real ORM model |
+| `test_uow.py` | `UnitOfWork` stage / preview / commit / rollback |
+
+### Services
+
+| File | What it checks |
+| --- | --- |
+| `test_services.py` | `UserService` create, get, list, delete, authenticate |
+| `test_vault_service.py` | Vault unlock / get / set / save / lock round-trip |
+| `test_settings.py` | `AppConfig` env-var loading, `api_only` flag |
+
+### Auth & security
+
+| File | What it checks |
+| --- | --- |
+| `test_password.py` | bcrypt `hash_password` / `verify_password` |
+| `test_jwt.py` | JWT create / decode / expiry / invalid-token errors |
+| `test_auth_api.py` | `POST /auth/login` happy path and failure cases |
+| `test_rbac.py` | `get_current_user`, `require_roles`, 401/403 responses |
+
+### API routes
+
+| File | What it checks |
+| --- | --- |
+| `test_api.py` | User and role CRUD endpoints, UUID path params, 404s |
+| `test_api_routes.py` | Role CRUD, user/role association, staged operations |
+| `test_mount_service.py` | `mount_service()` auto-generates routes from `SimpleService` |
+
+### Repository extensions
+
+| File | What it checks |
+| --- | --- |
+| `test_repository_base.py` | `paginate()` page/size/total + `filter_by()` Django-style ops |
+
+### Infrastructure
+
+| File | What it checks |
+| --- | --- |
+| `test_logging_middleware.py` | `JsonFormatter`, `log_requests` HTTP middleware |
+| `test_scheduler.py` | `TaskScheduler` add/start/stop lifecycle |
+| `test_cli_vault.py` | `flex-encrypt` / `flex-decrypt` vault round-trips |
 
 ---
 

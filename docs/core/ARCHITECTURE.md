@@ -48,11 +48,15 @@ main.py            ← wires everything (the only file that names concrete types
   ├── services/    ← Business logic (NavigationService, VaultService, ...)
   ├── adapters/    ← Non-SQL backends (RedisAdapter, FileAdapter)
   │
+  ├── auth/        ← JWT handler + RBAC dependencies (get_current_user, require_roles)
+  ├── middleware/  ← JSON logging middleware + setup_logging()
+  ├── tasks/       ← APScheduler wrapper (TaskScheduler)
+  │
   ├── repositories/← CRUD on ORM models (UserRepository : AbstractRepository[User])
   ├── models/      ← SQLAlchemy ORM tables
   ├── database/    ← SessionFactory, ConnectionRegistry, UnitOfWork
-  ├── security/    ← Vault (encrypted secrets store)
-  ├── config/      ← AppConfig (pydantic-settings, reads .env)
+  ├── security/    ← Vault (encrypted secrets store) + bcrypt password helpers
+  ├── config/      ← AppConfig (pydantic-settings, reads .env) + vault CLI
   │
   ├── core/        ← IService, SimpleService, StagingService, EventBus
   └── contracts/   ← ActionRequest, ActionResult, Event (pure Pydantic)
@@ -234,7 +238,10 @@ view both call the same `CacheTester` — that's the contract paying off.
 | Know the naming / structure / import rules | [CONVENTIONS.md](CONVENTIONS.md) |
 | Add a new SQL DB / cache / view / service | [ADDING_STUFF.md](../guides/ADDING_STUFF.md) |
 | Use the snap-in API (`self.nav`, `self.vault`, `self.events`) | [WRAPPERS.md](../guides/WRAPPERS.md) |
+| Protect API routes with JWT / RBAC | [API_DEVELOPMENT.md — Auth & RBAC](../guides/API_DEVELOPMENT.md) |
+| Paginate and filter repository results | [API_DEVELOPMENT.md — Pagination](../guides/API_DEVELOPMENT.md) |
 | Manage secrets | [VAULT_USAGE.md](../reference/VAULT_USAGE.md) |
+| Deploy with Docker / API-only mode | [ONBOARDING_DEPLOYMENT.md](../guides/ONBOARDING_DEPLOYMENT.md) |
 | See a complete worked example | [PONG_EXAMPLE.md](../examples/PONG_EXAMPLE.md) |
 | Get the project booting locally | [QUICKSTART.md](../guides/QUICKSTART.md) |
 | Write tests | [TESTING.md](../reference/TESTING.md) |
@@ -270,7 +277,14 @@ view both call the same `CacheTester` — that's the contract paying off.
 | `lib/api/router_registry.py` | Auto-discovers `lib/api/routes/` modules |
 | `lib/api/mount_service.py` | Auto-generates POST routes from a `SimpleService` |
 | `lib/api/routes/users.py` | Manual REST endpoints for `User` |
+| `lib/api/routes/auth.py` | `POST /auth/login` — OAuth2 password flow, returns Bearer JWT |
 | `lib/api/routes/caches.py` | Cache adapter HTTP routes |
+| `lib/auth/jwt_handler.py` | `create_token()` / `decode_token()` — HS256 JWT (python-jose) |
+| `lib/auth/dependencies.py` | `get_current_user` + `require_roles(*roles)` FastAPI deps |
+| `lib/middleware/logging.py` | `JsonFormatter`, `setup_logging()`, `log_requests` middleware |
+| `lib/tasks/scheduler.py` | `TaskScheduler` — APScheduler wrapper with start/stop lifecycle |
+| `lib/security/password.py` | `hash_password()` / `verify_password()` — bcrypt helpers |
+| `lib/config/cli.py` | `flex-encrypt` / `flex-decrypt` entry points for vault management |
 | `lib/ui/router.py` | `FletRouter` (URL → view) |
 | `lib/ui/adapter.py` | `FletNavigationAdapter` (binds NavigationService → page) |
 | `lib/ui/error_adapter.py` | `FletErrorAdapter` (snackbar / fatal dialog) |
@@ -286,8 +300,8 @@ view both call the same `CacheTester` — that's the contract paying off.
 
 ## Testing
 
-All 285 tests run on in-memory SQLite and a `FakePage` stand-in for `ft.Page`,
-so the suite has no external dependencies and finishes in ~1.2 seconds.
+All 373 tests run on in-memory SQLite and a `FakePage` stand-in for `ft.Page`,
+so the suite has no external dependencies and finishes in ~10 seconds.
 
 Tests double as runnable specifications. A few that are worth reading as docs:
 

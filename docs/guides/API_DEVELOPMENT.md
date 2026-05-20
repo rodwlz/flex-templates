@@ -872,6 +872,165 @@ def test_approval_required_request_then_approve(api_client):
 
 ---
 
+## Protecting Endpoints — JWT Auth & RBAC
+
+Endpoints that require authentication use two FastAPI dependencies from
+`lib/auth/dependencies.py`:
+
+- `get_current_user` — validates the Bearer token and returns `{"id": ..., "roles": [...]}`.
+- `require_roles(*role_names)` — calls `get_current_user` first, then checks that the
+  user has at least one of the named roles; returns 403 otherwise.
+
+### Login
+
+The login endpoint follows the OAuth2 password flow — it accepts **form data**
+(not JSON), because `OAuth2PasswordBearer` is wired with `tokenUrl="/auth/login"`:
+
+```python
+# lib/api/routes/auth.py  — already included in auto-discovery
+POST /auth/login
+Content-Type: application/x-www-form-urlencoded
+
+username=alice&password=s3cr3t
+
+→ {"access_token": "<jwt>", "token_type": "bearer"}
+```
+
+### Authenticated endpoint (any logged-in user)
+
+```python
+from fastapi import APIRouter, Depends
+from lib.auth.dependencies import get_current_user
+
+router = APIRouter(prefix="/profile", tags=["profile"])
+
+@router.get("")
+def get_profile(user: dict = Depends(get_current_user)):
+    return {"id": user["id"], "roles": user["roles"]}
+```
+
+### Role-restricted endpoint
+
+```python
+from fastapi import APIRouter, Depends
+from lib.auth.dependencies import require_roles
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+@router.delete("/users/{user_id}")
+def admin_delete_user(
+    user_id: str,
+    user: dict = Depends(require_roles("admin")),   # 403 if not admin
+):
+    ...
+```
+
+`require_roles` accepts any number of role names — the user must hold **at least one**:
+
+```python
+Depends(require_roles("admin", "moderator"))  # either role is enough
+```
+
+### Setting `JWT_SECRET_KEY`
+
+Add to `.env` (or set the environment variable before starting):
+
+```
+JWT_SECRET_KEY=<generate with: python -c "from jose import jwt; import secrets; print(secrets.token_urlsafe(32))">
+```
+
+The server will warn at startup (and exit in API-only / Docker mode) if the
+default dev secret is still in place. Never deploy without setting this.
+
+### Testing authenticated routes
+
+```python
+from lib.auth.jwt_handler import create_token
+
+def test_admin_endpoint_requires_role(api_client):
+    admin_token = create_token({"sub": "user-id-1", "roles": ["admin"]})
+    user_token  = create_token({"sub": "user-id-2", "roles": []})
+
+    # Admin access — 200
+    resp = api_client.delete(
+        "/admin/users/user-id-1",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+    # No role — 403
+    resp = api_client.delete(
+        "/admin/users/user-id-1",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 403
+
+    # No token — 401
+    resp = api_client.delete("/admin/users/user-id-1")
+    assert resp.status_code == 401
+```
+
+---
+
+## Pagination and Rich Filtering
+
+`AbstractRepository` now ships two methods beyond the basic `list()`:
+
+### `paginate()` — page-based result sets
+
+```python
+repo = UserRepository(factory)
+result = repo.paginate(page=2, page_size=10, status="active")
+# result = {
+#   "items":     [{"id": "...", "username": "...", ...}, ...],  # dicts, not ORM objects
+#   "total":     42,
+#   "page":      2,
+#   "page_size": 10,
+#   "pages":     5,
+# }
+```
+
+Wire it into an endpoint with query parameters:
+
+```python
+@router.get("")
+def list_users(
+    page: int = 1,
+    page_size: int = 20,
+    service: UserService = Depends(get_service),
+):
+    result = service.execute(ActionRequest(
+        action="list",
+        data={"page": page, "page_size": page_size},
+    ))
+    return result.data   # {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": M}
+```
+
+### `filter_by()` — Django-style operators
+
+```python
+# Exact match
+repo.filter_by(status="active")
+
+# LIKE
+repo.filter_by(username__like="ali%")
+
+# Range
+repo.filter_by(score__gte=80, score__lte=100)
+
+# IN list
+repo.filter_by(role__in=["admin", "editor"])
+
+# Not-equal
+repo.filter_by(status__ne="banned")
+```
+
+Supported suffixes: `like`, `gte`, `lte`, `gt`, `lt`, `in`, `ne`.
+Unknown suffix raises `ValueError` immediately (not at query time).
+Items are returned as plain dicts — no DetachedInstanceError risk.
+
+---
+
 ## Auto-Discovery
 
 Drop a route file in `lib/api/routes/` with a module-level `router` variable and
