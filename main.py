@@ -25,6 +25,7 @@ from lib.middleware.logging import setup_logging, log_requests
 from lib.tasks.scheduler import TaskScheduler
 from lib.adapters.backend_adapter import ServiceBackendAdapter
 from lib.services.user_service import UserService
+from lib.database.base import Base
 
 
 # Vault key prefix → adapter builder. Adding a new cache type means adding one
@@ -102,9 +103,49 @@ def main():
     router.register("/admin/scheduler", "lib.views.admin.scheduler")
 
     vault = Vault(vault_service)
+
+    # ── Background task scheduler ──────────────────────────────────────────
+    # Jobs run in daemon threads. Add recurring jobs before scheduler.start().
+    scheduler = TaskScheduler()
+    # scheduler.add_job(some_cleanup_func, "interval", hours=24)
+    scheduler.start()
+
+    # ── Backend adapter — mutable so vault unlock can re-wire to a real DB ──
+    # _ctx holds live references that closures below can rebind after vault unlock.
+    _ctx: dict = {}
+
+    def _make_backend(factory):
+        return ServiceBackendAdapter(
+            factory=factory,
+            user_service=UserService(factory),
+            scheduler=scheduler,
+        )
+
+    _startup_error: str | None = None
+    user_repo = None
+    try:
+        _primary_factory = ConnectionRegistry.get(config.primary_database)
+        user_repo = UserRepository(_primary_factory)
+        _ctx["backend"] = _make_backend(_primary_factory)
+    except RuntimeError:
+        # primary DB not yet registered — fall back to local SQLite
+        _sqlite_factory = SessionFactory("sqlite:///./dev.db")
+        # Run outstanding Alembic migrations; fall back to create_tables if Alembic fails.
+        try:
+            from alembic.config import Config as AlembicConfig
+            from alembic import command as alembic_cmd
+            alembic_cmd.upgrade(AlembicConfig("alembic.ini"), "head")
+        except Exception as _alembic_err:
+            print(f"Warning: Alembic failed, using create_tables: {_alembic_err}")
+            _sqlite_factory.create_tables(Base)
+        _ctx["backend"] = _make_backend(_sqlite_factory)
+    except Exception as exc:
+        _startup_error = str(exc)
+        _ctx["backend"] = None
+
     # Vault starts LOCKED. SecurityView unlocks it; vault.unlocked event wires connections.
     def _on_vault_unlocked(_event):
-        """Re-register vault-sourced DB and cache connections after user unlocks vault."""
+        """Re-register vault-sourced DB/cache connections; re-wire backend if primary DB arrives."""
         for key in vault.keys():
             if key.startswith("DATABASE_"):
                 db_name = key[len("DATABASE_"):].lower()
@@ -113,6 +154,13 @@ def main():
                 except Exception as e:
                     print(f"Warning: vault DB '{db_name}': {e}")
         _register_caches_from_vault(vault)
+        # If the primary DB just became available (e.g. DATABASE_POSTGRES in vault),
+        # replace the SQLite backend adapter with the real one — no restart needed.
+        try:
+            pf = ConnectionRegistry.get(config.primary_database)
+            _ctx["backend"] = _make_backend(pf)
+        except RuntimeError:
+            pass
 
     event_bus.subscribe("vault.unlocked", _on_vault_unlocked)
 
@@ -125,33 +173,6 @@ def main():
     mount_routes(api_app)
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
     server.start()
-
-    # ── Background task scheduler ──────────────────────────────────────────
-    # Jobs run in daemon threads. Add recurring jobs before scheduler.start().
-    scheduler = TaskScheduler()
-    # scheduler.add_job(some_cleanup_func, "interval", hours=24)
-    scheduler.start()
-
-    # ── Database setup — failures here degrade gracefully (app still opens).
-    _startup_error: str | None = None
-    user_repo = None
-    try:
-        db_url = config.postgres_url or vault.get("POSTGRES_URL", config.database_url)
-        ConnectionRegistry.register(url=db_url, name="postgres")
-        user_repo = UserRepository(ConnectionRegistry.get("postgres"))
-    except Exception as exc:
-        _startup_error = str(exc)
-
-    # ── Backend service adapter (must be initialized before props_factory) ──
-    try:
-        _backend_factory = ConnectionRegistry.get("postgres")
-    except RuntimeError:
-        _backend_factory = SessionFactory("sqlite:///./dev.db")
-    backend = ServiceBackendAdapter(
-        factory=_backend_factory,
-        user_service=UserService(_backend_factory),
-        scheduler=scheduler,
-    )
 
     router.set_props_factory(lambda: {
         # ── Simple snap-in API (use these in your views and services) ──────
@@ -167,7 +188,7 @@ def main():
         "config":            config,
         "connection_tester": connection_tester,
         "cache_tester":      cache_tester,
-        "backend":           backend,
+        "backend":           _ctx.get("backend"),
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })

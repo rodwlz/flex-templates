@@ -71,10 +71,11 @@ implementations. Everything else depends on interfaces.
 ## Top 5 Conventions That Surprise People
 
 - **Vault key names mechanically derive registry names — never choose them by hand.**
-  `POSTGRES_URL` is the *only* special case (maps to `"postgres"`); every other
-  SQL DB must be `DATABASE_<NAME>` and cache services follow `SERVICE_URL[_<ID>]`.
-  Uppercase in the vault, lowercase in the registry. Pick the wrong key and the
-  connection silently never registers at startup.
+  All SQL databases use `DATABASE_<NAME>` (e.g. `DATABASE_POSTGRES` → `"postgres"`,
+  `DATABASE_ANALYTICS` → `"analytics"`). Cache services follow `SERVICE_URL[_<ID>]`.
+  Uppercase in the vault, lowercase in the registry. `PRIMARY_DATABASE` env var names
+  which registered DB the backend adapter targets (default `"postgres"`). Pick the
+  wrong key and the connection silently never registers at startup.
 
 - **Views must not import services — services arrive via the `props` dict.**
   Doing `from lib.services.user_service import UserService` in a view is a

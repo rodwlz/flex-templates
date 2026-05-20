@@ -22,8 +22,7 @@ Keys follow a fixed pattern so startup can auto-register connections without cod
 
 | Pattern | Registers as | Example |
 |---|---|---|
-| `POSTGRES_URL` | `ConnectionRegistry.get("postgres")` | `postgresql://user:pass@host/db` |
-| `DATABASE_<NAME>` | `ConnectionRegistry.get("<name>")` | `DATABASE_ANALYTICS` → `"analytics"` |
+| `DATABASE_<NAME>` | `ConnectionRegistry.get("<name>")` | `DATABASE_POSTGRES` → `"postgres"` |
 | `SERVICE_URL` | `CacheRegistry.get("<service>")` | `REDIS_URL` → `"redis"` |
 | `SERVICE_URL_<ID>` | `CacheRegistry.get("<service>_<id>")` | `REDIS_URL_MAIN` → `"redis_main"` |
 | `SERVICE_PASSWORD` | used during adapter construction | `REDIS_PASSWORD` |
@@ -31,8 +30,8 @@ Keys follow a fixed pattern so startup can auto-register connections without cod
 
 **Rules:**
 - `<NAME>` and `<ID>` are uppercase in vault keys, lowercase in registry names.
-- `POSTGRES_URL` is the **only** special-cased key — it always maps to `"postgres"`.
-- All other SQL databases use `DATABASE_<NAME>`.
+- All SQL databases use `DATABASE_<NAME>` — no special cases.
+- The backend adapter targets the DB named in `PRIMARY_DATABASE` env var (default `"postgres"`).
 - Cache services are registered only for entries in `_CACHE_BUILDERS` in `main.py`.
   To add a new cache type (e.g. Memcached), add one line there.
 
@@ -44,7 +43,7 @@ Registry names are derived mechanically from vault keys. Never choose them manua
 
 **ConnectionRegistry:**
 ```
-POSTGRES_URL            → "postgres"
+DATABASE_POSTGRES       → "postgres"
 DATABASE_ANALYTICS      → "analytics"
 DATABASE_LEGACY_CRM     → "legacy_crm"
 ```

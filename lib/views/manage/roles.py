@@ -54,7 +54,7 @@ class ManageRolesView(ProtectedView):
                 padding=30,
                 bgcolor=ft.Colors.BLUE_GREY_900,
                 border_radius=8,
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment(0, 0),
             )
 
         rows = [

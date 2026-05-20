@@ -8,9 +8,12 @@ Usage:
     config = AppConfig()
     server.start(host=config.api_host, port=config.api_port)
 
-    # Database URLs are loaded from DATABASE_* env vars:
-    # export DATABASE_MAIN=postgresql://localhost/db
-    # config.databases["main"] == "postgresql://localhost/db"
+    # Database URLs follow the DATABASE_<NAME> convention:
+    #   DATABASE_POSTGRES=postgresql://localhost/app   → registered as "postgres"
+    #   DATABASE_ANALYTICS=postgresql://localhost/bi   → registered as "analytics"
+    #
+    # PRIMARY_DATABASE names which registered DB the backend adapter targets.
+    # Defaults to "postgres"; change to "main" or any other registered name.
 """
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,8 +25,8 @@ class AppConfig(BaseSettings):
     api_port: int = 8080
 
     # ── Database ───────────────────────────────────────────────────────────
-    database_url: str = "sqlite:///./dev.db"
-    postgres_url: str = ""
+    database_url: str = "sqlite:///./dev.db"  # SQLite dev fallback (no DATABASE_* set)
+    primary_database: str = "postgres"         # which registered DB the backend adapter uses
     databases: dict[str, str] = {}
 
     # ── Vault / secrets ────────────────────────────────────────────────────

@@ -43,7 +43,7 @@ def test_view_shows_empty_state_when_no_databases(nav_service):
     rendered = make_view(nav_service).render()
     rendered_str = str(rendered.controls)
     assert "No SQL databases registered" in rendered_str
-    assert "POSTGRES_URL" in rendered_str
+    assert "DATABASE_POSTGRES" in rendered_str
     assert "DATABASE_<NAME>" in rendered_str
 
 

@@ -305,15 +305,17 @@ Badge("NEW", color=ft.Colors.GREEN_400)
 
 All connections are registered at startup from vault secrets — no code changes needed for new instances.
 
-### The default (app) database
+### The primary (app) database
 
-Set `POSTGRES_URL` in the vault. This becomes `"postgres"` in `ConnectionRegistry` and is what `UserRepository` uses. It also appears as **POSTGRES** in `/admin/databases`.
+Set `DATABASE_POSTGRES` in the vault. This registers as `"postgres"` in `ConnectionRegistry` and is what the backend adapter targets by default. It also appears as **POSTGRES** in `/admin/databases`.
 
 ```
-Vault key: POSTGRES_URL
+Vault key: DATABASE_POSTGRES
 Value:      postgresql://user:pass@host:5432/mydb
 Registry:   ConnectionRegistry.get("postgres")
 ```
+
+To target a different registered DB, set `PRIMARY_DATABASE=<name>` in `.env` or environment.
 
 ### Additional named databases (for inspection / reporting)
 

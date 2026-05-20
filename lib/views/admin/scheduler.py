@@ -32,7 +32,7 @@ class AdminSchedulerView(ProtectedView):
                 padding=40,
                 bgcolor=ft.Colors.BLUE_GREY_900,
                 border_radius=12,
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment(0, 0),
             )
 
         rows = [

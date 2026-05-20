@@ -5,6 +5,7 @@ from alembic import context
 
 from lib.database.base import Base
 import lib.models.user  # noqa: F401 — registers User on Base.metadata
+import lib.models.role  # noqa: F401 — registers Role on Base.metadata
 
 config = context.config
 
@@ -15,12 +16,15 @@ target_metadata = Base.metadata
 
 
 def _get_url() -> str:
-    # Priority: DATABASE_URL env var → already-booted ConnectionRegistry → alembic.ini fallback
+    # Priority: DATABASE_URL env var → named ConnectionRegistry entry → alembic.ini fallback
+    # Set DATABASE_URL to target any database (SQLite path, postgres:// URL, etc.)
+    # Set DATABASE_NAME to use a named registry entry when the app is already booted.
     if url := os.getenv("DATABASE_URL"):
         return url
     try:
         from lib.database.session import ConnectionRegistry
-        return str(ConnectionRegistry.get()._engine.url)
+        name = os.getenv("DATABASE_NAME", "default")
+        return str(ConnectionRegistry.get(name)._engine.url)
     except Exception:
         return config.get_main_option("sqlalchemy.url")
 
