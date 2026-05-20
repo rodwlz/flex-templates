@@ -3,271 +3,312 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Architecture Overview</title>
+    <title>Architecture Overview — FlexTemplates Docs</title>
     <link rel="stylesheet" href="css/docs.css">
-    <!-- Prism.js for syntax highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </head>
 <body>
     <header>
-        <h1>API Architecture Overview</h1>
+        <h1>Architecture Overview</h1>
         <p class="breadcrumb">Core Concepts &rsaquo; Architecture Overview</p>
     </header>
-
     <main>
-        <h1>API Architecture Phase — Implementation Summary</h1>
 
-        <h2>What Was Built</h2>
-
-        <p>A complete, scalable API architecture pattern for FlexTemplates 2.0 demonstrating:</p>
-
-        <ol>
-            <li><strong>Immediate Operations</strong> — Simple GET/POST/DELETE endpoints (commit directly)
-                <ul>
-                    <li>GET /users, GET /users/{id}, DELETE /users/{id}</li>
-                    <li>GET /roles, DELETE /roles/{id}</li>
-                </ul>
-            </li>
-
-            <li><strong>Staged Operations</strong> — Complex multi-step with preview-before-commit
-                <ul>
-                    <li>POST /users/with-roles/stage → preview → confirm/cancel</li>
-                    <li>For operations with relationships (create user + assign roles atomically)</li>
-                </ul>
-            </li>
-
-            <li><strong>Approval-Required Operations</strong> — High-risk with extra safety gates
-                <ul>
-                    <li>POST /users/bulk-delete/request → stage → approve → confirm</li>
-                    <li>Requires explicit confirmation for bulk operations</li>
-                </ul>
-            </li>
-        </ol>
+        <p>FlexTemplates 2.0 is a forkable Python framework: a Flet desktop UI, a FastAPI
+        HTTP backend, and a SQLAlchemy data layer, all sharing one process. Every layer talks
+        to its neighbours through standardized Pydantic contracts, so any piece can be
+        swapped without touching the rest.</p>
 
         <hr>
 
-        <h2>Architecture Highlights</h2>
+        <h2>The LEGO Pitch</h2>
 
-        <h3>Contract-Driven Design</h3>
         <ul>
-            <li>ActionRequest includes <code>requires_approval</code> field for safety-gated operations</li>
-            <li>All endpoints communicate via ActionRequest/ActionResult</li>
-            <li>Contracts defined before implementation (TDD approach)</li>
+            <li><strong>Plugs</strong> are Pydantic models &mdash; <code>ActionRequest</code>, <code>ActionResult</code>, <code>Event</code>.</li>
+            <li><strong>Blocks</strong> are services with one job each &mdash; <code>NavigationService</code>, <code>VaultService</code>, <code>ConnectionTester</code>.</li>
+            <li><strong>Builder</strong> is <code>main.py</code> &mdash; the only file that knows about concrete types.</li>
         </ul>
 
-        <h3>Layered Stack (Standard Pattern)</h3>
+        <p>Swap any block, the rest of the system can't tell. That's the architecture in one sentence.</p>
+
+        <hr>
+
+        <h2>The Layer Stack</h2>
+
         <div style="position: relative;">
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
-            <pre><code class="language-text">API Route (fastapi)
-  ↓ ActionRequest
-Service (SimpleService or StagingService)
-  ↓ Repository method calls
-Repository (AbstractRepository[T])
-  ↓ SessionFactory
-SQLAlchemy ORM + Database
-</code></pre>
+            <pre><code class="language-text">main.py            ← wires everything (the only file that names concrete types)
+  │
+  ├── views/       ← Flet pages; receive services via props dict
+  ├── api/routes/  ← FastAPI endpoints; receive services via Depends
+  │
+  ├── ui/          ← Flet building blocks (router, BaseView, components)
+  │
+  ├── services/    ← Business logic (NavigationService, VaultService, ...)
+  ├── adapters/    ← Non-SQL backends (RedisAdapter, FileAdapter, BackendAdapter)
+  │
+  ├── auth/        ← JWT handler + RBAC dependencies
+  ├── tasks/       ← APScheduler wrapper (TaskScheduler)
+  │
+  ├── repositories/← CRUD on ORM models
+  ├── models/      ← SQLAlchemy ORM tables
+  ├── database/    ← SessionFactory, ConnectionRegistry, UnitOfWork, migrations
+  ├── security/    ← Vault (encrypted secrets store) + bcrypt helpers
+  └── config/      ← AppConfig (pydantic-settings, reads .env)</code></pre>
         </div>
 
-        <h3>LEGO Pluggability</h3>
-        <ul>
-            <li>New entities follow same template (see API_PATTERN_TEMPLATE.md)</li>
-            <li>No framework changes needed — just add Model → Repository → Service → Routes</li>
-            <li>Same pattern works for any entity/relationship complexity</li>
-        </ul>
+        <hr>
+
+        <h2>How a Request Flows</h2>
+
+        <h3>Clicking a nav button</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">User clicks NavButton("Products", "/products")
+  ↓
+NavButton.on_click() fires
+  ↓
+nav_service.execute(ActionRequest(action="visit", data={"url": "/products"}))
+  ↓
+NavigationService updates history stack, publishes Event(type="nav.route_changed")
+  ↓
+EventBus dispatches to FletNavigationAdapter → page.go("/products")
+  ↓
+FletRouter.route_change(page):
+  - lazy-loads lib.views.products
+  - calls view(page, props) → ProductsView(page, props).render()
+  ↓
+ProductsView builds content, wrapped with appbar/sidebar by BaseView
+  ↓
+Router appends to page.views and calls page.update() → Flet repaints</code></pre>
+        </div>
+
+        <p><code>NavigationService</code> has no Flet import. <code>FletNavigationAdapter</code>
+        is the one piece that does — swap it for a web adapter and nothing else changes.</p>
 
         <hr>
 
-        <h2>Files Built</h2>
+        <h2>The Core Pieces</h2>
 
-        <h3>Core Contracts</h3>
+        <h3>Contracts — <code>lib/contracts/base.py</code></h3>
+
+        <p>Three Pydantic models, used everywhere:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class ActionRequest(BaseModel):
+    action: str                      # "test", "visit", "set", "create"
+    data: dict[str, Any] = {}
+
+class ActionResult(BaseModel):
+    success: bool
+    data: dict[str, Any] = {}
+    events: list[Event] = []
+    error: str | None = None
+
+class Event(BaseModel):
+    type: str                        # "user.created", "nav.route_changed"
+    payload: dict[str, Any] = {}</code></pre>
+        </div>
+
+        <h3>Services — <code>lib/services/</code></h3>
+
+        <p>Every service implements <code>IService.execute(ActionRequest) &rarr; ActionResult</code>.
+        Most subclass <code>SimpleService</code> and get free dispatch + exception trapping:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class ConnectionTester(SimpleService):
+    def test(self, data: dict) -> dict:
+        factory = ConnectionRegistry.get(data["name"])
+        # ... probe and return dict; SimpleService wraps it in ActionResult</code></pre>
+        </div>
+
+        <h3>Registries — <code>ConnectionRegistry</code>, <code>CacheRegistry</code></h3>
+
+        <p>Class-level singletons. <code>main.py</code> registers everything at startup:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">ConnectionRegistry.get("postgres")     # returns a SessionFactory
+CacheRegistry.get("redis")             # returns a RedisAdapter</code></pre>
+        </div>
+
+        <p>All SQL databases use the <code>DATABASE_&lt;NAME&gt;</code> convention
+        (<code>DATABASE_POSTGRES</code> &rarr; <code>"postgres"</code>). The
+        <code>PRIMARY_DATABASE</code> env var names which registered DB the backend adapter
+        targets (default <code>"postgres"</code>).</p>
+
+        <h3>BackendAdapter — <code>lib/adapters/backend_adapter.py</code></h3>
+
+        <p>The plug between Flet admin views and the backend. Views call
+        <code>self.props["backend"]</code> &mdash; an <code>IBackendAdapter</code> instance
+        &mdash; for all auth and data operations. Swap <code>ServiceBackendAdapter</code>
+        for <code>HttpBackendAdapter</code> in <code>main.py</code> and no view changes:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class ManageUsersView(ProtectedView):
+    def build_content(self):
+        backend = self.props["backend"]
+        result = backend.list_users(page=1, page_size=20)
+        # result: {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}</code></pre>
+        </div>
+
+        <p><code>IBackendAdapter</code> defines: <code>login</code>/<code>logout</code>/<code>current_user</code>,
+        <code>list_users</code>/<code>create_user</code>/<code>delete_user</code>,
+        <code>list_roles</code>/<code>create_role</code>/<code>delete_role</code>/<code>assign_role</code>/<code>remove_role</code>,
+        <code>list_jobs</code>.</p>
+
+        <h3>Router &amp; BaseView — <code>lib/ui/</code></h3>
+
+        <p><code>FletRouter</code> turns URLs into views. Two routing modes:</p>
         <ul>
-            <li><strong>lib/contracts/base.py</strong> — Updated with <code>requires_approval: bool</code> field</li>
+            <li><strong>Convention:</strong> <code>/products</code> &rarr; <code>lib.views.products.view(page, props)</code></li>
+            <li><strong>Named (for params):</strong> <code>router.register("/products/{id}", "lib.views.product_detail")</code></li>
         </ul>
 
-        <h3>ORM Models</h3>
-        <ul>
-            <li><strong>lib/models/role.py</strong> — Role model (UUID PK, unique name)</li>
-            <li><strong>lib/models/user.py</strong> — Updated with User-Role M:M relationship via user_roles association table</li>
-        </ul>
+        <p><code>BaseView</code> is the page template &mdash; every view subclasses it and only
+        writes <code>build_content()</code>. Admin views that require login subclass
+        <code>ProtectedView(BaseView)</code> instead &mdash; redirect to <code>/login</code>
+        is automatic if <code>backend.current_user()</code> returns None.</p>
 
-        <h3>Repository Layer</h3>
-        <ul>
-            <li><strong>lib/repositories/role_repository.py</strong> — RoleRepository (inherits AbstractRepository[Role])</li>
-            <li><strong>lib/repositories/user_repository.py</strong> — Enhanced with add_role, remove_role, list_by_role</li>
-        </ul>
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class ProductsView(BaseView):           # public view
+    title = "Products"
+    show_sidebar = True
+    def build_content(self):
+        return ft.Column([ft.Text("Product list")])
 
-        <h3>Service Layer</h3>
-        <ul>
-            <li><strong>lib/services/role_service.py</strong> — RoleService (SimpleService, immediate CRUD)</li>
-            <li><strong>lib/services/user_service.py</strong> — UserService (StagingService, immediate + staged + approval patterns)</li>
-        </ul>
+class ManageUsersView(ProtectedView):   # auth-guarded view
+    title = "Manage Users"
+    def build_content(self):
+        backend = self.props["backend"]
+        ...</code></pre>
+        </div>
 
-        <h3>API Routes</h3>
-        <ul>
-            <li><strong>lib/api/routes/roles.py</strong> — 4 immediate endpoints</li>
-            <li><strong>lib/api/routes/users.py</strong> — 9 endpoints (4 immediate + 3 staged + 2 approval)</li>
-        </ul>
+        <h3>Vault — <code>lib/security/</code></h3>
 
-        <h3>Tests</h3>
-        <ul>
-            <li><strong>tests/test_models.py</strong> — ORM model tests (relationships, constraints)</li>
-            <li><strong>tests/test_repositories.py</strong> — Repository CRUD + relationship operations</li>
-            <li><strong>tests/test_services.py</strong> — Service logic (immediate, staged, error cases)</li>
-            <li><strong>tests/test_api_routes.py</strong> — Integration tests (endpoints with real DB)</li>
-        </ul>
+        <p>Encrypted secrets store with a two-key design (master + confirm). Vault starts
+        <strong>locked</strong> &mdash; no auto-unlock at startup. The user unlocks via the
+        <code>/security</code> view. After unlock, <code>main.py</code> wires vault-sourced
+        DB and cache connections via the <code>vault.unlocked</code> event.</p>
 
-        <h3>Documentation</h3>
-        <ul>
-            <li><strong>docs/API_PATTERN_TEMPLATE.md</strong> — Step-by-step guide for adding new entities</li>
-            <li><strong>docs/API_ARCHITECTURE_SUMMARY.md</strong> — This file</li>
-        </ul>
+        <h3>API Server — <code>lib/api/</code></h3>
+
+        <p><code>BackendServer</code> runs Uvicorn in a daemon thread, sharing the same
+        Python process and same <code>ConnectionRegistry</code> as the Flet UI. Routes
+        auto-discover from <code>lib/api/routes/</code>.</p>
+
+        <h3>Migrations — <code>lib/database/migrations/</code></h3>
+
+        <p>Alembic manages schema versioning. In dev, <code>main.py</code> runs
+        <code>alembic upgrade head</code> automatically at startup. In production, run it
+        in your deploy pipeline before starting the app:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">DATABASE_URL=postgresql://user:pass@host/db alembic upgrade head</code></pre>
+        </div>
 
         <hr>
 
-        <h2>Test Coverage</h2>
-
-        <p><strong>321 tests passing</strong> (100% success rate):</p>
-        <ul>
-            <li>4 contract tests</li>
-            <li>19 repository tests (CRUD + relationships)</li>
-            <li>8 service tests (immediate + staged)</li>
-            <li>7 API route integration tests</li>
-            <li>All pre-existing tests still pass (zero regressions)</li>
-        </ul>
-
-        <p><strong>Code coverage:</strong> 77% overall, 85-100% for new services/repositories/routes</p>
-
-        <hr>
-
-        <h2>Key Design Decisions</h2>
-
-        <h3>Why StagingService for User Creation with Roles?</h3>
-        <ul>
-            <li>Multi-step operation: create user row + populate user_roles table</li>
-            <li>User needs to preview (see which roles will be assigned) before committing</li>
-            <li>Atomic transaction (either both succeed or both rollback)</li>
-            <li>Same StagingService base class used for all complex operations</li>
-        </ul>
-
-        <h3>Why Separate Role Routes?</h3>
-        <ul>
-            <li>Demonstrates that simple entities (no relationships) use SimpleService</li>
-            <li>Shows both patterns in same codebase</li>
-            <li>Proves pattern scales to both simple and complex</li>
-        </ul>
-
-        <h3>Why Approval Flow for Bulk Delete?</h3>
-        <ul>
-            <li>High-risk operation (deletes multiple users)</li>
-            <li>Extra confirmation step (approval_key) provides safety gate</li>
-            <li>Shows how to layer additional safety on top of staging</li>
-            <li>Real-world use case (destructive batch operations often need approval)</li>
-        </ul>
-
-        <hr>
-
-        <h2>How to Use This in Your App</h2>
-
-        <h3>Add a New Entity (e.g., Product)</h3>
-
-        <ol>
-            <li><strong>Copy template</strong> — Open docs/API_PATTERN_TEMPLATE.md</li>
-            <li><strong>Follow Step 1-6</strong> — Creates model, repo, service, routes, tests</li>
-            <li><strong>Wire router</strong> — <code>mount_routes()</code> auto-discovers your routes</li>
-            <li><strong>Run tests</strong> — All should pass</li>
-        </ol>
-
-        <p>Total time: 30-45 minutes for a simple entity with CRUD.</p>
-
-        <p>For complex entities with relationships or approval flows, follow the UserService example.</p>
-
-        <h3>Operation Type Selection Guide</h3>
+        <h2>Where to Go for What</h2>
 
         <table>
             <thead>
-                <tr>
-                    <th>Scenario</th>
-                    <th>Pattern</th>
-                    <th>Base Class</th>
-                </tr>
+                <tr><th>You want to&hellip;</th><th>Read</th></tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>Simple CRUD (no relationships)</td>
-                    <td>Immediate</td>
-                    <td>SimpleService</td>
-                </tr>
-                <tr>
-                    <td>Create with related records</td>
-                    <td>Staged</td>
-                    <td>StagingService</td>
-                </tr>
-                <tr>
-                    <td>Bulk or destructive operations</td>
-                    <td>Approval</td>
-                    <td>StagingService + approval_key</td>
-                </tr>
-                <tr>
-                    <td>Read-only queries</td>
-                    <td>Immediate (GET only)</td>
-                    <td>SimpleService</td>
-                </tr>
+                <tr><td>Add a new SQL DB / cache / view / service</td><td><code>docs/guides/ADDING_STUFF.md</code></td></tr>
+                <tr><td>Build a Flet view</td><td><code>docs/guides/VIEW_DEVELOPMENT.md</code></td></tr>
+                <tr><td>Build a protected (auth-guarded) view</td><td><code>docs/guides/VIEW_DEVELOPMENT.md §2.4</code></td></tr>
+                <tr><td>Build an API endpoint</td><td><code>docs/guides/API_DEVELOPMENT.md</code></td></tr>
+                <tr><td>Run or write a migration</td><td><code>docs/reference/MIGRATIONS.md</code></td></tr>
+                <tr><td>Manage secrets</td><td><code>docs/reference/VAULT_USAGE.md</code></td></tr>
+                <tr><td>Understand the naming / import rules</td><td><code>docs/core/CONVENTIONS.md</code></td></tr>
+                <tr><td>Deploy with Docker / API-only mode</td><td><code>docs/guides/ONBOARDING_DEPLOYMENT.md</code></td></tr>
+                <tr><td>Write tests</td><td><code>docs/reference/TESTING.md</code></td></tr>
             </tbody>
         </table>
 
         <hr>
 
-        <h2>Architecture Strengths</h2>
+        <h2>Key File Tour</h2>
 
-        <ul>
-            <li><strong>Testable</strong> — Every layer can be tested independently (services without routes, repos without DB)</li>
-            <li><strong>Flexible</strong> — Simple entities vs. complex with relationships use same pattern</li>
-            <li><strong>Type-Safe</strong> — Pydantic v2 contracts everywhere (ActionRequest, ActionResult, models)</li>
-            <li><strong>Observable</strong> — Three operation types cover common scenarios (immediate, staged, approval)</li>
-            <li><strong>Extensible</strong> — New entities don't require framework changes</li>
-            <li><strong>Production-Ready</strong> — Error handling, transaction management, constraint enforcement built-in</li>
-        </ul>
+        <table>
+            <thead>
+                <tr><th>File</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>lib/contracts/base.py</code></td><td><code>ActionRequest</code>, <code>ActionResult</code>, <code>Event</code></td></tr>
+                <tr><td><code>lib/core/interfaces.py</code></td><td><code>IService</code>, <code>SimpleService</code>, <code>StagingService</code></td></tr>
+                <tr><td><code>lib/core/events.py</code></td><td><code>EventBus</code> (pub/sub)</td></tr>
+                <tr><td><code>lib/config/settings.py</code></td><td><code>AppConfig</code> — env vars + <code>.env</code></td></tr>
+                <tr><td><code>lib/database/session.py</code></td><td><code>SessionFactory</code>, <code>ConnectionRegistry</code></td></tr>
+                <tr><td><code>lib/database/uow.py</code></td><td><code>UnitOfWork</code> — stage/preview/commit</td></tr>
+                <tr><td><code>lib/database/migrations/</code></td><td>Alembic scripts — run <code>alembic upgrade head</code></td></tr>
+                <tr><td><code>lib/models/user.py</code></td><td>Example ORM model with M:M roles relationship</td></tr>
+                <tr><td><code>lib/models/role.py</code></td><td>Role ORM model</td></tr>
+                <tr><td><code>lib/repositories/base.py</code></td><td><code>AbstractRepository[T]</code> — generic CRUD</td></tr>
+                <tr><td><code>lib/adapters/backend_adapter.py</code></td><td><code>IBackendAdapter</code> ABC + <code>ServiceBackendAdapter</code></td></tr>
+                <tr><td><code>lib/adapters/redis_adapter.py</code></td><td>Redis connector</td></tr>
+                <tr><td><code>lib/adapters/file_adapter.py</code></td><td>CSV/JSON/Parquet/Excel reader</td></tr>
+                <tr><td><code>lib/security/vault_service.py</code></td><td>Encrypted-secrets service</td></tr>
+                <tr><td><code>lib/auth/jwt_handler.py</code></td><td><code>create_token()</code> / <code>decode_token()</code> — HS256 JWT</td></tr>
+                <tr><td><code>lib/auth/dependencies.py</code></td><td><code>get_current_user</code> + <code>require_roles()</code> FastAPI deps</td></tr>
+                <tr><td><code>lib/tasks/scheduler.py</code></td><td><code>TaskScheduler</code> — APScheduler wrapper</td></tr>
+                <tr><td><code>lib/api/server.py</code></td><td><code>BackendServer</code> — Uvicorn in a daemon thread</td></tr>
+                <tr><td><code>lib/api/mount_service.py</code></td><td>Auto-generates POST routes from a <code>SimpleService</code></td></tr>
+                <tr><td><code>lib/ui/router.py</code></td><td><code>FletRouter</code> (URL &rarr; view)</td></tr>
+                <tr><td><code>lib/ui/layouts/base_view.py</code></td><td><code>BaseView</code> page template</td></tr>
+                <tr><td><code>lib/ui/layouts/protected_view.py</code></td><td><code>ProtectedView</code> — auth guard, redirects to <code>/login</code></td></tr>
+                <tr><td><code>lib/views/login.py</code></td><td>Login form — calls <code>backend.login()</code></td></tr>
+                <tr><td><code>lib/views/manage/users.py</code></td><td>Paginated user list + create + delete (auth required)</td></tr>
+                <tr><td><code>lib/views/manage/roles.py</code></td><td>Role list + create + delete (auth required)</td></tr>
+                <tr><td><code>lib/views/admin/scheduler.py</code></td><td>Read-only APScheduler job inspector (auth required)</td></tr>
+                <tr><td><code>lib/views/admin/databases.py</code></td><td>Admin DB inspector — see this for the props pattern</td></tr>
+                <tr><td><code>main.py</code></td><td>Boot sequence — only file that names concrete types</td></tr>
+            </tbody>
+        </table>
 
         <hr>
 
-        <h2>Next Steps</h2>
+        <h2>Testing</h2>
 
-        <p>This phase delivered the architectural foundation. Future optimization opportunities:</p>
+        <p>All 398 tests run on in-memory SQLite and a <code>FakePage</code> stand-in for
+        <code>ft.Page</code>, so the suite has no external dependencies and finishes in ~10 seconds.</p>
 
-        <ol>
-            <li><strong>Query Optimization</strong> — Add filtering, sorting, pagination to list endpoints</li>
-            <li><strong>Caching</strong> — Redis integration for hot data</li>
-            <li><strong>Real Approval Flow</strong> — Replace mock confirmation with real approval system</li>
-            <li><strong>Bulk Operations</strong> — Add bulk create/update endpoints</li>
-            <li><strong>Webhooks</strong> — Event-driven integrations via EventBus</li>
-        </ol>
-
-        <p>None of these require architectural changes — they are enhancements within the pattern.</p>
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">pytest tests/ -q              # run the full suite
+pytest tests/ -k "backend"    # run only backend adapter tests</code></pre>
+        </div>
 
         <hr>
 
-        <h2>Files to Reference</h2>
+        <h2>Async in Flet — the Short Version</h2>
 
-        <ul>
-            <li><strong>Pattern template:</strong> <code>docs/API_PATTERN_TEMPLATE.md</code></li>
-            <li><strong>Live example:</strong> <code>lib/api/routes/users.py</code> and <code>lib/services/user_service.py</code></li>
-            <li><strong>Test examples:</strong> <code>tests/test_services.py</code> and <code>tests/test_api_routes.py</code></li>
-        </ul>
+        <p>Most event handlers are plain sync functions. When you need async (network probe,
+        file I/O), use <code>page.run_task(coro)</code> &mdash; schedules a coroutine on
+        Flet's event loop without blocking the UI. See
+        <code>lib/views/admin/databases.py</code> for the full pattern.</p>
+
     </main>
 
     <nav class="page-nav">
         <div class="nav-group">
-            <button class="btn-secondary" onclick="window.location.href='index.html'">&#8592; Back to Hub</button>
-            <button class="btn-secondary" disabled>&#8592; Previous</button>
+            <button class="btn-secondary" onclick="window.location.href='index.html'">&larr; Back to Hub</button>
+            <button class="btn-secondary" disabled>&larr; Previous</button>
         </div>
         <span class="progress">Core Concepts &middot; 1 of 3</span>
         <div class="nav-group">
-            <button class="btn-primary" onclick="window.location.href='template.html'">Pattern Template &#8594;</button>
+            <button class="btn-primary" onclick="window.location.href='template.html'">Pattern Template &rarr;</button>
         </div>
     </nav>
 
