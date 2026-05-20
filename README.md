@@ -354,9 +354,6 @@ pytest tests/ -v
 - **Phase 3:** Event system for real-time updates
 - **Phase 4:** Webhook support for external integrations
 - **Phase 5:** GraphQL API option
-
-See [.claude/superpowers/](.claude/superpowers/) for detailed implementation plans.
-
 ---
 
 ## 💡 Design Principles
