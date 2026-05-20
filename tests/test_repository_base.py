@@ -123,3 +123,38 @@ def test_delete_returns_true_and_removes_when_found(repo):
 
 def test_delete_returns_false_when_id_missing(repo):
     assert repo.delete(99999) is False
+
+
+# ── paginate() ────────────────────────────────────────────────────────────────
+
+def test_paginate_returns_correct_structure(repo):
+    for i in range(5):
+        repo.create({"name": f"pgpet{i}", "species": f"species{i}"})
+    result = repo.paginate(page=1, page_size=2)
+    assert result["total"] == 5
+    assert result["pages"] == 3
+    assert result["page"] == 1
+    assert result["page_size"] == 2
+    assert len(result["items"]) == 2
+
+
+def test_paginate_last_page_has_remainder(repo):
+    for i in range(5):
+        repo.create({"name": f"pgpet2_{i}", "species": f"species{i}"})
+    result = repo.paginate(page=3, page_size=2)
+    assert len(result["items"]) == 1  # 5 items, pages: [2, 2, 1]
+
+
+def test_paginate_page_beyond_total_returns_empty(repo):
+    repo.create({"name": "pgpet3_0", "species": "species0"})
+    result = repo.paginate(page=10, page_size=20)
+    assert result["items"] == []
+    assert result["total"] == 1
+
+
+def test_paginate_with_filter(repo):
+    repo.create({"name": "pgactive1", "species": "active"})
+    repo.create({"name": "pgactive2", "species": "suspended"})
+    result = repo.paginate(page=1, page_size=10, species="active")
+    assert result["total"] == 1
+    assert result["items"][0].name == "pgactive1"

@@ -124,6 +124,12 @@ class IRepository(ABC):
     @abstractmethod
     def delete(self, id) -> bool: ...
 
+    @abstractmethod
+    def paginate(self, page: int = 1, page_size: int = 20, **filters) -> dict: ...
+
+    @abstractmethod
+    def filter_by(self, **specs) -> list: ...
+
 
 class INavigationAdapter(ABC):
     @abstractmethod
