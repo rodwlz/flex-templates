@@ -1,0 +1,192 @@
+---
+title: "Database Migrations"
+category: reference
+audience: [developer, agent]
+related:
+  - ../core/CONVENTIONS.md
+  - ../guides/ADDING_STUFF.md
+agent_priority: medium
+---
+
+# Database Migrations
+
+FlexTemplates uses [Alembic](https://alembic.sqlalchemy.org/) for schema
+versioning. Migrations live in `lib/database/migrations/versions/` and are
+checked into git alongside the code that needs them.
+
+---
+
+## Quick Reference
+
+```bash
+# Apply all pending migrations (run this after every pull)
+alembic upgrade head
+
+# Generate a migration after adding/changing a model
+alembic revision --autogenerate -m "add products table"
+alembic upgrade head
+
+# Roll back one step
+alembic downgrade -1
+
+# Show current revision
+alembic current
+
+# Show full history
+alembic history --verbose
+```
+
+---
+
+## How It Connects to the App
+
+`alembic.ini` at the project root points to `lib/database/migrations/`.
+`env.py` inside that folder resolves the target database URL in this order:
+
+1. `DATABASE_URL` environment variable — highest priority (CI, Docker, production)
+2. `DATABASE_NAME` environment variable — names a `ConnectionRegistry` entry when
+   the app is already booted (e.g. `DATABASE_NAME=analytics alembic upgrade head`)
+3. `sqlalchemy.url` in `alembic.ini` — dev fallback, defaults to `sqlite:///./dev.db`
+
+`env.py` imports all models so Alembic can diff them against the live schema:
+
+```python
+import lib.models.user  # noqa: F401
+import lib.models.role  # noqa: F401
+# Add new model imports here when you add new models
+```
+
+---
+
+## Dev Workflow (SQLite)
+
+On startup, `main.py` automatically runs `alembic upgrade head` against
+`dev.db` when the primary database is the SQLite fallback:
+
+```python
+# main.py (runs at startup if no postgres is registered)
+alembic_cmd.upgrade(AlembicConfig("alembic.ini"), "head")
+```
+
+You never need to run `alembic upgrade head` manually in dev — just restart the
+app. The first run creates `dev.db` and applies all migrations.
+
+---
+
+## Production / Postgres Workflow
+
+Run migrations **before** starting the app. Wire it into your deploy pipeline:
+
+```bash
+# In your deploy script / CI step:
+DATABASE_URL=postgresql://user:pass@host/db alembic upgrade head
+
+# Then start the app:
+python main.py   # or docker-compose up
+```
+
+The app will refuse to boot if the schema is behind — any ORM query against a
+missing table raises `OperationalError` immediately.
+
+---
+
+## Adding a New Model
+
+**Step 1 — Write the model:**
+
+```python
+# lib/models/product.py
+import uuid
+from sqlalchemy import String, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
+from lib.database.base import Base
+
+class Product(Base):
+    __tablename__ = "products"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sku: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+```
+
+**Step 2 — Register the model in `env.py`:**
+
+```python
+# lib/database/migrations/env.py
+import lib.models.user    # noqa: F401
+import lib.models.role    # noqa: F401
+import lib.models.product # noqa: F401  ← add this
+```
+
+**Step 3 — Generate the migration:**
+
+```bash
+alembic revision --autogenerate -m "add products table"
+```
+
+Alembic diffs `Base.metadata` against the live DB and writes a new file to
+`lib/database/migrations/versions/`. Review it before committing — autogenerate
+is not perfect (it misses some index types and custom constraints).
+
+**Step 4 — Apply it:**
+
+```bash
+alembic upgrade head
+```
+
+**Step 5 — Commit both the model and the migration:**
+
+```bash
+git add lib/models/product.py lib/database/migrations/versions/
+git commit -m "feat: add Product model and migration"
+```
+
+---
+
+## Targeting a Different Database
+
+```bash
+# By URL (any environment):
+DATABASE_URL=postgresql://user:pass@host/analytics alembic upgrade head
+
+# By registry name (when app is booted and ConnectionRegistry is populated):
+DATABASE_NAME=analytics alembic upgrade head
+```
+
+`DATABASE_NAME` is useful when running migrations against a secondary DB from
+inside the app process (e.g. a management command that calls alembic
+programmatically).
+
+---
+
+## Existing Migrations
+
+| Revision | Description |
+|---|---|
+| `1002b8218db7` | Initial users table (id, username, email, password_hash, salt, status) |
+| `f5baad507a72` | Add roles and user_roles tables (id, name, description; M:M join table) |
+
+---
+
+## Stamping an Existing Database
+
+If you created the schema via `create_tables()` (e.g. an older dev.db), Alembic
+won't know about it. Stamp the current revision to mark the DB as up-to-date:
+
+```bash
+alembic stamp head
+```
+
+Then run `alembic upgrade head` normally for any future migrations.
+
+---
+
+## Notes
+
+- **Never edit a migration that has already been applied** to a shared database
+  (staging, production). Create a new revision instead.
+- **Always review autogenerated migrations** before applying — Alembic sometimes
+  generates spurious `alter_column` ops for types it can't perfectly compare.
+- **SQLite limitations** — SQLite doesn't support `ALTER TABLE ... DROP COLUMN`
+  or most constraint changes. Alembic's batch mode handles this; see the
+  [Alembic docs on SQLite](https://alembic.sqlalchemy.org/en/latest/batch.html)
+  if you hit issues.
