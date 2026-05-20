@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Migrations — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Database Migrations</h1>
+        <p class="breadcrumb">Troubleshooting &amp; Reference &rsaquo; Database Migrations</p>
+    </header>
+    <main>
+
+        <p>FlexTemplates uses <a href="https://alembic.sqlalchemy.org/" target="_blank">Alembic</a>
+        for schema versioning. Migrations live in <code>lib/database/migrations/versions/</code>
+        and are checked into git alongside the code that needs them.</p>
+
+        <hr>
+
+        <h2>Quick Reference</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># Apply all pending migrations (run this after every pull)
+alembic upgrade head
+
+# Generate a migration after adding/changing a model
+alembic revision --autogenerate -m "add products table"
+alembic upgrade head
+
+# Roll back one step
+alembic downgrade -1
+
+# Show current revision
+alembic current
+
+# Show full history
+alembic history --verbose</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Dev Workflow (SQLite)</h2>
+
+        <p>On startup, <code>main.py</code> automatically runs <code>alembic upgrade head</code>
+        against <code>dev.db</code> when the primary database is the SQLite fallback. You never
+        need to run it manually in dev &mdash; just restart the app.</p>
+
+        <hr>
+
+        <h2>Production / Postgres Workflow</h2>
+
+        <p>Run migrations <strong>before</strong> starting the app. Wire it into your deploy pipeline:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># In your deploy script / CI step:
+DATABASE_URL=postgresql://user:pass@host/db alembic upgrade head
+
+# Then start the app:
+python main.py</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Adding a New Model</h2>
+
+        <h3>Step 1 — Write the model</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/models/product.py
+import uuid
+from sqlalchemy import String, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
+from lib.database.base import Base
+
+class Product(Base):
+    __tablename__ = "products"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sku: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)</code></pre>
+        </div>
+
+        <h3>Step 2 — Register in <code>env.py</code></h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/database/migrations/env.py
+import lib.models.user     # noqa: F401
+import lib.models.role     # noqa: F401
+import lib.models.product  # noqa: F401  ← add this</code></pre>
+        </div>
+
+        <h3>Step 3 — Generate and apply</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">alembic revision --autogenerate -m "add products table"
+alembic upgrade head</code></pre>
+        </div>
+
+        <h3>Step 4 — Commit both files</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">git add lib/models/product.py lib/database/migrations/versions/
+git commit -m "feat: add Product model and migration"</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Targeting a Different Database</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># By URL (any environment):
+DATABASE_URL=postgresql://user:pass@host/analytics alembic upgrade head
+
+# By registry name (when ConnectionRegistry is populated):
+DATABASE_NAME=analytics alembic upgrade head</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Existing Migrations</h2>
+
+        <table>
+            <thead>
+                <tr><th>Revision</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>1002b8218db7</code></td>
+                    <td>Initial users table (id, username, email, password_hash, salt, status)</td>
+                </tr>
+                <tr>
+                    <td><code>f5baad507a72</code></td>
+                    <td>Add roles and user_roles tables (M:M join table with CASCADE delete)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr>
+
+        <h2>Stamping an Existing Database</h2>
+
+        <p>If you created the schema via <code>create_tables()</code> (older <code>dev.db</code>),
+        Alembic doesn't know about it. Stamp the current revision to mark the DB as up-to-date,
+        then run normally for future migrations:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">alembic stamp head
+# Then future migrations work normally:
+alembic upgrade head</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Notes</h2>
+
+        <ul>
+            <li><strong>Never edit an applied migration</strong> on a shared database. Create a new revision instead.</li>
+            <li><strong>Always review autogenerated migrations</strong> before applying &mdash; Alembic sometimes generates spurious <code>alter_column</code> ops.</li>
+            <li><strong>SQLite limitations</strong> &mdash; SQLite doesn't support most <code>ALTER TABLE</code> ops. Alembic's batch mode handles this; see the Alembic SQLite docs if you hit issues.</li>
+        </ul>
+
+    </main>
+
+    <nav class="page-nav">
+        <div class="nav-group">
+            <button class="btn-secondary" onclick="window.location.href='index.html'">&larr; Back to Hub</button>
+            <button class="btn-secondary" onclick="window.location.href='troubleshooting.html'">&larr; Troubleshooting</button>
+        </div>
+        <span class="progress">Reference &middot; Migrations</span>
+        <div class="nav-group">
+            <button class="btn-primary" onclick="window.location.href='anti-patterns.html'">Anti-Patterns &rarr;</button>
+        </div>
+    </nav>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
