@@ -103,8 +103,6 @@ def main():
 
     vault = Vault(vault_service)
     # Vault starts LOCKED. SecurityView unlocks it; vault.unlocked event wires connections.
-    redis = CacheRegistry._adapters.get("redis")
-
     def _on_vault_unlocked(_event):
         """Re-register vault-sourced DB and cache connections after user unlocks vault."""
         for key in vault.keys():
@@ -138,7 +136,7 @@ def main():
         "vault_service": vault_service,
         # ── Data access (repositories & services) ───────────────────────────
         "user_repo":         user_repo,
-        "redis":             redis,
+        "redis":             CacheRegistry._adapters.get("redis"),
         "config":            config,
         "connection_tester": connection_tester,
         "cache_tester":      cache_tester,
@@ -163,11 +161,10 @@ def main():
     # scheduler.add_job(some_cleanup_func, "interval", hours=24)
     scheduler.start()
 
-    _backend_factory = (
-        ConnectionRegistry.get("postgres")
-        if "postgres" in ConnectionRegistry._factories
-        else SessionFactory("sqlite:///./dev.db")
-    )
+    try:
+        _backend_factory = ConnectionRegistry.get("postgres")
+    except RuntimeError:
+        _backend_factory = SessionFactory("sqlite:///./dev.db")
     backend = ServiceBackendAdapter(
         factory=_backend_factory,
         user_service=UserService(_backend_factory),
