@@ -116,7 +116,23 @@ def main():
 
     event_bus.subscribe("vault.unlocked", _on_vault_unlocked)
 
-    # Database setup — failures here degrade gracefully (app still opens).
+    # ── HTTP API server (Phase 4) ──────────────────────────────────────────
+    # Auto-discovers route modules from lib/api/routes/ and serves them on
+    # config.api_host:config.api_port in a daemon thread. Same Python process,
+    # same ConnectionRegistry — Flet UI and HTTP API share state.
+    api_app = FastAPI(title=config.app_title)
+    api_app.middleware("http")(log_requests)
+    mount_routes(api_app)
+    server = BackendServer(api_app, host=config.api_host, port=config.api_port)
+    server.start()
+
+    # ── Background task scheduler ──────────────────────────────────────────
+    # Jobs run in daemon threads. Add recurring jobs before scheduler.start().
+    scheduler = TaskScheduler()
+    # scheduler.add_job(some_cleanup_func, "interval", hours=24)
+    scheduler.start()
+
+    # ── Database setup — failures here degrade gracefully (app still opens).
     _startup_error: str | None = None
     user_repo = None
     try:
@@ -125,6 +141,17 @@ def main():
         user_repo = UserRepository(ConnectionRegistry.get("postgres"))
     except Exception as exc:
         _startup_error = str(exc)
+
+    # ── Backend service adapter (must be initialized before props_factory) ──
+    try:
+        _backend_factory = ConnectionRegistry.get("postgres")
+    except RuntimeError:
+        _backend_factory = SessionFactory("sqlite:///./dev.db")
+    backend = ServiceBackendAdapter(
+        factory=_backend_factory,
+        user_service=UserService(_backend_factory),
+        scheduler=scheduler,
+    )
 
     router.set_props_factory(lambda: {
         # ── Simple snap-in API (use these in your views and services) ──────
@@ -144,32 +171,6 @@ def main():
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })
-
-    # ── HTTP API server (Phase 4) ──────────────────────────────────────────
-    # Auto-discovers route modules from lib/api/routes/ and serves them on
-    # config.api_host:config.api_port in a daemon thread. Same Python process,
-    # same ConnectionRegistry — Flet UI and HTTP API share state.
-    api_app = FastAPI(title=config.app_title)
-    api_app.middleware("http")(log_requests)
-    mount_routes(api_app)
-    server = BackendServer(api_app, host=config.api_host, port=config.api_port)
-    server.start()
-
-    # ── Background task scheduler ──────────────────────────────────────────
-    # Jobs run in daemon threads. Add recurring jobs before scheduler.start().
-    scheduler = TaskScheduler()
-    # scheduler.add_job(some_cleanup_func, "interval", hours=24)
-    scheduler.start()
-
-    try:
-        _backend_factory = ConnectionRegistry.get("postgres")
-    except RuntimeError:
-        _backend_factory = SessionFactory("sqlite:///./dev.db")
-    backend = ServiceBackendAdapter(
-        factory=_backend_factory,
-        user_service=UserService(_backend_factory),
-        scheduler=scheduler,
-    )
 
     def flet_main(page: ft.Page):
         page.title = config.app_title
