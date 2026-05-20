@@ -32,6 +32,10 @@ def login(
         data={"username": form.username, "password": form.password},
     ))
     if not result.success:
-        raise HTTPException(401, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = create_token({"sub": result.data["id"], "roles": result.data["roles"]})
     return {"access_token": token, "token_type": "bearer"}
