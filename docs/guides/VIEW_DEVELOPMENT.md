@@ -161,6 +161,7 @@ The current factory provides:
 | `cache_tester` | `CacheTester` | Cache liveness probe |
 | `params` | `dict` | URL path params (e.g. `{"id": "42"}` from `/users/{id}`) |
 | `query` | `dict` | Parsed query string (e.g. `{"tab": "stock"}` from `?tab=stock`) |
+| `backend` | `IBackendAdapter` | Auth + user/role/job CRUD for admin views |
 | `dev_nav` | `bool` | Show the orange floating dev nav |
 
 **Note:** The table above shows `main.py`'s default props. The rest of this guide assumes you've added `user_service` and `role_service` to the props factory as shown in section 2.2.
@@ -221,6 +222,39 @@ names = ConnectionRegistry.list()
 ```
 
 For everything else: if it has a constructor, it goes through props.
+
+### 2.4 Protected Views (Auth Guard)
+
+Views that require login subclass `ProtectedView` instead of `BaseView`. The
+redirect to `/login` is automatic — no manual check needed in `build_content`:
+
+```python
+from lib.ui.layouts.protected_view import ProtectedView
+
+class ManageUsersView(ProtectedView):    # auth check is automatic
+    title = "Manage Users"
+    show_sidebar = True
+
+    def build_content(self):
+        backend = self.props["backend"]
+        result = backend.list_users(page=1, page_size=20)
+        ...
+```
+
+`ProtectedView.render()` checks `backend.current_user()` before calling
+`super().render()`. If `current_user()` returns `None`, it redirects to `/login`
+and returns an empty view.
+
+**When to subclass `ProtectedView`:**
+- Any admin or management view (user management, roles, scheduler, security)
+- Any view that accesses data that should not be public
+
+**When to stay on `BaseView`:**
+- `/login` itself — it IS the auth entry point
+- Public pages: `/`, `/products`, `/not_found`
+
+**Current protected views:** `SecurityView`, `ManageUsersView`, `ManageRolesView`,
+`AdminSchedulerView`, `AdminDatabasesView`, `AdminCachesView`.
 
 ---
 
@@ -308,11 +342,11 @@ self.nav_service.execute(ActionRequest(action="visit", data={"url": "/login"}))
 self.nav.go("/login")
 
 # Instead of:
-result = self.vault_service.execute(ActionRequest(action="get", data={"key": "POSTGRES_URL"}))
+result = self.vault_service.execute(ActionRequest(action="get", data={"key": "DATABASE_POSTGRES"}))
 url = result.data["value"] if result.success else None
 
 # Use:
-url = self.vault.get("POSTGRES_URL")
+url = self.vault.get("DATABASE_POSTGRES")
 ```
 
 ### 3.3 Handling `ActionResult`
@@ -865,6 +899,48 @@ class SlowUserDetailView(BaseView):
         self.page.run_task(_load)
         return self._content
 ```
+
+### 5.5 Admin Views and the Backend Adapter
+
+Admin views access all data through `self.props["backend"]` — an `IBackendAdapter`
+instance — instead of individual service props. This decouples the view from the
+concrete implementation (Python services in dev, HTTP API in production):
+
+```python
+class ManageUsersView(ProtectedView):
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._backend = props.get("backend")
+
+    def build_content(self):
+        # Auth
+        user = self._backend.current_user()   # dict or None
+
+        # Users — paginated
+        result = self._backend.list_users(page=1, page_size=20)
+        # → {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}
+
+        self._backend.create_user({"username": "alice", "email": "alice@x.com", "password": "..."})
+        self._backend.delete_user(user_id_str)   # str UUID
+
+        # Roles
+        self._backend.list_roles()              # → [{"id": "...", "name": "admin"}, ...]
+        self._backend.create_role("editor")
+        self._backend.delete_role(role_id_str)
+
+        # Scheduler (read-only)
+        jobs = self._backend.list_jobs()
+        # → [{"id": "...", "func_name": "...", "trigger": "...", "next_run_time": ...}]
+```
+
+**Rules:**
+- Admin views call `backend`, not services or repos directly
+- Non-admin views (`HomeView`, `ProductsView`) continue using individual service props
+- Guard against `backend is None` if the primary DB might be unavailable at startup
+
+**Interface:** `IBackendAdapter` is defined in `lib/adapters/backend_adapter.py`.
+To add a new backend operation (e.g. `pause_job`), add it to the ABC and implement
+it in `ServiceBackendAdapter` — view code is unchanged.
 
 ---
 
