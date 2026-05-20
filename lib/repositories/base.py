@@ -4,6 +4,8 @@ from lib.database.session import SessionFactory
 
 T = TypeVar("T")
 
+_FILTER_OPS = frozenset({"like", "gte", "lte", "gt", "lt", "in", "ne"})
+
 
 class AbstractRepository(IRepository, Generic[T]):
     model: type[T]
@@ -73,5 +75,47 @@ class AbstractRepository(IRepository, Generic[T]):
                 "pages": max(1, (total + page_size - 1) // page_size),
             }
 
-    def filter_by(self, **specs) -> list:
-        raise NotImplementedError("filter_by not yet implemented")
+    def filter_by(self, **specs) -> list[T]:
+        """Query with Django-style lookup operators.
+
+        Supported suffixes (after __):
+            like  — SQL LIKE pattern  (e.g. username__like="ali%")
+            gte   — >=               (e.g. created_at__gte=some_date)
+            lte   — <=
+            gt    — >
+            lt    — <
+            in    — IN list          (e.g. status__in=["active", "pending"])
+            ne    — !=
+
+        Plain kwargs remain exact-match (e.g. username="alice").
+
+        Raises ValueError for unknown operators.
+        """
+        with self._factory.session() as s:
+            q = s.query(self.model)
+            for spec, value in specs.items():
+                if "__" in spec:
+                    field_name, _, op = spec.rpartition("__")
+                    if op not in _FILTER_OPS:
+                        raise ValueError(
+                            f"Unknown filter operator {op!r}. "
+                            f"Use one of: {', '.join(sorted(_FILTER_OPS))}"
+                        )
+                    col = getattr(self.model, field_name)
+                    if op == "like":
+                        q = q.filter(col.like(value))
+                    elif op == "gte":
+                        q = q.filter(col >= value)
+                    elif op == "lte":
+                        q = q.filter(col <= value)
+                    elif op == "gt":
+                        q = q.filter(col > value)
+                    elif op == "lt":
+                        q = q.filter(col < value)
+                    elif op == "in":
+                        q = q.filter(col.in_(value))
+                    elif op == "ne":
+                        q = q.filter(col != value)
+                else:
+                    q = q.filter(getattr(self.model, spec) == value)
+            return q.all()

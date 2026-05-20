@@ -158,3 +158,61 @@ def test_paginate_with_filter(repo):
     result = repo.paginate(page=1, page_size=10, species="active")
     assert result["total"] == 1
     assert result["items"][0].name == "pgactive1"
+
+
+# ── filter_by() ───────────────────────────────────────────────────────────────
+
+def test_filter_by_exact_match(db_factory):
+    from lib.repositories.user_repository import UserRepository
+    repo = UserRepository(db_factory)
+    repo.create({"username": "fb_alice", "email": "fb_alice@test.com",
+                 "password_hash": "", "salt": ""})
+    repo.create({"username": "fb_bob", "email": "fb_bob@test.com",
+                 "password_hash": "", "salt": ""})
+    results = repo.filter_by(username="fb_alice")
+    assert len(results) == 1
+    assert results[0].username == "fb_alice"
+
+
+def test_filter_by_like(db_factory):
+    from lib.repositories.user_repository import UserRepository
+    repo = UserRepository(db_factory)
+    repo.create({"username": "fb_carol", "email": "fb_carol@test.com",
+                 "password_hash": "", "salt": ""})
+    repo.create({"username": "fb_dave", "email": "fb_dave@test.com",
+                 "password_hash": "", "salt": ""})
+    results = repo.filter_by(username__like="fb_c%")
+    assert len(results) == 1
+    assert results[0].username == "fb_carol"
+
+
+def test_filter_by_in(db_factory):
+    from lib.repositories.user_repository import UserRepository
+    repo = UserRepository(db_factory)
+    repo.create({"username": "fb_eve", "email": "fb_eve@test.com",
+                 "password_hash": "", "salt": ""})
+    repo.create({"username": "fb_frank", "email": "fb_frank@test.com",
+                 "password_hash": "", "salt": ""})
+    results = repo.filter_by(username__in=["fb_eve", "fb_frank"])
+    assert len(results) == 2
+
+
+def test_filter_by_ne(db_factory):
+    from lib.repositories.user_repository import UserRepository
+    repo = UserRepository(db_factory)
+    repo.create({"username": "fb_grace", "email": "fb_grace@test.com",
+                 "password_hash": "", "salt": "", "status": "active"})
+    repo.create({"username": "fb_henry", "email": "fb_henry@test.com",
+                 "password_hash": "", "salt": "", "status": "suspended"})
+    results = repo.filter_by(status__ne="suspended")
+    usernames = [u.username for u in results]
+    assert "fb_grace" in usernames
+    assert "fb_henry" not in usernames
+
+
+def test_filter_by_unknown_operator_raises(db_factory):
+    from lib.repositories.user_repository import UserRepository
+    import pytest
+    repo = UserRepository(db_factory)
+    with pytest.raises(ValueError, match="Unknown filter operator"):
+        repo.filter_by(username__fuzzy="alice")
