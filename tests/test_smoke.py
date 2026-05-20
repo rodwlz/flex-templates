@@ -18,6 +18,9 @@ ALL_ROUTES = [
     "/products",
     "/products/1",
     "/products/2?tab=stock",
+    "/manage/users",
+    "/manage/roles",
+    "/admin/scheduler",
     "/this-is-an-unknown-page",
 ]
 

@@ -27,12 +27,12 @@ class LoginView(BaseView):
 
         if not username or not password:
             self._error_text.value = "Username and password are required."
-            self._error_text.update()
+            self.page.update()
             return
 
         if self._backend is None:
             self._error_text.value = "Backend not available."
-            self._error_text.update()
+            self.page.update()
             return
 
         try:
@@ -42,7 +42,7 @@ class LoginView(BaseView):
             )
         except ValueError:
             self._error_text.value = "Invalid username or password."
-            self._error_text.update()
+            self.page.update()
 
     def build_content(self):
         self._username_field = ft.TextField(label="Username", width=320, autofocus=True)

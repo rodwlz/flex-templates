@@ -60,7 +60,7 @@ class ManageUsersView(ProtectedView):
 
         if not username or not email or not password:
             self._form_error.value = "All fields are required."
-            self._form_error.update()
+            self.page.update()
             return
 
         try:
@@ -70,7 +70,7 @@ class ManageUsersView(ProtectedView):
             self._snack(f"Created {username}")
         except Exception as exc:
             self._form_error.value = str(exc)
-            self._form_error.update()
+            self.page.update()
 
     # ── UI builders ───────────────────────────────────────────────────────
 

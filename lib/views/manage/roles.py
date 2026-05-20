@@ -24,7 +24,7 @@ class ManageRolesView(ProtectedView):
         name = self._role_name_field.value.strip()
         if not name:
             self._error_text.value = "Role name is required."
-            self._error_text.update()
+            self.page.update()
             return
 
         try:
@@ -35,7 +35,7 @@ class ManageRolesView(ProtectedView):
             self._snack(f"Role '{name}' created")
         except Exception as exc:
             self._error_text.value = str(exc)
-            self._error_text.update()
+            self.page.update()
 
     def _on_delete_role(self, role_id: str, name: str):
         self._backend.delete_role(role_id)
