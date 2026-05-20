@@ -1,0 +1,39 @@
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
+
+from lib.auth.jwt_handler import JWTError, decode_token
+
+# tokenUrl matches the login endpoint — makes it easy to swap for an external OAuth2 provider
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+def get_current_user(token: str = Depends(_oauth2_scheme)) -> dict:
+    """FastAPI dependency: decode Bearer JWT, return {"id": ..., "roles": [...]}."""
+    try:
+        payload = decode_token(token)
+        return {"id": payload["sub"], "roles": payload.get("roles", [])}
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def require_roles(*role_names: str):
+    """Dependency factory: require the authenticated user to hold at least one role.
+
+    Usage:
+        @router.get("/admin")
+        def admin_page(user=Depends(require_roles("admin", "superadmin"))):
+            ...
+    """
+    def _check(user: dict = Depends(get_current_user)) -> dict:
+        if not set(role_names).intersection(user.get("roles", [])):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Requires one of: {', '.join(role_names)}",
+            )
+        return user
+
+    return _check
