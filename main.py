@@ -16,13 +16,15 @@ from lib.security.vault import Vault
 from lib.ui.adapter import FletNavigationAdapter
 from lib.ui.router import FletRouter
 from lib.ui.error_adapter import FletErrorAdapter
-from lib.database.session import ConnectionRegistry
+from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.adapters.redis_adapter import RedisAdapter
 from lib.repositories.user_repository import UserRepository
 from lib.api.server import BackendServer
 from lib.api.router_registry import mount_routes
 from lib.middleware.logging import setup_logging, log_requests
 from lib.tasks.scheduler import TaskScheduler
+from lib.adapters.backend_adapter import ServiceBackendAdapter
+from lib.services.user_service import UserService
 
 
 # Vault key prefix → adapter builder. Adding a new cache type means adding one
@@ -95,26 +97,26 @@ def main():
     router.register("/products/{id}", "lib.views.product_detail")
     router.register("/admin/databases", "lib.views.admin.databases")
     router.register("/admin/caches",   "lib.views.admin.caches")
+    router.register("/manage/users",    "lib.views.manage.users")
+    router.register("/manage/roles",    "lib.views.manage.roles")
+    router.register("/admin/scheduler", "lib.views.admin.scheduler")
 
     vault = Vault(vault_service)
-    vault.unlock()
-
-    # Register databases from vault — keys named DATABASE_* hold connection URLs.
-    # This keeps credentials out of .env entirely.
-    for key in vault.keys():
-        if key.startswith("DATABASE_"):
-            db_name = key[len("DATABASE_"):].lower()
-            try:
-                ConnectionRegistry.register(url=vault.get(key), name=db_name)
-            except Exception as e:
-                print(f"Warning: Failed to register vault database '{db_name}': {e}")
-
-    # Caches — scan vault for SERVICE_URL[_ID] keys and register each adapter.
-    # See _CACHE_BUILDERS at module top for supported services.
-    _register_caches_from_vault(vault)
-    # Convenience handle: the unnamed "redis" instance, if present, is exposed
-    # directly as props["redis"] for views that don't need the registry.
+    # Vault starts LOCKED. SecurityView unlocks it; vault.unlocked event wires connections.
     redis = CacheRegistry._adapters.get("redis")
+
+    def _on_vault_unlocked(_event):
+        """Re-register vault-sourced DB and cache connections after user unlocks vault."""
+        for key in vault.keys():
+            if key.startswith("DATABASE_"):
+                db_name = key[len("DATABASE_"):].lower()
+                try:
+                    ConnectionRegistry.register(url=vault.get(key), name=db_name)
+                except Exception as e:
+                    print(f"Warning: vault DB '{db_name}': {e}")
+        _register_caches_from_vault(vault)
+
+    event_bus.subscribe("vault.unlocked", _on_vault_unlocked)
 
     # Database setup — failures here degrade gracefully (app still opens).
     _startup_error: str | None = None
@@ -140,6 +142,7 @@ def main():
         "config":            config,
         "connection_tester": connection_tester,
         "cache_tester":      cache_tester,
+        "backend":           backend,
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })
@@ -159,6 +162,17 @@ def main():
     scheduler = TaskScheduler()
     # scheduler.add_job(some_cleanup_func, "interval", hours=24)
     scheduler.start()
+
+    _backend_factory = (
+        ConnectionRegistry.get("postgres")
+        if "postgres" in ConnectionRegistry._factories
+        else SessionFactory("sqlite:///./dev.db")
+    )
+    backend = ServiceBackendAdapter(
+        factory=_backend_factory,
+        user_service=UserService(_backend_factory),
+        scheduler=scheduler,
+    )
 
     def flet_main(page: ft.Page):
         page.title = config.app_title
