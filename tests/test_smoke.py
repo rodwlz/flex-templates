@@ -93,6 +93,9 @@ def test_main_module_imports_cleanly():
         "lib.ui.components.copy_button",
         "lib.ui.components.admin_tabs",
         "lib.ui.components.status_card",
+        "lib.adapters.backend_adapter",
+        "lib.ui.layouts.protected_view",
+        "lib.ui.components.manage_tabs",
         "lib.views.home",
         "lib.views.login",
         "lib.views.products",
@@ -102,6 +105,9 @@ def test_main_module_imports_cleanly():
         "lib.views.not_found",
         "lib.views.admin.databases",
         "lib.views.admin.caches",
+        "lib.views.manage.users",
+        "lib.views.manage.roles",
+        "lib.views.admin.scheduler",
     ],
 )
 def test_module_imports_cleanly(module_path):
