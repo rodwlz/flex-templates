@@ -21,6 +21,7 @@ from lib.adapters.redis_adapter import RedisAdapter
 from lib.repositories.user_repository import UserRepository
 from lib.api.server import BackendServer
 from lib.api.router_registry import mount_routes
+from lib.middleware.logging import setup_logging, log_requests
 
 
 # Vault key prefix → adapter builder. Adding a new cache type means adding one
@@ -57,6 +58,7 @@ def _register_caches_from_vault(vault) -> None:
 
 def main():
     config = AppConfig()
+    setup_logging("DEBUG" if config.debug else "INFO")
 
     # Register all databases from DATABASE_* environment variables
     for db_name, db_url in config.databases.items():
@@ -146,6 +148,7 @@ def main():
     # config.api_host:config.api_port in a daemon thread. Same Python process,
     # same ConnectionRegistry — Flet UI and HTTP API share state.
     api_app = FastAPI(title=config.app_title)
+    api_app.middleware("http")(log_requests)
     mount_routes(api_app)
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
     server.start()

@@ -77,6 +77,7 @@ def test_main_module_imports_cleanly():
         "lib.api.routes.auth",
         "lib.api.routes.users",
         "lib.api.routes.caches",
+        "lib.middleware.logging",
         "lib.ui.adapter",
         "lib.ui.error_adapter",
         "lib.ui.router",
