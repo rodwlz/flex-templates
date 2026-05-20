@@ -23,6 +23,7 @@ class FakePage:
     def __init__(self, route: str = "/"):
         self.route = route
         self.views = []
+        self.overlay = []
         self.update_count = 0
 
     def update(self):
