@@ -30,6 +30,10 @@ class TaskScheduler:
         """
         return self._scheduler.add_job(func, trigger, **kwargs)
 
+    def get_jobs(self) -> list:
+        """Return all APScheduler Job objects (read-only inspector)."""
+        return self._scheduler.get_jobs()
+
     def start(self) -> None:
         if not self._scheduler.running:
             self._scheduler.start()
