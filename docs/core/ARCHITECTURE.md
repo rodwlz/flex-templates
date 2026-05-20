@@ -201,7 +201,9 @@ the full CRUD contract spelled out.
 - **Named (for params):** `router.register("/products/{id}", "lib.views.product_detail")`
 
 `BaseView` is the page template — every view subclasses it and only writes
-`build_content()`. The appbar, sidebar, and dev nav come for free.
+`build_content()`. The appbar, sidebar, and dev nav come for free. Admin views
+that require login subclass `ProtectedView(BaseView)` instead — redirect to
+`/login` is automatic if `backend.current_user()` returns None.
 
 ```python
 class ProductsView(BaseView):
@@ -215,10 +217,36 @@ def view(page, props):     # required entry point
     return ProductsView(page, props).render()
 ```
 
+### BackendAdapter — `lib/adapters/backend_adapter.py`
+
+The plug between Flet admin views and the backend. Admin views call
+`self.props["backend"]` — an `IBackendAdapter` instance — for all auth and
+data operations. `ServiceBackendAdapter` is the concrete implementation (calls
+Python services directly). Swap it for `HttpBackendAdapter` in `main.py` and
+no view changes:
+
+```python
+class ManageUsersView(ProtectedView):
+    def build_content(self):
+        backend = self.props["backend"]
+        result = backend.list_users(page=1, page_size=20)
+        # result: {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}
+```
+
+`IBackendAdapter` defines: `login`/`logout`/`current_user`, `list_users`/`create_user`/
+`delete_user`, `list_roles`/`create_role`/`delete_role`/`assign_role`/`remove_role`,
+`list_jobs`.
+
+`ProtectedView(BaseView)` is the auth-guard subclass — it checks
+`backend.current_user()` before rendering and redirects to `/login` if the
+session is empty.
+
 ### Vault — `lib/security/`
 
-Encrypted secrets store with a two-key design (master + confirm). `main.py`
-unlocks it at startup; services read secrets via `vault.get("KEY")`.
+Encrypted secrets store with a two-key design (master + confirm). Vault starts
+**locked** — no auto-unlock at startup. The user unlocks it manually via the
+`/security` view. After unlock, `main.py` wires vault-sourced DB and cache
+connections via the `vault.unlocked` event.
 Deep dive: [VAULT_USAGE.md](../reference/VAULT_USAGE.md).
 
 ### API server — `lib/api/`
@@ -292,6 +320,13 @@ view both call the same `CacheTester` — that's the contract paying off.
 | `lib/ui/components/` | Reusable bits (NavBar, SideBar, StatusCard, ...) |
 | `lib/views/home.py` etc. | Pages — one file per route |
 | `lib/views/admin/databases.py` | Admin DB inspector — see this for the props pattern |
+| `lib/adapters/backend_adapter.py` | `IBackendAdapter` ABC + `ServiceBackendAdapter` |
+| `lib/ui/layouts/protected_view.py` | `ProtectedView` — auth guard, redirects to `/login` |
+| `lib/views/login.py` | Login form — calls `backend.login()`, navigates on success |
+| `lib/views/manage/users.py` | Paginated user list + create + delete (auth required) |
+| `lib/views/manage/roles.py` | Role list + create + delete (auth required) |
+| `lib/views/admin/scheduler.py` | Read-only APScheduler job inspector (auth required) |
+| `lib/database/migrations/` | Alembic migration scripts — run `alembic upgrade head` |
 | `lib/views/admin/caches.py` | Admin cache inspector |
 | `games/` | Pong demo — proves the LEGO architecture |
 | `main.py` | Boot sequence — only file that names concrete types |
@@ -300,7 +335,7 @@ view both call the same `CacheTester` — that's the contract paying off.
 
 ## Testing
 
-All 373 tests run on in-memory SQLite and a `FakePage` stand-in for `ft.Page`,
+All 398 tests run on in-memory SQLite and a `FakePage` stand-in for `ft.Page`,
 so the suite has no external dependencies and finishes in ~10 seconds.
 
 Tests double as runnable specifications. A few that are worth reading as docs:
