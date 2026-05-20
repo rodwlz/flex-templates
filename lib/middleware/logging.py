@@ -11,6 +11,7 @@ _LOGRECORD_ATTRS = frozenset({
     "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
     "created", "msecs", "relativeCreated", "thread", "threadName",
     "processName", "process", "message", "asctime",
+    "taskName",  # Python 3.12+
 })
 
 _http_logger = logging.getLogger("flex.http")
