@@ -234,6 +234,11 @@ def view(page: ft.Page, props: dict) -&gt; ft.View:
                     <td>Parsed query string (e.g. <code>{"tab": "stock"}</code> from <code>?tab=stock</code>)</td>
                 </tr>
                 <tr>
+                    <td><code>backend</code></td>
+                    <td><code>IBackendAdapter</code></td>
+                    <td>Auth + user/role/job CRUD for admin views</td>
+                </tr>
+                <tr>
                     <td><code>dev_nav</code></td>
                     <td><code>bool</code></td>
                     <td>Show the orange floating dev nav</td>
@@ -305,6 +310,43 @@ names = ConnectionRegistry.list()</code></pre>
         </div>
 
         <p>For everything else: if it has a constructor, it goes through props.</p>
+
+        <h3>2.4 Protected Views (Auth Guard)</h3>
+
+        <p>Views that require login subclass <code>ProtectedView</code> instead of
+        <code>BaseView</code>. The redirect to <code>/login</code> is automatic &mdash;
+        no manual check needed in <code>build_content</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.ui.layouts.protected_view import ProtectedView
+
+class ManageUsersView(ProtectedView):    # auth check is automatic
+    title = "Manage Users"
+    show_sidebar = True
+
+    def build_content(self):
+        backend = self.props["backend"]
+        result = backend.list_users(page=1, page_size=20)
+        ...</code></pre>
+        </div>
+
+        <p><code>ProtectedView.render()</code> checks <code>backend.current_user()</code>
+        before calling <code>super().render()</code>. If <code>current_user()</code>
+        returns <code>None</code>, it redirects to <code>/login</code> and returns an
+        empty view.</p>
+
+        <p><strong>When to subclass <code>ProtectedView</code>:</strong> any admin or
+        management view (user management, roles, scheduler, security, databases, caches).</p>
+
+        <p><strong>When to stay on <code>BaseView</code>:</strong> <code>/login</code>
+        itself, and all public pages (<code>/</code>, <code>/products</code>,
+        <code>/not_found</code>).</p>
+
+        <p><strong>Current protected views:</strong> <code>SecurityView</code>,
+        <code>ManageUsersView</code>, <code>ManageRolesView</code>,
+        <code>AdminSchedulerView</code>, <code>AdminDatabasesView</code>,
+        <code>AdminCachesView</code>.</p>
 
         <hr>
 
@@ -1004,6 +1046,53 @@ class ProductDetailView(BaseView):
         self.page.run_task(_load)
         return self._content</code></pre>
         </div>
+
+        <h3 id="admin-views-and-the-backend-adapter">5.5 Admin Views and the Backend Adapter</h3>
+
+        <p>Admin views access all data through <code>self.props["backend"]</code> &mdash; an
+        <code>IBackendAdapter</code> instance &mdash; instead of individual service props.
+        This decouples the view from whether data comes from Python services (dev) or a
+        remote HTTP API (production):</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class ManageUsersView(ProtectedView):
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._backend = props.get("backend")
+
+    def build_content(self):
+        # Paginated user list
+        result = self._backend.list_users(page=1, page_size=20)
+        # → {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}
+
+        # Create / delete
+        self._backend.create_user({"username": "alice", "email": "alice@x.com", "password": "..."})
+        self._backend.delete_user(user_id_str)   # str UUID
+
+        # Roles
+        self._backend.list_roles()              # → [{"id": "...", "name": "admin"}]
+        self._backend.create_role("editor")
+        self._backend.delete_role(role_id_str)
+
+        # Scheduler jobs (read-only)
+        jobs = self._backend.list_jobs()
+        # → [{"id": "...", "func_name": "...", "trigger": "...", "next_run_time": ...}]</code></pre>
+        </div>
+
+        <p><strong>Rules:</strong></p>
+        <ul>
+            <li>Admin views call <code>backend</code>, not services or repos directly.</li>
+            <li>Non-admin views (<code>HomeView</code>, <code>ProductsView</code>) continue
+            using individual service props.</li>
+            <li>Guard against <code>backend is None</code> if the primary DB might be
+            unavailable at startup.</li>
+        </ul>
+
+        <p><code>IBackendAdapter</code> is defined in
+        <code>lib/adapters/backend_adapter.py</code>. To add a new backend operation,
+        add it to the ABC and implement it in <code>ServiceBackendAdapter</code> &mdash;
+        view code is unchanged.</p>
 
         <hr>
 
