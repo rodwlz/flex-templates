@@ -4,16 +4,14 @@ import pytest
 
 from lib.adapters.backend_adapter import ServiceBackendAdapter
 from lib.services.user_service import UserService
-from lib.repositories.role_repository import RoleRepository
 from lib.tasks.scheduler import TaskScheduler
 
 
 @pytest.fixture
 def adapter(db_factory):
     user_service = UserService(db_factory)
-    role_repo = RoleRepository(db_factory)
     scheduler = TaskScheduler()
-    return ServiceBackendAdapter(db_factory, user_service, role_repo, scheduler)
+    return ServiceBackendAdapter(db_factory, user_service, scheduler)
 
 
 @pytest.fixture
@@ -99,13 +97,10 @@ def test_list_jobs_empty_without_scheduled_jobs(adapter):
     assert adapter.list_jobs() == []
 
 
-def test_list_jobs_returns_registered_job(adapter):
+def test_list_jobs_returns_registered_job(adapter, db_factory):
     scheduler = TaskScheduler()
-    from lib.services.user_service import UserService
-    from lib.repositories.role_repository import RoleRepository
-    svc = UserService(adapter._factory)
-    rr = RoleRepository(adapter._factory)
-    a2 = ServiceBackendAdapter(adapter._factory, svc, rr, scheduler)
+    svc = UserService(db_factory)
+    a2 = ServiceBackendAdapter(db_factory, svc, scheduler)
     scheduler.add_job(lambda: None, "interval", seconds=3600, id="test-job", name="test job")
     scheduler.start()
     jobs = a2.list_jobs()

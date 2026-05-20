@@ -31,7 +31,7 @@ class IBackendAdapter(ABC):
 
     # ── Users ─────────────────────────────────────────────────────────────
     @abstractmethod
-    def list_users(self, page: int = 1, page_size: int = 20, **filters) -> dict:
+    def list_users(self, page: int = 1, page_size: int = 20) -> dict:
         """Returns paginate() shape: {items, total, page, page_size, pages}.
         Items are dicts with string UUIDs."""
 
@@ -69,10 +69,9 @@ class ServiceBackendAdapter(IBackendAdapter):
     Swap for HttpBackendAdapter in main.py — views are unaffected.
     """
 
-    def __init__(self, factory: SessionFactory, user_service: UserService, role_repo=None, scheduler=None):
+    def __init__(self, factory: SessionFactory, user_service: UserService, scheduler=None):
         self._factory = factory
         self._user_service = user_service
-        # role_repo is accepted for API compatibility but roles are created fresh per method
         self._scheduler = scheduler
         self._session: dict | None = None
 
@@ -91,7 +90,7 @@ class ServiceBackendAdapter(IBackendAdapter):
 
     # ── Users ─────────────────────────────────────────────────────────────
 
-    def list_users(self, page: int = 1, page_size: int = 20, **filters) -> dict:
+    def list_users(self, page: int = 1, page_size: int = 20) -> dict:
         repo = UserRepository(self._factory)
         result = repo.paginate(page=page, page_size=page_size)
         result["items"] = [_str_uuids(item) for item in result["items"]]
@@ -115,6 +114,8 @@ class ServiceBackendAdapter(IBackendAdapter):
 
     def create_role(self, name: str) -> dict:
         repo = RoleRepository(self._factory)
+        # repo.create() calls s.expunge(obj) before returning, so obj is detached.
+        # Attribute access is safe because expire_on_commit=False on the session factory.
         role = repo.create({"name": name})
         return {"id": str(role.id), "name": role.name}
 
@@ -141,7 +142,7 @@ class ServiceBackendAdapter(IBackendAdapter):
                 "id": job.id,
                 "name": job.name,
                 "trigger": str(job.trigger),
-                "next_run_time": str(job.next_run_time) if job.next_run_time else "—",
+                "next_run_time": str(job.next_run_time) if job.next_run_time else None,
                 "func_name": getattr(job.func, "__name__", str(job.func)),
             }
             for job in jobs
