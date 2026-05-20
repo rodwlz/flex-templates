@@ -9,6 +9,11 @@ from lib.views.admin.databases import AdminDatabasesView
 from tests.conftest import FakePage
 
 
+class _MockBackendLoggedIn:
+    def current_user(self):
+        return {"id": "1", "username": "admin", "roles": []}
+
+
 @pytest.fixture(autouse=True)
 def clean_registry():
     saved = dict(ConnectionRegistry._factories)
@@ -23,6 +28,7 @@ def make_view(nav_service, route="/admin/databases"):
     page = FakePage(route)
     props = {
         "nav_service": nav_service,
+        "backend": _MockBackendLoggedIn(),
         "connection_tester": ConnectionTester(),
     }
     return AdminDatabasesView(page, props)

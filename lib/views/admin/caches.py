@@ -11,9 +11,10 @@ from lib.services.cache_registry import CacheRegistry
 from lib.ui.components.admin_tabs import AdminTabs
 from lib.ui.components.status_card import StatusCard
 from lib.ui.layouts.base_view import BaseView
+from lib.ui.layouts.protected_view import ProtectedView
 
 
-class AdminCachesView(BaseView):
+class AdminCachesView(ProtectedView):
     """Cache inspector dashboard — pings each registered cache adapter."""
 
     title = "Cache Inspector"

@@ -1,11 +1,12 @@
 """Security view — password manager for encrypted vault."""
 import flet as ft
 from lib.ui.layouts.base_view import BaseView
+from lib.ui.layouts.protected_view import ProtectedView
 from lib.ui.components.copy_button import CopyButton
 from lib.contracts.base import ActionRequest
 
 
-class SecurityView(BaseView):
+class SecurityView(ProtectedView):
     title = "Security & Secrets"
     show_sidebar = True
 
@@ -82,6 +83,7 @@ class SecurityView(BaseView):
             self._unlock_error = ""
             self._current_state = "unlocked"
             self._load_keys()
+            self.events.emit("vault.unlocked", {})
             self._refresh_ui()
         else:
             self._unlock_error = result.error or "Failed to unlock vault"

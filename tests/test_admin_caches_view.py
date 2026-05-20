@@ -10,6 +10,11 @@ from lib.views.admin.caches import AdminCachesView
 from tests.conftest import FakePage
 
 
+class _MockBackendLoggedIn:
+    def current_user(self):
+        return {"id": "1", "username": "admin", "roles": []}
+
+
 @pytest.fixture(autouse=True)
 def clean_registry():
     CacheRegistry._adapters = {}
@@ -23,6 +28,7 @@ def make_view(nav_service, route="/admin/caches"):
     page = FakePage(route)
     props = {
         "nav_service": nav_service,
+        "backend": _MockBackendLoggedIn(),
         "cache_tester": CacheTester(),
     }
     return AdminCachesView(page, props)
