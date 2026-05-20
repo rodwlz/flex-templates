@@ -48,6 +48,7 @@ def test_main_module_imports_cleanly():
     "module_path",
     [
         "lib.config.settings",
+        "lib.config.cli",
         "lib.contracts.base",
         "lib.core.events",
         "lib.core.interfaces",

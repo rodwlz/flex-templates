@@ -33,6 +33,10 @@ dev = [
     "anyio[trio]>=4.0",
 ]
 
+[project.scripts]
+flex-encrypt = "lib.config.cli:flex_encrypt"
+flex-decrypt = "lib.config.cli:flex_decrypt"
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
