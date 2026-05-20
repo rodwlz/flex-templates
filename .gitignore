@@ -30,7 +30,8 @@ ENV/
 *.swp
 *.swo
 *~
-.claude
+.claude/
+.superpowers/
 .ruff_cache/
 
 # Testing
