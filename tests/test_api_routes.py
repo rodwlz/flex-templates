@@ -59,7 +59,7 @@ def api_client(monkeypatch):
 
 def test_post_role_creates_role(api_client):
     """POST /roles creates a role and returns it."""
-    response = api_client.post("/roles", json={
+    response = api_client.post("/v1/roles", json={
         "name": "admin",
         "description": "Administrator"
     })
@@ -72,14 +72,14 @@ def test_post_role_creates_role(api_client):
 
 def test_get_role_retrieves_role(api_client):
     """GET /roles/{id} returns the role with that ID."""
-    create_resp = api_client.post("/roles", json={
+    create_resp = api_client.post("/v1/roles", json={
         "name": "editor",
         "description": "Editor"
     })
     assert create_resp.status_code == 200
     role_id = create_resp.json()["id"]
 
-    get_resp = api_client.get(f"/roles/{role_id}")
+    get_resp = api_client.get(f"/v1/roles/{role_id}")
     assert get_resp.status_code == 200
     assert get_resp.json()["name"] == "editor"
 
@@ -87,47 +87,47 @@ def test_get_role_retrieves_role(api_client):
 def test_get_role_404_when_missing(api_client):
     """GET /roles/{id} with an unknown UUID returns 404."""
     import uuid
-    response = api_client.get(f"/roles/{uuid.uuid4()}")
+    response = api_client.get(f"/v1/roles/{uuid.uuid4()}")
     assert response.status_code == 404
 
 
 def test_list_roles_returns_all(api_client):
     """GET /roles returns all created roles."""
-    api_client.post("/roles", json={"name": "admin", "description": "Admin"})
-    api_client.post("/roles", json={"name": "editor", "description": "Editor"})
+    api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
+    api_client.post("/v1/roles", json={"name": "editor", "description": "Editor"})
 
-    response = api_client.get("/roles")
+    response = api_client.get("/v1/roles")
     assert response.status_code == 200
     assert len(response.json()["roles"]) == 2
 
 
 def test_list_roles_returns_empty_when_none(api_client):
     """GET /roles on an empty database returns an empty roles list."""
-    response = api_client.get("/roles")
+    response = api_client.get("/v1/roles")
     assert response.status_code == 200
     assert response.json()["roles"] == []
 
 
 def test_delete_role_removes_it(api_client):
     """DELETE /roles/{id} removes the role; subsequent GET returns 404."""
-    create_resp = api_client.post("/roles", json={
+    create_resp = api_client.post("/v1/roles", json={
         "name": "viewer",
         "description": "Viewer"
     })
     role_id = create_resp.json()["id"]
 
-    delete_resp = api_client.delete(f"/roles/{role_id}")
+    delete_resp = api_client.delete(f"/v1/roles/{role_id}")
     assert delete_resp.status_code == 200
     assert delete_resp.json()["deleted"] is True
 
-    get_resp = api_client.get(f"/roles/{role_id}")
+    get_resp = api_client.get(f"/v1/roles/{role_id}")
     assert get_resp.status_code == 404
 
 
 def test_delete_role_404_when_missing(api_client):
     """DELETE /roles/{id} with an unknown UUID returns 404."""
     import uuid
-    response = api_client.delete(f"/roles/{uuid.uuid4()}")
+    response = api_client.delete(f"/v1/roles/{uuid.uuid4()}")
     assert response.status_code == 404
 
 
@@ -135,7 +135,7 @@ def test_delete_role_404_when_missing(api_client):
 
 def test_post_user_creates_user(api_client):
     """POST /users immediately creates and returns the user."""
-    response = api_client.post("/users", json={
+    response = api_client.post("/v1/users", json={
         "username": "alice",
         "email": "alice@example.com",
         "password_hash": "hash",
@@ -147,7 +147,7 @@ def test_post_user_creates_user(api_client):
 
 def test_get_user_with_roles(api_client):
     """GET /users/{id} returns the user and a roles array (empty by default)."""
-    create_resp = api_client.post("/users", json={
+    create_resp = api_client.post("/v1/users", json={
         "username": "bob",
         "email": "bob@example.com",
         "password_hash": "hash",
@@ -155,7 +155,7 @@ def test_get_user_with_roles(api_client):
     })
     user_id = create_resp.json()["id"]
 
-    get_resp = api_client.get(f"/users/{user_id}")
+    get_resp = api_client.get(f"/v1/users/{user_id}")
     assert get_resp.status_code == 200
     body = get_resp.json()
     assert body["username"] == "bob"
@@ -165,43 +165,43 @@ def test_get_user_with_roles(api_client):
 
 def test_list_users(api_client):
     """GET /users returns every user under the 'users' key."""
-    api_client.post("/users", json={
+    api_client.post("/v1/users", json={
         "username": "u1", "email": "u1@example.com",
         "password_hash": "h", "salt": "s",
     })
-    api_client.post("/users", json={
+    api_client.post("/v1/users", json={
         "username": "u2", "email": "u2@example.com",
         "password_hash": "h", "salt": "s",
     })
 
-    resp = api_client.get("/users")
+    resp = api_client.get("/v1/users")
     assert resp.status_code == 200
     assert len(resp.json()["users"]) == 2
 
 
 def test_delete_user_removes_it(api_client):
     """DELETE /users/{id} removes the user; subsequent GET returns 404."""
-    create_resp = api_client.post("/users", json={
+    create_resp = api_client.post("/v1/users", json={
         "username": "eve", "email": "eve@example.com",
         "password_hash": "h", "salt": "s",
     })
     user_id = create_resp.json()["id"]
 
-    delete_resp = api_client.delete(f"/users/{user_id}")
+    delete_resp = api_client.delete(f"/v1/users/{user_id}")
     assert delete_resp.status_code == 200
     assert delete_resp.json()["deleted"] is True
 
-    assert api_client.get(f"/users/{user_id}").status_code == 404
+    assert api_client.get(f"/v1/users/{user_id}").status_code == 404
 
 
 # ===== USER ROUTES — STAGED OPERATIONS =====
 
 def test_stage_user_with_roles(api_client):
     """POST /users/with-roles/stage returns a preview, then /confirm commits it."""
-    role_resp = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    role_resp = api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
     role_id = role_resp.json()["id"]
 
-    stage_resp = api_client.post("/users/with-roles/stage", json={
+    stage_resp = api_client.post("/v1/users/with-roles/stage", json={
         "username": "charlie",
         "email": "charlie@example.com",
         "password_hash": "hash",
@@ -211,16 +211,16 @@ def test_stage_user_with_roles(api_client):
     assert stage_resp.status_code == 200
     assert "preview" in stage_resp.json()
 
-    confirm_resp = api_client.post("/users/with-roles/confirm")
+    confirm_resp = api_client.post("/v1/users/with-roles/confirm")
     assert confirm_resp.status_code == 200
 
-    users = api_client.get("/users").json()
+    users = api_client.get("/v1/users").json()
     assert any(u["username"] == "charlie" for u in users["users"])
 
 
 def test_cancel_staged_user(api_client):
     """POST /users/with-roles/cancel rolls back the staged creation."""
-    api_client.post("/users/with-roles/stage", json={
+    api_client.post("/v1/users/with-roles/stage", json={
         "username": "dave",
         "email": "dave@example.com",
         "password_hash": "hash",
@@ -228,10 +228,10 @@ def test_cancel_staged_user(api_client):
         "role_ids": [],
     })
 
-    cancel_resp = api_client.post("/users/with-roles/cancel")
+    cancel_resp = api_client.post("/v1/users/with-roles/cancel")
     assert cancel_resp.status_code == 200
 
-    users = api_client.get("/users").json()
+    users = api_client.get("/v1/users").json()
     assert not any(u["username"] == "dave" for u in users["users"])
 
 
@@ -240,7 +240,7 @@ def test_cancel_staged_user(api_client):
 def test_bulk_delete_request_then_approve(api_client):
     """The approval-required flow: request stages, approve commits."""
     # Stage a user via the request endpoint (uses requires_approval=True).
-    request_resp = api_client.post("/users/bulk-delete/request", json={
+    request_resp = api_client.post("/v1/users/bulk-delete/request", json={
         "username": "frank",
         "email": "frank@example.com",
         "password_hash": "hash",
@@ -251,6 +251,6 @@ def test_bulk_delete_request_then_approve(api_client):
     assert "preview" in request_resp.json()
 
     # Approve commits the staged operation.
-    approve_resp = api_client.post("/users/bulk-delete/approve", json={})
+    approve_resp = api_client.post("/v1/users/bulk-delete/approve", json={})
     assert approve_resp.status_code == 200
     assert approve_resp.json()["confirmed"] is True

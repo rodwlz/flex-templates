@@ -26,7 +26,7 @@ from lib.database.session import ConnectionRegistry
 from lib.services.user_service import UserService
 
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/v1/users", tags=["users"])
 
 
 # UserService is a *StagingService* — it carries the in-flight unit-of-work in

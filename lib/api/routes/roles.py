@@ -12,7 +12,7 @@ from lib.database.session import ConnectionRegistry
 from lib.services.role_service import RoleService
 from lib.contracts.base import ActionRequest
 
-router = APIRouter(prefix="/roles", tags=["roles"])
+router = APIRouter(prefix="/v1/roles", tags=["roles"])
 
 
 def get_service() -> RoleService:

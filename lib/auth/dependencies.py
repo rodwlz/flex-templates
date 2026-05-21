@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from lib.auth.jwt_handler import JWTError, decode_token
 
 # tokenUrl matches the login endpoint — makes it easy to swap for an external OAuth2 provider
-_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/login")
 
 
 def get_current_user(token: str = Depends(_oauth2_scheme)) -> dict:

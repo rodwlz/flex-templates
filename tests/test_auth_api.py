@@ -53,7 +53,7 @@ def test_login_returns_bearer_token(auth_client):
     client, factory = auth_client
     _create_user(factory, "loginuser", "loginuser@test.com", "pass123")
     # OAuth2 form data — not JSON
-    response = client.post("/auth/login", data={"username": "loginuser", "password": "pass123"})
+    response = client.post("/v1/auth/login", data={"username": "loginuser", "password": "pass123"})
     assert response.status_code == 200
     body = response.json()
     assert "access_token" in body
@@ -63,7 +63,7 @@ def test_login_returns_bearer_token(auth_client):
 def test_login_token_is_decodable(auth_client):
     client, factory = auth_client
     _create_user(factory, "decodeuser", "decodeuser@test.com", "pass456")
-    response = client.post("/auth/login", data={"username": "decodeuser", "password": "pass456"})
+    response = client.post("/v1/auth/login", data={"username": "decodeuser", "password": "pass456"})
     token = response.json()["access_token"]
     from lib.auth.jwt_handler import decode_token
     payload = decode_token(token)
@@ -74,13 +74,13 @@ def test_login_token_is_decodable(auth_client):
 def test_login_wrong_password_returns_401(auth_client):
     client, factory = auth_client
     _create_user(factory, "wrongpwuser", "wrongpwuser@test.com", "correct")
-    response = client.post("/auth/login", data={"username": "wrongpwuser", "password": "wrong"})
+    response = client.post("/v1/auth/login", data={"username": "wrongpwuser", "password": "wrong"})
     assert response.status_code == 401
 
 
 def test_login_unknown_user_returns_401(auth_client):
     client, factory = auth_client
-    response = client.post("/auth/login", data={"username": "ghost", "password": "pw"})
+    response = client.post("/v1/auth/login", data={"username": "ghost", "password": "pw"})
     assert response.status_code == 401
 
 
@@ -88,7 +88,7 @@ def test_failed_login_takes_at_least_400ms(auth_client):
     client, factory = auth_client
     _create_user(factory, "delayuser", "delay@test.com", "correct")
     start = time.monotonic()
-    response = client.post("/auth/login", data={"username": "delayuser", "password": "wrong"})
+    response = client.post("/v1/auth/login", data={"username": "delayuser", "password": "wrong"})
     elapsed = time.monotonic() - start
     assert response.status_code == 401
     assert elapsed >= 0.4, f"Expected >= 0.4s delay on failure, got {elapsed:.3f}s"
@@ -98,7 +98,7 @@ def test_successful_login_is_not_delayed(auth_client):
     client, factory = auth_client
     _create_user(factory, "fastuser", "fast@test.com", "correct")
     start = time.monotonic()
-    response = client.post("/auth/login", data={"username": "fastuser", "password": "correct"})
+    response = client.post("/v1/auth/login", data={"username": "fastuser", "password": "correct"})
     elapsed = time.monotonic() - start
     assert response.status_code == 200
     assert elapsed < 1.0, f"Successful login too slow: {elapsed:.3f}s"

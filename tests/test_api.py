@@ -68,7 +68,7 @@ def test_get_user_returns_200_with_serialized_uuid(api_client):
     client, repo = api_client
     user = _make_user(repo)
 
-    response = client.get(f"/users/{user.id}")
+    response = client.get(f"/v1/users/{user.id}")
 
     assert response.status_code == 200
     body = response.json()
@@ -83,7 +83,7 @@ def test_get_user_404_when_missing(api_client):
     """A valid UUID that doesn't exist returns 404."""
     client, _ = api_client
 
-    response = client.get(f"/users/{uuid.uuid4()}")
+    response = client.get(f"/v1/users/{uuid.uuid4()}")
 
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
@@ -98,7 +98,7 @@ def test_get_user_404_on_malformed_uuid(api_client):
     """
     client, _ = api_client
 
-    response = client.get("/users/not-a-uuid")
+    response = client.get("/v1/users/not-a-uuid")
 
     assert response.status_code == 404
 
@@ -109,7 +109,7 @@ def test_list_users_returns_all(api_client):
     _make_user(repo, username="alice")
     _make_user(repo, username="bob")
 
-    response = client.get("/users")
+    response = client.get("/v1/users")
 
     assert response.status_code == 200
     body = response.json()
@@ -121,7 +121,9 @@ def test_list_users_returns_empty_list_when_no_users(api_client):
     """An empty database returns {'users': []}."""
     client, _ = api_client
 
-    response = client.get("/users")
+    response = client.get("/v1/users")
 
     assert response.status_code == 200
-    assert response.json() == {"users": []}
+    body = response.json()
+    assert body["users"] == []
+    assert body["total"] == 0

@@ -16,7 +16,7 @@ from lib.database.session import ConnectionRegistry
 from lib.services.user_service import UserService
 from lib.auth.jwt_handler import create_token
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 def _get_service() -> UserService:

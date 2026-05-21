@@ -36,6 +36,9 @@ class UserService(StagingService):
     def list(self, data: dict) -> dict:
         repo = UserRepository(self._factory)
         users = repo.list()
+        skip = data.get("skip", 0)
+        limit = data.get("limit", len(users))
+        sliced = users[skip:skip + limit]
         return {
             "users": [
                 {
@@ -44,8 +47,9 @@ class UserService(StagingService):
                     "email": u.email,
                     "role_count": len(u.roles),
                 }
-                for u in users
-            ]
+                for u in sliced
+            ],
+            "total": len(users),
         }
 
     def create(self, data: dict) -> dict:

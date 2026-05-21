@@ -23,7 +23,7 @@ from lib.services.cache_registry import CacheRegistry
 from lib.services.cache_tester import CacheTester
 
 
-router = APIRouter(prefix="/caches", tags=["caches"])
+router = APIRouter(prefix="/v1/caches", tags=["caches"])
 
 _tester = CacheTester()
 

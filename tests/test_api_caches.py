@@ -28,7 +28,7 @@ def client():
 # ── /caches/ ───────────────────────────────────────────────────────────────
 
 def test_list_caches_empty(client):
-    response = client.get("/caches/")
+    response = client.get("/v1/caches/")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -37,7 +37,7 @@ def test_list_caches_returns_sorted_names(client):
     CacheRegistry.register("zeta", MagicMock())
     CacheRegistry.register("alpha", MagicMock())
 
-    response = client.get("/caches/")
+    response = client.get("/v1/caches/")
     assert response.status_code == 200
     assert response.json() == ["alpha", "zeta"]
 
@@ -51,7 +51,7 @@ def test_get_cache_status_alive(client):
     )
     CacheRegistry.register("redis", adapter)
 
-    response = client.get("/caches/redis")
+    response = client.get("/v1/caches/redis")
 
     assert response.status_code == 200
     body = response.json()
@@ -61,7 +61,7 @@ def test_get_cache_status_alive(client):
 
 
 def test_get_cache_status_404_when_missing(client):
-    response = client.get("/caches/nonexistent")
+    response = client.get("/v1/caches/nonexistent")
     assert response.status_code == 404
     assert "not registered" in response.json()["detail"]
 
@@ -75,7 +75,7 @@ def test_invoke_action_forwards_to_adapter(client):
     )
     CacheRegistry.register("redis", adapter)
 
-    response = client.post("/caches/redis/get", json={"key": "foo"})
+    response = client.post("/v1/caches/redis/get", json={"key": "foo"})
 
     assert response.status_code == 200
     body = response.json()
@@ -95,7 +95,7 @@ def test_invoke_action_returns_failure_from_adapter(client):
     )
     CacheRegistry.register("redis", adapter)
 
-    response = client.post("/caches/redis/get", json={"key": "missing"})
+    response = client.post("/v1/caches/redis/get", json={"key": "missing"})
 
     assert response.status_code == 200  # ActionResult, not HTTP failure
     body = response.json()
@@ -104,13 +104,13 @@ def test_invoke_action_returns_failure_from_adapter(client):
 
 
 def test_invoke_action_404_when_cache_missing(client):
-    response = client.post("/caches/nope/get", json={"key": "x"})
+    response = client.post("/v1/caches/nope/get", json={"key": "x"})
     assert response.status_code == 404
 
 
 def test_invoke_action_rejects_underscore_action(client):
     CacheRegistry.register("redis", MagicMock())
-    response = client.post("/caches/redis/_private", json={})
+    response = client.post("/v1/caches/redis/_private", json={})
     assert response.status_code == 400
 
 
@@ -121,7 +121,7 @@ def test_invoke_action_works_with_empty_body(client):
     )
     CacheRegistry.register("redis", adapter)
 
-    response = client.post("/caches/redis/keys")
+    response = client.post("/v1/caches/redis/keys")
 
     assert response.status_code == 200
     assert response.json()["success"] is True
