@@ -1,4 +1,4 @@
-"""Unit tests for ServiceBackendAdapter."""
+"""Unit tests for ServiceBackendAdapter (coordinator)."""
 import uuid
 import pytest
 
@@ -16,33 +16,33 @@ def adapter(db_factory):
 
 @pytest.fixture
 def adapter_with_user(adapter):
-    adapter.create_user({"username": "alice", "email": "alice@test.com", "password": "secret"})
+    adapter.users.create({"username": "alice", "email": "alice@test.com", "password": "secret"})
     return adapter
 
 
 def test_login_stores_session(adapter_with_user):
-    result = adapter_with_user.login("alice", "secret")
+    result = adapter_with_user.auth.login("alice", "secret")
     assert result["user"]["username"] == "alice"
-    assert adapter_with_user.current_user()["username"] == "alice"
+    assert adapter_with_user.auth.current_user()["username"] == "alice"
 
 
 def test_logout_clears_session(adapter_with_user):
-    adapter_with_user.login("alice", "secret")
-    adapter_with_user.logout()
-    assert adapter_with_user.current_user() is None
+    adapter_with_user.auth.login("alice", "secret")
+    adapter_with_user.auth.logout()
+    assert adapter_with_user.auth.current_user() is None
 
 
 def test_current_user_none_before_login(adapter):
-    assert adapter.current_user() is None
+    assert adapter.auth.current_user() is None
 
 
 def test_login_raises_on_bad_credentials(adapter_with_user):
     with pytest.raises(ValueError):
-        adapter_with_user.login("alice", "wrong")
+        adapter_with_user.auth.login("alice", "wrong")
 
 
 def test_list_users_returns_paginate_shape(adapter_with_user):
-    result = adapter_with_user.list_users(page=1, page_size=10)
+    result = adapter_with_user.users.list(page=1, page_size=10)
     assert "items" in result
     assert "total" in result
     assert "pages" in result
@@ -51,50 +51,50 @@ def test_list_users_returns_paginate_shape(adapter_with_user):
 
 
 def test_create_user_returns_dict_with_id(adapter):
-    user = adapter.create_user({"username": "bob", "email": "bob@test.com", "password": "pw"})
+    user = adapter.users.create({"username": "bob", "email": "bob@test.com", "password": "pw"})
     assert user["username"] == "bob"
     assert "id" in user
 
 
 def test_delete_user_returns_true(adapter):
-    user = adapter.create_user({"username": "carol", "email": "carol@test.com", "password": "pw"})
-    assert adapter.delete_user(user["id"]) is True
+    user = adapter.users.create({"username": "carol", "email": "carol@test.com", "password": "pw"})
+    assert adapter.users.delete(user["id"]) is True
 
 
 def test_delete_nonexistent_user_returns_false(adapter):
-    assert adapter.delete_user(str(uuid.uuid4())) is False
+    assert adapter.users.delete(str(uuid.uuid4())) is False
 
 
 def test_list_roles_empty_initially(adapter):
-    assert adapter.list_roles() == []
+    assert adapter.roles.list() == []
 
 
 def test_create_role_returns_dict(adapter):
-    role = adapter.create_role("admin")
+    role = adapter.roles.create("admin")
     assert role["name"] == "admin"
     assert "id" in role
 
 
 def test_delete_role_returns_true(adapter):
-    role = adapter.create_role("mod")
-    assert adapter.delete_role(role["id"]) is True
+    role = adapter.roles.create("mod")
+    assert adapter.roles.delete(role["id"]) is True
 
 
 def test_list_roles_after_create(adapter):
-    adapter.create_role("viewer")
-    roles = adapter.list_roles()
+    adapter.roles.create("viewer")
+    roles = adapter.roles.list()
     assert any(r["name"] == "viewer" for r in roles)
 
 
 def test_assign_and_remove_role(adapter):
-    user = adapter.create_user({"username": "dave", "email": "dave@t.com", "password": "pw"})
-    role = adapter.create_role("editor")
-    assert adapter.assign_role(user["id"], role["id"]) is True
-    assert adapter.remove_role(user["id"], role["id"]) is True
+    user = adapter.users.create({"username": "dave", "email": "dave@t.com", "password": "pw"})
+    role = adapter.roles.create("editor")
+    assert adapter.roles.assign(user["id"], role["id"]) is True
+    assert adapter.roles.remove(user["id"], role["id"]) is True
 
 
 def test_list_jobs_empty_without_scheduled_jobs(adapter):
-    assert adapter.list_jobs() == []
+    assert adapter.scheduler.list() == []
 
 
 def test_list_jobs_returns_registered_job(adapter, db_factory):
@@ -103,6 +103,6 @@ def test_list_jobs_returns_registered_job(adapter, db_factory):
     a2 = ServiceBackendAdapter(db_factory, svc, scheduler)
     scheduler.add_job(lambda: None, "interval", seconds=3600, id="test-job", name="test job")
     scheduler.start()
-    jobs = a2.list_jobs()
+    jobs = a2.scheduler.list()
     assert any(j["id"] == "test-job" for j in jobs)
     scheduler.stop()
