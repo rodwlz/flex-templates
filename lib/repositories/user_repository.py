@@ -15,9 +15,8 @@ class UserRepository(AbstractRepository[User]):
 
     def _deserialize(self, data: dict) -> dict:
         d = super()._deserialize(data)
-        for field in ("id", "user_id"):
-            if field in d and isinstance(d[field], str):
-                d[field] = uuid.UUID(d[field])
+        if "id" in d and isinstance(d["id"], str):
+            d["id"] = uuid.UUID(d["id"])
         return d
 
     def add_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
