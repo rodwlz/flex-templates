@@ -19,6 +19,11 @@ class ViewContext:
         self.ctx.dev_nav       # bool
         self.ctx.params        # dict — path params
         self.ctx.query         # dict — query string params
+
+    IMPORTANT: ctx.params and ctx.query are raw unvalidated dicts (strings from
+    the URL). When the view defines Params (a Pydantic model), use self.params
+    for type-coerced access. ctx.params is a shallow copy — safe to read, but
+    mutations won't affect self.props.
     """
 
     nav_service: Any
@@ -39,6 +44,6 @@ class ViewContext:
             vault       = props.get("vault"),
             events      = props.get("events"),
             dev_nav     = bool(props.get("dev_nav")),
-            params      = props.get("params", {}),
-            query       = props.get("query", {}),
+            params      = dict(props.get("params", {})),
+            query       = dict(props.get("query", {})),
         )
