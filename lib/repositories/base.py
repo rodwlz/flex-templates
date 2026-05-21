@@ -65,6 +65,17 @@ class AbstractRepository(IRepository, Generic[T]):
             return True
 
     def paginate(self, page: int = 1, page_size: int = 20, **filters) -> dict:
+        """Return one page of results with metadata.
+
+        Returns:
+            {
+                "items":     list of serialized dicts for this page,
+                "total":     total matching rows (ignoring pagination),
+                "page":      current page number (1-based),
+                "page_size": rows per page,
+                "pages":     total number of pages,
+            }
+        """
         with self._factory.session() as s:
             q = s.query(self.model)
             for k, v in filters.items():
