@@ -1,4 +1,5 @@
 import pytest
+import time
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -81,3 +82,23 @@ def test_login_unknown_user_returns_401(auth_client):
     client, factory = auth_client
     response = client.post("/auth/login", data={"username": "ghost", "password": "pw"})
     assert response.status_code == 401
+
+
+def test_failed_login_takes_at_least_400ms(auth_client):
+    client, factory = auth_client
+    _create_user(factory, "delayuser", "delay@test.com", "correct")
+    start = time.monotonic()
+    response = client.post("/auth/login", data={"username": "delayuser", "password": "wrong"})
+    elapsed = time.monotonic() - start
+    assert response.status_code == 401
+    assert elapsed >= 0.4, f"Expected >= 0.4s delay on failure, got {elapsed:.3f}s"
+
+
+def test_successful_login_is_not_delayed(auth_client):
+    client, factory = auth_client
+    _create_user(factory, "fastuser", "fast@test.com", "correct")
+    start = time.monotonic()
+    response = client.post("/auth/login", data={"username": "fastuser", "password": "correct"})
+    elapsed = time.monotonic() - start
+    assert response.status_code == 200
+    assert elapsed < 1.0, f"Successful login too slow: {elapsed:.3f}s"

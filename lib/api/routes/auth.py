@@ -6,6 +6,8 @@ POST /auth/login accepts application/x-www-form-urlencoded with `username` and
 API compatible with any OAuth2-aware client and allows swapping in an external
 provider later without changing callers.
 """
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -22,7 +24,7 @@ def _get_service() -> UserService:
 
 
 @router.post("/login")
-def login(
+async def login(
     form: OAuth2PasswordRequestForm = Depends(),
     service: UserService = Depends(_get_service),
 ):
@@ -32,6 +34,7 @@ def login(
         data={"username": form.username, "password": form.password},
     ))
     if not result.success:
+        await asyncio.sleep(0.5)
         raise HTTPException(
             status_code=401,
             detail="Invalid credentials",
