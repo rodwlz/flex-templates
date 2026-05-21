@@ -1,7 +1,5 @@
 import uuid
 
-from sqlalchemy import inspect as sa_inspect
-
 from lib.repositories.base import AbstractRepository
 from lib.models.user import User
 from lib.models.role import Role
@@ -10,27 +8,17 @@ from lib.models.role import Role
 class UserRepository(AbstractRepository[User]):
     model = User
 
-    def paginate(self, page: int = 1, page_size: int = 20, **filters) -> dict:
-        """Override base paginate to include role names in each user dict."""
-        with self._factory.session() as s:
-            q = s.query(self.model)
-            for k, v in filters.items():
-                q = q.filter(getattr(self.model, k) == v)
-            total = q.count()
-            rows = q.offset((page - 1) * page_size).limit(page_size).all()
-            items = []
-            for user in rows:
-                d = {c.key: getattr(user, c.key)
-                     for c in sa_inspect(user).mapper.column_attrs}
-                d["roles"] = [r.name for r in user.roles]
-                items.append(d)
-            return {
-                "items": items,
-                "total": total,
-                "page": page,
-                "page_size": page_size,
-                "pages": max(1, (total + page_size - 1) // page_size),
-            }
+    def _serialize(self, obj) -> dict:
+        d = super()._serialize(obj)
+        d["roles"] = [r.name for r in obj.roles]
+        return d
+
+    def _deserialize(self, data: dict) -> dict:
+        d = super()._deserialize(data)
+        for field in ("id", "user_id"):
+            if field in d and isinstance(d[field], str):
+                d[field] = uuid.UUID(d[field])
+        return d
 
     def add_role(self, user_id: uuid.UUID, role_id: uuid.UUID) -> bool:
         """Add a role to a user. Returns True if added, False if user/role not found or already assigned."""
