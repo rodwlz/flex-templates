@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import flet as ft
 
+from lib.contracts.view_context import ViewContext
 from lib.ui.components.dev_nav import DevNav
 from lib.ui.components.nav_bar import NavBar
 from lib.ui.components.side_bar import SideBar
@@ -65,6 +66,7 @@ class BaseView:
         self.vault  = props.get("vault")
         self.events = props.get("events")
         self.params = self._build_params()
+        self.ctx    = ViewContext.from_props(props)
 
     def _build_params(self):
         if self.Params is None:

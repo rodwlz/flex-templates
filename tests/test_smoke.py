@@ -53,6 +53,7 @@ def test_main_module_imports_cleanly():
         "lib.config.settings",
         "lib.config.cli",
         "lib.contracts.base",
+        "lib.contracts.view_context",
         "lib.core.events",
         "lib.core.interfaces",
         "lib.database.base",

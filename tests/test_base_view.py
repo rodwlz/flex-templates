@@ -141,3 +141,41 @@ def test_content_can_be_a_list_and_gets_wrapped(nav_service):
     v = make_view(ListContent, nav_service=nav_service).render()
     # No exception means the list was wrapped successfully into a Column.
     assert v.controls
+
+
+# ── ViewContext ────────────────────────────────────────────────────────────
+
+def test_base_view_exposes_ctx(nav_service):
+    from lib.contracts.view_context import ViewContext
+    v = make_view(HelloView, nav_service=nav_service)
+    assert hasattr(v, "ctx")
+    assert isinstance(v.ctx, ViewContext)
+
+
+def test_ctx_nav_service_matches_props(nav_service):
+    v = make_view(HelloView, nav_service=nav_service)
+    assert v.ctx.nav_service is nav_service
+
+
+def test_ctx_backend_is_none_when_not_in_props(nav_service):
+    v = make_view(HelloView, nav_service=nav_service)
+    assert v.ctx.backend is None
+
+
+def test_ctx_backend_matches_props_when_provided(nav_service):
+    page = FakePage("/")
+    sentinel = object()
+    props = {"nav_service": nav_service, "backend": sentinel}
+    from lib.ui.layouts.base_view import BaseView
+
+    class _V(BaseView):
+        def build_content(self):
+            return ft.Text("x")
+
+    v = _V(page, props)
+    assert v.ctx.backend is sentinel
+
+
+def test_existing_props_dict_still_accessible(nav_service):
+    v = make_view(HelloView, nav_service=nav_service)
+    assert v.props["nav_service"] is nav_service
