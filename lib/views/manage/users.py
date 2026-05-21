@@ -154,7 +154,7 @@ class ManageUsersView(ProtectedView):
         if self._show_form:
             controls.append(self._build_add_form())
         self._body.controls = controls
-        self._body.update()
+        self.page.update()
 
     def _snack(self, message: str):
         snack = ft.SnackBar(content=ft.Text(message), duration=1500)

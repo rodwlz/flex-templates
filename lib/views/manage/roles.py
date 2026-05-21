@@ -90,7 +90,7 @@ class ManageRolesView(ProtectedView):
             return
         roles = self._backend.list_roles()
         self._body.controls = [self._build_table(roles)]
-        self._body.update()
+        self.page.update()
 
     def _snack(self, message: str):
         snack = ft.SnackBar(content=ft.Text(message), duration=1500)

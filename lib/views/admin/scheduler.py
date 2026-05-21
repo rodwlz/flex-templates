@@ -60,7 +60,6 @@ class AdminSchedulerView(ProtectedView):
             return
         jobs = self._backend.list_jobs()
         self._body.controls = [self._build_table(jobs)]
-        self._body.update()
         self.page.update()
 
     # ── Layout ────────────────────────────────────────────────────────────

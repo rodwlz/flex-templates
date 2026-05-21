@@ -6,6 +6,21 @@ Read this file once and you'll know how every other test sets up its world:
 - The event_bus / nav_service / router fixtures wire up a fresh app every test.
 - The db_factory fixture provides an in-memory SQLite session factory.
 """
+import os
+
+# Seed JWT_SECRET_KEY from .secrets/.env before jwt_handler is imported.
+# jwt_handler reads the key at module-import time, so this must run at
+# conftest module level, not inside a fixture. Only JWT_SECRET_KEY is injected
+# to avoid polluting VAULT_MASTER_KEY / VAULT_CONFIRM_KEY, which vault tests
+# manage independently via tmp_path.
+try:
+    from dotenv import dotenv_values
+    _secrets = dotenv_values(os.path.join(os.path.dirname(__file__), "..", ".secrets", ".env"))
+    if "JWT_SECRET_KEY" in _secrets and not os.getenv("JWT_SECRET_KEY"):
+        os.environ["JWT_SECRET_KEY"] = _secrets["JWT_SECRET_KEY"]
+except Exception:
+    pass  # file missing or dotenv unavailable — warning will still fire
+
 import pytest
 
 from lib.core.events import EventBus
