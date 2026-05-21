@@ -1,7 +1,7 @@
 """ProtectedView — auth guard.
 
 Subclass instead of BaseView for any view that requires login.
-Redirects to /login if backend.current_user() returns None.
+Redirects to /login if backend.auth.current_user() returns None.
 """
 from __future__ import annotations
 
