@@ -216,3 +216,89 @@ def test_filter_by_unknown_operator_raises(db_factory):
     repo = UserRepository(db_factory)
     with pytest.raises(ValueError, match="Unknown filter operator"):
         repo.filter_by(username__fuzzy="alice")
+
+
+# ── _serialize() ──────────────────────────────────────────────────────────────
+
+def test_serialize_returns_scalar_columns_as_dict(repo):
+    pet = repo.create({"name": "Suki", "species": "cat"})
+    result = repo._serialize(pet)
+    assert result == {"id": pet.id, "name": "Suki", "species": "cat"}
+
+
+def test_serialize_subclass_can_add_extra_fields(repo):
+    class ExtendedRepo(PetRepository):
+        def _serialize(self, obj):
+            d = super()._serialize(obj)
+            d["display"] = f"{obj.name} ({obj.species})"
+            return d
+
+    extended = ExtendedRepo(repo._factory)
+    pet = extended.create({"name": "Mochi", "species": "cat"})
+    result = extended._serialize(pet)
+    assert result["display"] == "Mochi (cat)"
+
+
+def test_paginate_items_use_serialize_hook(repo):
+    class ExtendedRepo(PetRepository):
+        def _serialize(self, obj):
+            d = super()._serialize(obj)
+            d["tag"] = "tagged"
+            return d
+
+    extended = ExtendedRepo(repo._factory)
+    extended.create({"name": "A", "species": "dog"})
+    result = extended.paginate(page=1, page_size=10)
+    assert result["items"][0]["tag"] == "tagged"
+
+
+def test_filter_by_items_use_serialize_hook(repo):
+    class ExtendedRepo(PetRepository):
+        def _serialize(self, obj):
+            d = super()._serialize(obj)
+            d["tag"] = "tagged"
+            return d
+
+    extended = ExtendedRepo(repo._factory)
+    extended.create({"name": "B", "species": "dog"})
+    results = extended.filter_by(species="dog")
+    assert results[0]["tag"] == "tagged"
+
+
+# ── _deserialize() ────────────────────────────────────────────────────────────
+
+def test_deserialize_strips_unknown_keys(repo):
+    result = repo._deserialize({"name": "Rex", "species": "dog", "unknown": "ignored"})
+    assert "unknown" not in result
+    assert result == {"name": "Rex", "species": "dog"}
+
+
+def test_deserialize_keeps_known_keys(repo):
+    result = repo._deserialize({"name": "Rex", "species": "dog"})
+    assert result == {"name": "Rex", "species": "dog"}
+
+
+def test_create_ignores_unknown_fields_via_deserialize(repo):
+    # Would raise TypeError without _deserialize stripping "junk"
+    pet = repo.create({"name": "Lucky", "species": "hamster", "junk": "ignored"})
+    assert pet.name == "Lucky"
+
+
+def test_update_ignores_unknown_fields_via_deserialize(repo):
+    pet = repo.create({"name": "Paws", "species": "cat"})
+    updated = repo.update(pet.id, {"name": "Paws II", "nonexistent": "value"})
+    assert updated.name == "Paws II"
+
+
+def test_deserialize_subclass_can_coerce_types(repo):
+    class CoercingRepo(PetRepository):
+        def _deserialize(self, data: dict) -> dict:
+            d = super()._deserialize(data)
+            if "id" in d and isinstance(d["id"], str):
+                d["id"] = int(d["id"])
+            return d
+
+    coercing = CoercingRepo(repo._factory)
+    result = coercing._deserialize({"id": "42", "name": "X", "species": "y"})
+    assert result["id"] == 42
+    assert isinstance(result["id"], int)

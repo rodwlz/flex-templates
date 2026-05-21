@@ -8,16 +8,25 @@ T = TypeVar("T")
 _FILTER_OPS = frozenset({"like", "gte", "lte", "gt", "lt", "in", "ne"})
 
 
-def _obj_to_dict(obj) -> dict:
-    insp = sa_inspect(obj)
-    return {c.key: getattr(obj, c.key) for c in insp.mapper.column_attrs}
-
-
 class AbstractRepository(IRepository, Generic[T]):
     model: type[T]
 
     def __init__(self, factory: SessionFactory):
         self._factory = factory
+
+    # ── Serialization hooks ───────────────────────────────────────────────────
+
+    def _serialize(self, obj: T) -> dict:
+        """Outbound: ORM object → dict. Override to add relationship fields."""
+        return {c.key: getattr(obj, c.key)
+                for c in sa_inspect(obj).mapper.column_attrs}
+
+    def _deserialize(self, data: dict) -> dict:
+        """Inbound: strip unknown keys. Override to add type coercion on top."""
+        known = {c.key for c in sa_inspect(self.model).mapper.column_attrs}
+        return {k: v for k, v in data.items() if k in known}
+
+    # ── CRUD ──────────────────────────────────────────────────────────────────
 
     def get(self, id) -> T | None:
         with self._factory.session() as s:
@@ -32,7 +41,7 @@ class AbstractRepository(IRepository, Generic[T]):
 
     def create(self, data: dict) -> T:
         with self._factory.session() as s:
-            obj = self.model(**data)
+            obj = self.model(**self._deserialize(data))
             s.add(obj)
             s.flush()
             return obj
@@ -42,7 +51,7 @@ class AbstractRepository(IRepository, Generic[T]):
             obj = s.get(self.model, id)
             if obj is None:
                 return None
-            for k, v in data.items():
+            for k, v in self._deserialize(data).items():
                 setattr(obj, k, v)
             s.flush()
             return obj
@@ -56,24 +65,13 @@ class AbstractRepository(IRepository, Generic[T]):
             return True
 
     def paginate(self, page: int = 1, page_size: int = 20, **filters) -> dict:
-        """Return one page of results with metadata.
-
-        Returns:
-            {
-                "items":     list of column-attribute dicts for this page,
-                "total":     total matching rows (ignoring pagination),
-                "page":      current page number (1-based),
-                "page_size": rows per page,
-                "pages":     total number of pages,
-            }
-        """
         with self._factory.session() as s:
             q = s.query(self.model)
             for k, v in filters.items():
                 q = q.filter(getattr(self.model, k) == v)
             total = q.count()
             rows = q.offset((page - 1) * page_size).limit(page_size).all()
-            items = [_obj_to_dict(r) for r in rows]
+            items = [self._serialize(r) for r in rows]
             return {
                 "items": items,
                 "total": total,
@@ -82,7 +80,7 @@ class AbstractRepository(IRepository, Generic[T]):
                 "pages": max(1, (total + page_size - 1) // page_size),
             }
 
-    def filter_by(self, **specs) -> list[T]:
+    def filter_by(self, **specs) -> list:
         """Query with Django-style lookup operators.
 
         Supported suffixes (after __):
@@ -125,4 +123,4 @@ class AbstractRepository(IRepository, Generic[T]):
                         q = q.filter(col != value)
                 else:
                     q = q.filter(getattr(self.model, spec) == value)
-            return [_obj_to_dict(r) for r in q.all()]
+            return [self._serialize(r) for r in q.all()]
