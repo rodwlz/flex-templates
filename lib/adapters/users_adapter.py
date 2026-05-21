@@ -7,6 +7,8 @@ from lib.database.session import SessionFactory
 from lib.repositories.user_repository import UserRepository
 from lib.services.user_service import UserService
 
+_SENSITIVE = frozenset({"password_hash", "salt"})
+
 
 class IUserAdapter(ABC):
     @abstractmethod
@@ -29,7 +31,10 @@ class ServiceUserAdapter(IUserAdapter):
     def list(self, page: int = 1, page_size: int = 20) -> dict:
         repo = UserRepository(self._factory)
         result = repo.paginate(page=page, page_size=page_size)
-        result["items"] = [_str_uuids(item) for item in result["items"]]
+        result["items"] = [
+            {k: v for k, v in _str_uuids(item).items() if k not in _SENSITIVE}
+            for item in result["items"]
+        ]
         return result
 
     def create(self, data: dict) -> dict:
