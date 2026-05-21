@@ -68,35 +68,24 @@ Start minimal — add query methods only when a view actually needs them.
 
 ```python
 # lib/repositories/order_repository.py
-from sqlalchemy import inspect as sa_inspect
 from lib.repositories.base import AbstractRepository
 from lib.models.order import Order
 
 class OrderRepository(AbstractRepository[Order]):
     model = Order
-
-    def paginate(self, page: int = 1, page_size: int = 20, **filters) -> dict:
-        """Override base paginate to serialize cleanly (no detached ORM objects)."""
-        with self._factory.session() as s:
-            q = s.query(self.model)
-            for k, v in filters.items():
-                q = q.filter(getattr(self.model, k) == v)
-            total = q.count()
-            rows  = q.offset((page - 1) * page_size).limit(page_size).all()
-            items = [
-                {c.key: getattr(o, c.key) for c in sa_inspect(o).mapper.column_attrs}
-                for o in rows
-            ]
-            return {"items": items, "total": total, "page": page,
-                    "page_size": page_size,
-                    "pages": max(1, (total + page_size - 1) // page_size)}
+    # No overrides needed for scalar-only entities.
+    # Override _serialize() to add relationship fields:
+    # def _serialize(self, obj) -> dict:
+    #     d = super()._serialize(obj)
+    #     d["items"] = [i.name for i in obj.items]
+    #     return d
 ```
 
-> **Why override `paginate()`?** The base `_obj_to_dict()` only serializes scalar
-> columns. If your model has relationships, override `paginate()` (and any other
-> list method) to eagerly load them **inside the `with factory.session()` block**
-> before returning dicts. Returning ORM objects causes `DetachedInstanceError`
-> after the session closes.
+> **When to override `_serialize()`?** The base implementation serializes scalar
+> columns only. Override `_serialize()` to add relationship fields (e.g. `order.items`,
+> `user.roles`). The hook is called inside the open session, so lazy-loaded attributes
+> are accessible. Returning ORM objects causes `DetachedInstanceError` after the
+> session closes, but dicts returned from `_serialize()` are safe to use anywhere.
 
 ---
 
