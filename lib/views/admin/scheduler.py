@@ -58,7 +58,7 @@ class AdminSchedulerView(ProtectedView):
     def _refresh_body(self):
         if self._body is None:
             return
-        jobs = self._backend.list_jobs()
+        jobs = self._backend.scheduler.list()
         self._body.controls = [self._build_table(jobs)]
         self.page.update()
 
@@ -79,7 +79,7 @@ class AdminSchedulerView(ProtectedView):
             ),
         ], vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
-        jobs = self._backend.list_jobs()
+        jobs = self._backend.scheduler.list()
         self._body = ft.Column([self._build_table(jobs)], spacing=8)
 
         return ft.Column([tabs, header, ft.Container(height=8), self._body], spacing=0)

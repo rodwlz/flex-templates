@@ -10,9 +10,13 @@ from lib.views.admin.caches import AdminCachesView
 from tests.conftest import FakePage
 
 
-class _MockBackendLoggedIn:
+class _MockAuth:
     def current_user(self):
         return {"id": "1", "username": "admin", "roles": []}
+
+
+class _MockBackendLoggedIn:
+    auth = _MockAuth()
 
 
 @pytest.fixture(autouse=True)

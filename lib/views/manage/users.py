@@ -28,7 +28,7 @@ class ManageUsersView(ProtectedView):
 
     def _load_page(self, page_num: int = 1):
         self._cur_page = page_num
-        return self._backend.list_users(page=page_num, page_size=15)
+        return self._backend.users.list(page=page_num, page_size=15)
 
     # ── Event handlers ────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ class ManageUsersView(ProtectedView):
             self._refresh_body(self._cur_page + 1)
 
     def _on_delete(self, user_id: str, username: str):
-        self._backend.delete_user(user_id)
+        self._backend.users.delete(user_id)
         self._refresh_body()
         self._snack(f"Deleted {username}")
 
@@ -64,7 +64,7 @@ class ManageUsersView(ProtectedView):
             return
 
         try:
-            self._backend.create_user({"username": username, "email": email, "password": password})
+            self._backend.users.create({"username": username, "email": email, "password": password})
             self._show_form = False
             self._refresh_body()
             self._snack(f"Created {username}")

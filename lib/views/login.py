@@ -36,7 +36,7 @@ class LoginView(BaseView):
             return
 
         try:
-            self._backend.login(username, password)
+            self._backend.auth.login(username, password)
             self.nav_service.execute(
                 ActionRequest(action="visit", data={"url": "/manage/users"})
             )

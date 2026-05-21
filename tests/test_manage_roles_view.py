@@ -10,31 +10,50 @@ _FAKE_ROLE_1 = {"id": "r1", "name": "admin", "description": "Administrator"}
 _FAKE_ROLE_2 = {"id": "r2", "name": "viewer", "description": None}
 
 
-class _MockBackend:
+class _MockAuth:
     def current_user(self):
         return {"id": "1", "username": "admin", "roles": ["admin"]}
 
-    def list_roles(self):
+
+class _MockRoles:
+    def list(self):
         return [_FAKE_ROLE_1, _FAKE_ROLE_2]
 
-    def create_role(self, name):
+    def create(self, name):
         return {"id": "r3", "name": name}
 
-    def delete_role(self, role_id):
+    def delete(self, role_id):
+        pass
+
+
+class _MockBackend:
+    auth = _MockAuth()
+    roles = _MockRoles()
+
+
+class _MockRolesEmpty:
+    def list(self):
+        return []
+
+    def create(self, name):
+        return {"id": "r3", "name": name}
+
+    def delete(self, role_id):
         pass
 
 
 class _MockBackendEmpty:
-    def current_user(self):
-        return {"id": "1", "username": "admin", "roles": ["admin"]}
+    auth = _MockAuth()
+    roles = _MockRolesEmpty()
 
-    def list_roles(self):
-        return []
+
+class _MockAuthUnauthenticated:
+    def current_user(self):
+        return None
 
 
 class _MockBackendUnauthenticated:
-    def current_user(self):
-        return None
+    auth = _MockAuthUnauthenticated()
 
 
 def _make(nav_service, backend=None, route="/manage/roles"):
@@ -90,9 +109,12 @@ def test_create_role_empty_name_shows_error(nav_service):
 
 
 def test_create_role_backend_error_shows_error(nav_service):
-    class _ErrorBackend(_MockBackend):
-        def create_role(self, name):
+    class _ErrorRoles(_MockRoles):
+        def create(self, name):
             raise ValueError("Role already exists")
+
+    class _ErrorBackend(_MockBackend):
+        roles = _ErrorRoles()
 
     view = _make(nav_service, backend=_ErrorBackend())
     view.render()

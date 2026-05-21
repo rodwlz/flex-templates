@@ -6,20 +6,25 @@ from lib.views.login import LoginView
 from tests.conftest import FakePage
 
 
-class _MockBackendOK:
+class _MockAuth:
+    def __init__(self, raises=False):
+        self._raises = raises
+
     def login(self, username, password):
+        if self._raises:
+            raise ValueError("Invalid credentials")
         return {"id": "1", "username": username, "roles": []}
 
     def current_user(self):
         return None
 
 
-class _MockBackendBadCreds:
-    def login(self, username, password):
-        raise ValueError("Invalid credentials")
+class _MockBackendOK:
+    auth = _MockAuth(raises=False)
 
-    def current_user(self):
-        return None
+
+class _MockBackendBadCreds:
+    auth = _MockAuth(raises=True)
 
 
 def _make(nav_service, backend=None, route="/login"):

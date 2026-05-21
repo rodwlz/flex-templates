@@ -28,7 +28,7 @@ class ManageRolesView(ProtectedView):
             return
 
         try:
-            self._backend.create_role(name)
+            self._backend.roles.create(name)
             self._role_name_field.value = ""
             self._error_text.value = ""
             self._refresh_body()
@@ -38,7 +38,7 @@ class ManageRolesView(ProtectedView):
             self.page.update()
 
     def _on_delete_role(self, role_id: str, name: str):
-        self._backend.delete_role(role_id)
+        self._backend.roles.delete(role_id)
         self._refresh_body()
         self._snack(f"Role '{name}' deleted")
 
@@ -88,7 +88,7 @@ class ManageRolesView(ProtectedView):
     def _refresh_body(self):
         if self._body is None:
             return
-        roles = self._backend.list_roles()
+        roles = self._backend.roles.list()
         self._body.controls = [self._build_table(roles)]
         self.page.update()
 
@@ -112,7 +112,7 @@ class ManageRolesView(ProtectedView):
             self._error_text,
         ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
-        roles = self._backend.list_roles()
+        roles = self._backend.roles.list()
         self._body = ft.Column([self._build_table(roles)], spacing=8)
 
         return ft.Column([tabs, create_row, ft.Divider(height=16), self._body], spacing=8)

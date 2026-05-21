@@ -10,11 +10,13 @@ _FAKE_USER_1 = {"id": "u1", "username": "alice", "email": "alice@test.com", "rol
 _FAKE_USER_2 = {"id": "u2", "username": "bob", "email": "bob@test.com", "roles": []}
 
 
-class _MockBackend:
+class _MockAuth:
     def current_user(self):
         return {"id": "1", "username": "admin", "roles": ["admin"]}
 
-    def list_users(self, page=1, page_size=15):
+
+class _MockUsers:
+    def list(self, page=1, page_size=15):
         return {
             "items": [_FAKE_USER_1, _FAKE_USER_2],
             "total": 2,
@@ -23,24 +25,41 @@ class _MockBackend:
             "pages": 1,
         }
 
-    def delete_user(self, user_id):
+    def delete(self, user_id):
         pass
 
-    def create_user(self, data):
+    def create(self, data):
+        return {"id": "u3", **data}
+
+
+class _MockBackend:
+    auth = _MockAuth()
+    users = _MockUsers()
+
+
+class _MockUsersEmpty:
+    def list(self, page=1, page_size=15):
+        return {"items": [], "total": 0, "page": 1, "page_size": 15, "pages": 1}
+
+    def delete(self, user_id):
+        pass
+
+    def create(self, data):
         return {"id": "u3", **data}
 
 
 class _MockBackendEmpty:
-    def current_user(self):
-        return {"id": "1", "username": "admin", "roles": ["admin"]}
+    auth = _MockAuth()
+    users = _MockUsersEmpty()
 
-    def list_users(self, page=1, page_size=15):
-        return {"items": [], "total": 0, "page": 1, "page_size": 15, "pages": 1}
+
+class _MockAuthUnauthenticated:
+    def current_user(self):
+        return None
 
 
 class _MockBackendUnauthenticated:
-    def current_user(self):
-        return None
+    auth = _MockAuthUnauthenticated()
 
 
 def _make(nav_service, backend=None, route="/manage/users"):
@@ -99,9 +118,12 @@ def test_add_user_empty_fields_shows_error(nav_service):
 
 
 def test_add_user_backend_error_shows_error(nav_service):
-    class _ErrorBackend(_MockBackend):
-        def create_user(self, data):
+    class _ErrorUsers(_MockUsers):
+        def create(self, data):
             raise ValueError("Username already taken")
+
+    class _ErrorBackend(_MockBackend):
+        users = _ErrorUsers()
 
     view = _make(nav_service, backend=_ErrorBackend())
     view.render()

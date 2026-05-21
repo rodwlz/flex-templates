@@ -14,13 +14,13 @@ from lib.ui.layouts.base_view import BaseView
 class ProtectedView(BaseView):
     """Base class for views requiring authentication.
 
-    render() checks backend.current_user() before calling build_content().
+    render() checks backend.auth.current_user() before calling build_content().
     Returns an empty View (triggering a /login redirect) if not authenticated.
     """
 
     def render(self) -> ft.View:
         backend = self.props.get("backend")
-        if not backend or not backend.current_user():
+        if not backend or not backend.auth.current_user():
             self.nav_service.execute(
                 ActionRequest(action="visit", data={"url": "/login"})
             )

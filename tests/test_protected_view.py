@@ -6,14 +6,20 @@ from lib.ui.layouts.protected_view import ProtectedView
 from tests.conftest import FakePage
 
 
-class _MockBackendLoggedIn:
+class _MockAuth:
+    def __init__(self, user):
+        self._user = user
+
     def current_user(self):
-        return {"id": "1", "username": "alice", "roles": []}
+        return self._user
+
+
+class _MockBackendLoggedIn:
+    auth = _MockAuth({"id": "1", "username": "alice", "roles": []})
 
 
 class _MockBackendLoggedOut:
-    def current_user(self):
-        return None
+    auth = _MockAuth(None)
 
 
 class _ContentView(ProtectedView):

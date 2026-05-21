@@ -14,25 +14,38 @@ _FAKE_JOB = {
 }
 
 
-class _MockBackend:
+class _MockAuth:
     def current_user(self):
         return {"id": "1", "username": "admin", "roles": ["admin"]}
 
-    def list_jobs(self):
+
+class _MockScheduler:
+    def list(self):
         return [_FAKE_JOB]
 
 
-class _MockBackendEmpty:
-    def current_user(self):
-        return {"id": "1", "username": "admin", "roles": ["admin"]}
+class _MockBackend:
+    auth = _MockAuth()
+    scheduler = _MockScheduler()
 
-    def list_jobs(self):
+
+class _MockSchedulerEmpty:
+    def list(self):
         return []
 
 
-class _MockBackendUnauthenticated:
+class _MockBackendEmpty:
+    auth = _MockAuth()
+    scheduler = _MockSchedulerEmpty()
+
+
+class _MockAuthUnauthenticated:
     def current_user(self):
         return None
+
+
+class _MockBackendUnauthenticated:
+    auth = _MockAuthUnauthenticated()
 
 
 def _make(nav_service, backend=None, route="/admin/scheduler"):
