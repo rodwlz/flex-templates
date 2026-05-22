@@ -2024,6 +2024,46 @@ def test_user_service_create(user_service):
                 <li>Better testing: can test with real services and test databases</li>
             </ul>
 
+            <hr>
+
+            <h3>Anti-Pattern: Hardcoding <code>ServiceBackendAdapter</code> type in views or services</h3>
+
+            <p><strong>The Problem</strong></p>
+
+            <p>Importing a concrete adapter class directly in a view or service burns in the dependency and makes it impossible to swap to <code>HttpBackendAdapter</code>:</p>
+
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># WRONG — hardcoded concrete type in a view
+from lib.adapters.backend_adapter import ServiceBackendAdapter
+
+class ManageUsersView(ProtectedView):
+    def build_content(self):
+        backend = ServiceBackendAdapter(factory, user_service, scheduler)
+        result = backend.users.list(page=1)</code></pre>
+            </div>
+
+            <p><strong>Why it breaks:</strong></p>
+            <ul>
+                <li>Switching to HTTP mode requires editing every view that hardcodes the type.</li>
+                <li>Tests cannot inject a mock adapter &mdash; the view builds its own.</li>
+                <li>Defeats the entire point of <code>IBackendAdapter</code>.</li>
+            </ul>
+
+            <p><strong>The fix:</strong> Always receive <code>IBackendAdapter</code> via <code>props["backend"]</code>. The concrete type is wired in <code>main.py</code> only.</p>
+
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># CORRECT — type comes from props; main.py decides which concrete class
+class ManageUsersView(ProtectedView):
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._backend = props.get("backend")   # IBackendAdapter — Service or Http
+
+    def build_content(self):
+        result = self._backend.users.list(page=1)</code></pre>
+            </div>
+
         </details>
 
         <hr>
