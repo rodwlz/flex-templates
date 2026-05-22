@@ -96,3 +96,19 @@ def test_api_only_reads_from_env(monkeypatch):
     from lib.config.settings import AppConfig
     config = AppConfig()
     assert config.api_only is True
+
+
+def test_security_field_defaults():
+    """New security fields have safe defaults."""
+    config = AppConfig()
+    assert config.jwt_strict is False
+    assert "localhost" in config.cors_origins
+    assert config.rate_limit_per_minute > 0
+    assert config.rate_limit_login_per_minute > 0
+    assert config.rate_limit_login_per_minute <= config.rate_limit_per_minute
+
+
+def test_jwt_strict_reads_from_env(monkeypatch):
+    monkeypatch.setenv("JWT_STRICT", "true")
+    config = AppConfig()
+    assert config.jwt_strict is True

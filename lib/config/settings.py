@@ -42,8 +42,14 @@ class AppConfig(BaseSettings):
     # ── Deployment ─────────────────────────────────────────────────────────
     api_only: bool = False  # Set API_ONLY=true in Docker to skip Flet UI
 
+    # ── Security ─────────────────────────────────────────────────────────────
+    jwt_strict: bool = False
+    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    rate_limit_per_minute: int = 60
+    rate_limit_login_per_minute: int = 5
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=".secrets/.env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
