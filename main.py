@@ -171,6 +171,8 @@ def main():
     api_app = FastAPI(title=config.app_title)
     api_app.middleware("http")(log_requests)
     mount_routes(api_app)
+    from lib.api.routes import scheduler as scheduler_routes
+    scheduler_routes.set_scheduler(scheduler)
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
     server.start()
 
