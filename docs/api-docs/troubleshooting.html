@@ -1023,6 +1023,29 @@ with open(".secrets/.env") as f:
                 </li>
             </ul>
 
+            <hr>
+
+            <h3>&ldquo;ValueError: HTTPS required for non-localhost URL&rdquo;</h3>
+
+            <p><strong>What it means:</strong> <code>HttpBackendAdapter</code> was constructed with an <code>http://</code> URL pointing to a non-local host.</p>
+
+            <p><strong>Why it happens:</strong> The adapter enforces HTTPS for any URL whose hostname is not <code>localhost</code>, <code>127.0.0.1</code>, <code>::1</code>, or <code>0.0.0.0</code>.</p>
+
+            <p><strong>How to fix:</strong></p>
+            <div style="position: relative;">
+                <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+                <pre><code class="language-python"># WRONG — raises ValueError
+backend = HttpBackendAdapter(base_url="http://myapi.example.com")
+
+# CORRECT — use HTTPS for non-local URLs
+backend = HttpBackendAdapter(base_url="https://myapi.example.com")
+
+# OK — HTTP is allowed for local addresses
+backend = HttpBackendAdapter(base_url="http://localhost:8080")</code></pre>
+            </div>
+
+            <p><strong>How to prevent:</strong> Always use <code>https://</code> in production configuration. Keep <code>http://localhost</code> for local development only.</p>
+
         </details>
 
         <details id="flet-ui-errors">
