@@ -128,3 +128,34 @@ def test_http_scheduler_list_empty(http_backend):
     """Scheduler route returns [] when no scheduler is running."""
     result = http_backend.scheduler.list()
     assert result == []
+
+
+# ── End-to-end: HttpBackendAdapter satisfies IBackendAdapter ──────────────────
+
+def test_http_backend_adapter_end_to_end(http_backend, test_user, http_factory):
+    """All four domains work in sequence through HttpBackendAdapter."""
+    from lib.adapters.backend_adapter import IBackendAdapter
+    assert isinstance(http_backend, IBackendAdapter)
+
+    # auth
+    http_backend.auth.login(test_user["username"], test_user["password"])
+    user = http_backend.auth.current_user()
+    assert user["username"] == test_user["username"]
+
+    # users
+    listing = http_backend.users.list()
+    assert listing["total"] >= 1
+
+    # roles
+    role = http_backend.roles.create("superuser")
+    http_backend.roles.assign(user["id"], role["id"])
+    http_backend.roles.remove(user["id"], role["id"])
+    http_backend.roles.delete(role["id"])
+
+    # scheduler
+    jobs = http_backend.scheduler.list()
+    assert isinstance(jobs, list)
+
+    # logout
+    http_backend.auth.logout()
+    assert http_backend.auth.current_user() is None

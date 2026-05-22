@@ -1,4 +1,20 @@
-"""HttpBackendAdapter stub — will be finalized in Task 10."""
+"""HttpBackendAdapter — IBackendAdapter over HTTP.
+
+Drop-in replacement for ServiceBackendAdapter. Swap one line in main.py:
+
+    # In-process (current):
+    backend = ServiceBackendAdapter(factory, user_service, scheduler)
+
+    # HTTP (local or remote):
+    backend = HttpBackendAdapter(base_url="http://localhost:8080")
+    # backend = HttpBackendAdapter(base_url="https://api.example.com")
+
+HTTPS is required for non-localhost URLs — ValueError at construction time.
+JWT is stored in RAM only (_HttpSession._token), never logged or written to disk.
+
+Pass _client (a TestClient or custom httpx.Client) to bypass URL validation
+and use a test transport. Used by tests/conftest.py http_backend fixture.
+"""
 from __future__ import annotations
 
 import httpx
@@ -17,11 +33,11 @@ from lib.adapters.http_scheduler_adapter import HttpSchedulerAdapter
 
 class HttpBackendAdapter(IBackendAdapter):
     def __init__(self, base_url: str, _client: httpx.Client | None = None):
-        self._session    = _HttpSession(base_url, _client)
-        self._auth       = HttpAuthAdapter(self._session)
-        self._users      = HttpUserAdapter(self._session)
-        self._roles      = HttpRoleAdapter(self._session)
-        self._scheduler  = HttpSchedulerAdapter(self._session)
+        session          = _HttpSession(base_url, _client)
+        self._auth       = HttpAuthAdapter(session)
+        self._users      = HttpUserAdapter(session)
+        self._roles      = HttpRoleAdapter(session)
+        self._scheduler  = HttpSchedulerAdapter(session)
 
     @property
     def auth(self) -> IAuthAdapter:           return self._auth
