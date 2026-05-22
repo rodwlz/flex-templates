@@ -1,22 +1,35 @@
 """
 REST endpoints for the Role resource.
 
-Uses RoleService (SimpleService) for immediate CRUD — no staging required.
-Role.id is uuid.UUID — FastAPI parses and validates it from the URL automatically.
+Uses RoleService (SimpleService) for CRUD. assign/remove go through
+UserRepository directly because they are user↔role relationship ops.
+Role.id is uuid.UUID — FastAPI parses it from the URL automatically.
+
+IMPORTANT: /assign and /remove are declared BEFORE /{role_id} to prevent
+FastAPI from treating "assign"/"remove" as role ID path parameters.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
 
-from lib.database.session import ConnectionRegistry
-from lib.services.role_service import RoleService
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
 from lib.contracts.base import ActionRequest
+from lib.database.session import ConnectionRegistry
+from lib.repositories.user_repository import UserRepository
+from lib.services.role_service import RoleService
 
 router = APIRouter(prefix="/v1/roles", tags=["roles"])
 
 
 def get_service() -> RoleService:
     return RoleService(ConnectionRegistry.get())
+
+
+class _RoleAssignment(BaseModel):
+    user_id: str
+    role_id: str
 
 
 @router.post("")
@@ -35,6 +48,26 @@ def list_roles(service: RoleService = Depends(get_service)):
     if not result.success:
         raise HTTPException(400, detail=result.error)
     return result.data
+
+
+@router.post("/assign")
+def assign_role(body: _RoleAssignment):
+    """Assign a role to a user."""
+    repo = UserRepository(ConnectionRegistry.get())
+    result = repo.add_role(uuid.UUID(body.user_id), uuid.UUID(body.role_id))
+    if not result:
+        raise HTTPException(404, detail="User or role not found")
+    return {"assigned": True}
+
+
+@router.delete("/remove")
+def remove_role(body: _RoleAssignment):
+    """Remove a role from a user."""
+    repo = UserRepository(ConnectionRegistry.get())
+    result = repo.remove_role(uuid.UUID(body.user_id), uuid.UUID(body.role_id))
+    if not result:
+        raise HTTPException(404, detail="Assignment not found")
+    return {"removed": True}
 
 
 @router.get("/{role_id}")
