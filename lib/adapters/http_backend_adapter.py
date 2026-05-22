@@ -1,4 +1,4 @@
-"""HttpBackendAdapter stub — roles and scheduler added in Tasks 8-9."""
+"""HttpBackendAdapter stub — scheduler added in Task 9."""
 from __future__ import annotations
 
 import httpx
@@ -11,13 +11,15 @@ from lib.adapters.scheduler_adapter import ISchedulerAdapter
 from lib.adapters.http_session import _HttpSession
 from lib.adapters.http_auth_adapter import HttpAuthAdapter
 from lib.adapters.http_users_adapter import HttpUserAdapter
+from lib.adapters.http_roles_adapter import HttpRoleAdapter
 
 
 class HttpBackendAdapter(IBackendAdapter):
     def __init__(self, base_url: str, _client: httpx.Client | None = None):
         self._session = _HttpSession(base_url, _client)
-        self._auth  = HttpAuthAdapter(self._session)
-        self._users = HttpUserAdapter(self._session)
+        self._auth   = HttpAuthAdapter(self._session)
+        self._users  = HttpUserAdapter(self._session)
+        self._roles  = HttpRoleAdapter(self._session)
 
     @property
     def auth(self) -> IAuthAdapter:
@@ -29,7 +31,7 @@ class HttpBackendAdapter(IBackendAdapter):
 
     @property
     def roles(self) -> IRoleAdapter:
-        raise NotImplementedError("roles — implemented in Task 8")
+        return self._roles
 
     @property
     def scheduler(self) -> ISchedulerAdapter:

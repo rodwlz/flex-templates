@@ -84,3 +84,39 @@ def test_http_users_delete_nonexistent_returns_false(http_backend):
     import uuid
     result = http_backend.users.delete(str(uuid.uuid4()))
     assert result is False
+
+
+# ── Roles ─────────────────────────────────────────────────────────────────────
+
+def test_http_roles_list_empty(http_backend):
+    result = http_backend.roles.list()
+    assert result == []
+
+
+def test_http_roles_create(http_backend):
+    role = http_backend.roles.create("admin")
+    assert "id" in role
+    assert role["name"] == "admin"
+
+
+def test_http_roles_delete(http_backend):
+    role = http_backend.roles.create("viewer")
+    result = http_backend.roles.delete(role["id"])
+    assert result is True
+
+
+def test_http_roles_assign(http_backend, test_user):
+    role = http_backend.roles.create("editor")
+    http_backend.auth.login(test_user["username"], test_user["password"])
+    user = http_backend.auth.current_user()
+    result = http_backend.roles.assign(user["id"], role["id"])
+    assert result is True
+
+
+def test_http_roles_remove(http_backend, test_user):
+    role = http_backend.roles.create("moderator")
+    http_backend.auth.login(test_user["username"], test_user["password"])
+    user = http_backend.auth.current_user()
+    http_backend.roles.assign(user["id"], role["id"])
+    result = http_backend.roles.remove(user["id"], role["id"])
+    assert result is True
