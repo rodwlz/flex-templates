@@ -331,7 +331,7 @@ class ManageUsersView(ProtectedView):    # auth check is automatic
         ...</code></pre>
         </div>
 
-        <p><code>ProtectedView.render()</code> checks <code>backend.current_user()</code>
+        <p><code>ProtectedView.render()</code> checks <code>backend.auth.current_user()</code>
         before calling <code>super().render()</code>. If <code>current_user()</code>
         returns <code>None</code>, it redirects to <code>/login</code> and returns an
         empty view.</p>
@@ -1059,24 +1059,24 @@ class ProductDetailView(BaseView):
             <pre><code class="language-python">class ManageUsersView(ProtectedView):
     def __init__(self, page, props):
         super().__init__(page, props)
-        self._backend = props.get("backend")
+        self._backend = props.get("backend")   # IBackendAdapter — Service or Http
 
     def build_content(self):
         # Paginated user list
-        result = self._backend.list_users(page=1, page_size=20)
+        result = self._backend.users.list(page=1, page_size=20)
         # → {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}
 
         # Create / delete
-        self._backend.create_user({"username": "alice", "email": "alice@x.com", "password": "..."})
-        self._backend.delete_user(user_id_str)   # str UUID
+        self._backend.users.create({"username": "alice", "email": "alice@x.com", "password": "..."})
+        self._backend.users.delete(user_id_str)   # str UUID
 
         # Roles
-        self._backend.list_roles()              # → [{"id": "...", "name": "admin"}]
-        self._backend.create_role("editor")
-        self._backend.delete_role(role_id_str)
+        self._backend.roles.list()              # → [{"id": "...", "name": "admin"}]
+        self._backend.roles.create("editor")
+        self._backend.roles.delete(role_id_str)
 
         # Scheduler jobs (read-only)
-        jobs = self._backend.list_jobs()
+        jobs = self._backend.scheduler.list()
         # → [{"id": "...", "func_name": "...", "trigger": "...", "next_run_time": ...}]</code></pre>
         </div>
 
@@ -1090,9 +1090,10 @@ class ProductDetailView(BaseView):
         </ul>
 
         <p><code>IBackendAdapter</code> is defined in
-        <code>lib/adapters/backend_adapter.py</code>. To add a new backend operation,
-        add it to the ABC and implement it in <code>ServiceBackendAdapter</code> &mdash;
-        view code is unchanged.</p>
+        <code>lib/adapters/backend_adapter.py</code>. It is satisfied by both
+        <code>ServiceBackendAdapter</code> (in-process) and <code>HttpBackendAdapter</code>
+        (over HTTP). View code is unchanged regardless of which is wired in
+        <code>main.py</code>. See <a href="http-mode.html">HTTP Mode</a> for the swap pattern.</p>
 
         <hr>
 
