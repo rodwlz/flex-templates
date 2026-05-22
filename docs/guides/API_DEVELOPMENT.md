@@ -28,6 +28,8 @@ understand that contract, the rest of this guide is just mechanics.
 
 ## Quick Example
 
+> **All routes are prefixed `/v1/`** — FastAPI `/docs` is the canonical reference for full request/response schemas.
+
 A complete POST endpoint with validation, a service call, and error handling — all
 in one place. This is the canonical shape every endpoint in the codebase follows.
 
@@ -43,7 +45,7 @@ from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
 from lib.services.role_service import RoleService
 
-router = APIRouter(prefix="/roles", tags=["roles"])
+router = APIRouter(prefix="/v1/roles", tags=["roles"])
 
 
 def get_service() -> RoleService:
@@ -373,8 +375,8 @@ returns the test factory. No mocking of service methods required.
 
 ```python
 def test_post_role_creates_role(api_client):
-    """POST /roles creates a role and returns it."""
-    response = api_client.post("/roles", json={
+    """POST /v1/roles creates a role and returns it."""
+    response = api_client.post("/v1/roles", json={
         "name": "admin",
         "description": "Administrator",
     })
@@ -386,18 +388,18 @@ def test_post_role_creates_role(api_client):
 
 
 def test_list_roles_returns_all(api_client):
-    """GET /roles returns every created role."""
-    api_client.post("/roles", json={"name": "admin", "description": "Admin"})
-    api_client.post("/roles", json={"name": "editor", "description": "Editor"})
+    """GET /v1/roles returns every created role."""
+    api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
+    api_client.post("/v1/roles", json={"name": "editor", "description": "Editor"})
 
-    response = api_client.get("/roles")
+    response = api_client.get("/v1/roles")
     assert response.status_code == 200
     assert len(response.json()["roles"]) == 2
 
 
 def test_get_user_includes_roles_array(api_client):
-    """GET /users/{id} returns the user with a roles field."""
-    create_resp = api_client.post("/users", json={
+    """GET /v1/users/{id} returns the user with a roles field."""
+    create_resp = api_client.post("/v1/users", json={
         "username": "bob",
         "email": "bob@example.com",
         "password_hash": "hash",
@@ -405,7 +407,7 @@ def test_get_user_includes_roles_array(api_client):
     })
     user_id = create_resp.json()["id"]
 
-    response = api_client.get(f"/users/{user_id}")
+    response = api_client.get(f"/v1/users/{user_id}")
     assert response.status_code == 200
     body = response.json()
     assert body["username"] == "bob"
@@ -419,16 +421,16 @@ Always test the failure path. The error message shape matters to clients.
 
 ```python
 def test_get_role_404_when_missing(api_client):
-    """GET /roles/{id} with an unknown UUID returns 404."""
+    """GET /v1/roles/{id} with an unknown UUID returns 404."""
     import uuid
-    response = api_client.get(f"/roles/{uuid.uuid4()}")
+    response = api_client.get(f"/v1/roles/{uuid.uuid4()}")
     assert response.status_code == 404
 
 
 def test_delete_role_404_when_missing(api_client):
-    """DELETE /roles/{id} returns 404 for a UUID that does not exist."""
+    """DELETE /v1/roles/{id} returns 404 for a UUID that does not exist."""
     import uuid
-    response = api_client.delete(f"/roles/{uuid.uuid4()}")
+    response = api_client.delete(f"/v1/roles/{uuid.uuid4()}")
     assert response.status_code == 404
 
 
@@ -439,7 +441,7 @@ def test_get_user_404_on_malformed_uuid(api_client):
     which raises ValueError on a malformed string. SimpleService wraps that as
     ActionResult(success=False), and the route returns 404.
     """
-    response = api_client.get("/users/not-a-uuid")
+    response = api_client.get("/v1/users/not-a-uuid")
     assert response.status_code == 404
 
 
@@ -447,7 +449,7 @@ def test_get_user_404_detail_contains_id(api_client):
     """The 404 detail string includes the missing ID so the caller knows what went wrong."""
     import uuid
     missing_id = str(uuid.uuid4())
-    response = api_client.get(f"/users/{missing_id}")
+    response = api_client.get(f"/v1/users/{missing_id}")
     assert response.status_code == 404
     assert missing_id in response.json()["detail"]
 ```
@@ -456,8 +458,8 @@ def test_get_user_404_detail_contains_id(api_client):
 
 ```python
 def test_create_user_400_on_missing_username(api_client):
-    """POST /users without a username returns 400 (the service raises ValueError)."""
-    response = api_client.post("/users", json={
+    """POST /v1/users without a username returns 400 (the service raises ValueError)."""
+    response = api_client.post("/v1/users", json={
         "email": "no-username@example.com",
         "password_hash": "hash",
         "salt": "salt",
@@ -615,7 +617,7 @@ from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
 from lib.services.role_service import RoleService
 
-router = APIRouter(prefix="/roles", tags=["roles"])
+router = APIRouter(prefix="/v1/roles", tags=["roles"])
 
 
 def get_service() -> RoleService:
@@ -670,7 +672,7 @@ def list_users(
     limit: int = 10,
     service: UserService = Depends(get_service),
 ):
-    """GET /users?skip=0&limit=10"""
+    """GET /v1/users?skip=0&limit=10"""
     result = service.execute(ActionRequest(
         action="list",
         data={"skip": skip, "limit": limit},
@@ -884,11 +886,11 @@ Endpoints that require authentication use two FastAPI dependencies from
 ### Login
 
 The login endpoint follows the OAuth2 password flow — it accepts **form data**
-(not JSON), because `OAuth2PasswordBearer` is wired with `tokenUrl="/auth/login"`:
+(not JSON), because `OAuth2PasswordBearer` is wired with `tokenUrl="/v1/auth/login"`:
 
 ```python
 # lib/api/routes/auth.py  — already included in auto-discovery
-POST /auth/login
+POST /v1/auth/login
 Content-Type: application/x-www-form-urlencoded
 
 username=alice&password=s3cr3t
