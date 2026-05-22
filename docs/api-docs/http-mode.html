@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTTP Mode — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>HTTP Mode</h1>
+        <p class="breadcrumb">Builder Guides &rsaquo; HTTP Mode</p>
+    </header>
+    <main>
+
+        <p>How to switch the app from in-process service calls to HTTP in one line &mdash; and what
+        that means for security, testing, and the <code>/v1/</code> contract.</p>
+
+        <hr>
+
+        <h2>The Swap</h2>
+
+        <p>One line in <code>main.py</code> switches the entire app from in-process to HTTP:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># Before (ServiceBackendAdapter — in-process):
+backend = ServiceBackendAdapter(
+    factory=factory,
+    user_service=UserService(factory),
+    scheduler=scheduler,
+)
+
+# After (HttpBackendAdapter — over HTTP):
+from lib.adapters.http_backend_adapter import HttpBackendAdapter
+backend = HttpBackendAdapter(base_url="http://localhost:8080")</code></pre>
+        </div>
+
+        <p>Both satisfy <code>IBackendAdapter</code>. Views and services see no difference &mdash;
+        they call <code>backend.auth.login()</code>, never a URL.</p>
+
+        <hr>
+
+        <h2>Security Rules</h2>
+
+        <ul>
+            <li><strong>HTTPS required for any non-localhost URL.</strong>
+            <code>HttpBackendAdapter</code> raises <code>ValueError</code> at construction time
+            if you pass an <code>http://</code> URL whose hostname is not <code>localhost</code>,
+            <code>127.0.0.1</code>, <code>::1</code>, or <code>0.0.0.0</code>.</li>
+            <li><strong>JWT stored in RAM only.</strong> The token lives in
+            <code>_HttpSession._token</code> &mdash; never logged, never written to disk.</li>
+            <li><strong>Token cleared on logout and garbage collection.</strong>
+            <code>logout()</code> calls <code>clear_credentials()</code>; no persistent
+            state remains after the adapter object is collected.</li>
+        </ul>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># These are fine (HTTP allowed for local addresses):
+HttpBackendAdapter(base_url="http://localhost:8080")
+HttpBackendAdapter(base_url="http://127.0.0.1:8080")
+
+# This raises ValueError at construction:
+HttpBackendAdapter(base_url="http://myapi.example.com")
+# Use HTTPS for production:
+HttpBackendAdapter(base_url="https://myapi.example.com")</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Testing Pattern</h2>
+
+        <p>Use the <code>_client=</code> escape hatch to inject a <code>TestClient</code>.
+        This bypasses URL validation &mdash; no real network needed:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from fastapi.testclient import TestClient
+from lib.adapters.http_backend_adapter import HttpBackendAdapter
+
+backend = HttpBackendAdapter(base_url="http://testserver", _client=TestClient(app))</code></pre>
+        </div>
+
+        <p>Pass <code>backend</code> as a prop to views, or call adapter methods directly in tests.
+        The <code>_client=</code> parameter is the only way to use <code>HttpBackendAdapter</code>
+        in tests without a running server.</p>
+
+        <hr>
+
+        <h2>Why <code>/v1/</code> Is the Contract</h2>
+
+        <p>The <code>/v1/</code> prefix is the glue between the adapter layer and the HTTP layer:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-text">View code                    Always calls:  backend.auth.login()
+                                                    &darr;
+ServiceBackendAdapter        Calls:         UserService.authenticate()  (Python, no HTTP)
+HttpBackendAdapter           Calls:         POST /v1/auth/login          (HTTP)
+                                                    &darr;
+FastAPI route                Handles:       POST /v1/auth/login
+                             Calls:         UserService.authenticate()</code></pre>
+        </div>
+
+        <ul>
+            <li><strong>The view never touches a URL.</strong> The URL lives inside
+            <code>HttpBackendAdapter</code> only. Swapping the adapter does not require
+            editing any view code.</li>
+            <li><strong><code>/v1/</code> is a stability promise to every external consumer</strong>
+            (JS dashboard, mobile app, CLI tool). Once published, it does not change without
+            a version bump.</li>
+            <li><strong>Any external client can use the same URLs.</strong> The Python app,
+            a JS frontend, and a CLI tool all call <code>POST /v1/auth/login</code> and get
+            the same contract. Write the endpoint once, consume from anywhere.</li>
+            <li><strong>Side-by-side versioning.</strong> Add <code>/v2/auth/login</code>
+            alongside <code>/v1/auth/login</code> during a migration &mdash; old clients keep
+            working, new clients adopt the new version. No flag day, no breaking change.</li>
+            <li><strong><code>ServiceBackendAdapter</code> skips the HTTP hop entirely</strong>
+            but produces identical results &mdash; same service, same data, same
+            <code>IBackendAdapter</code> interface.</li>
+        </ul>
+
+        <hr>
+
+        <h2>When to Use Each Mode</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Mode</th>
+                    <th>Use when</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>ServiceBackendAdapter</code></td>
+                    <td>Local Flet app, single process, direct DB access</td>
+                </tr>
+                <tr>
+                    <td><code>HttpBackendAdapter</code></td>
+                    <td>Remote backend, JS/mobile client, multi-process, microservice</td>
+                </tr>
+            </tbody>
+        </table>
+
+    </main>
+
+    <nav class="page-nav">
+        <div class="nav-group">
+            <button class="btn-secondary" onclick="window.location.href='index.html'">&larr; Back to Hub</button>
+            <button class="btn-secondary" onclick="window.location.href='view-development.html'">&larr; View Development</button>
+        </div>
+        <span class="progress">Builder Guides &middot; 4 of 4</span>
+        <div class="nav-group">
+            <button class="btn-primary" onclick="window.location.href='decision-trees.html'">Decision Trees &rarr;</button>
+        </div>
+    </nav>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
