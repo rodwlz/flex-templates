@@ -40,3 +40,47 @@ def test_http_logout_clears_user(http_backend, test_user):
     http_backend.auth.login(test_user["username"], test_user["password"])
     http_backend.auth.logout()
     assert http_backend.auth.current_user() is None
+
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+def test_http_users_list_returns_paginate_shape(http_backend, test_user):
+    result = http_backend.users.list()
+    assert "items" in result
+    assert "total" in result
+    assert "page" in result
+    assert "page_size" in result
+    assert "pages" in result
+    assert result["total"] >= 1
+
+
+def test_http_users_list_page2_offset(http_backend, http_factory):
+    """Page 2 with page_size=1 returns the second user."""
+    from lib.services.user_service import UserService
+    svc = UserService(http_factory)
+    svc.create_user("user_a", "a@x.com", "pass")
+    svc.create_user("user_b", "b@x.com", "pass")
+    result = http_backend.users.list(page=2, page_size=1)
+    assert result["page"] == 2
+    assert len(result["items"]) == 1
+
+
+def test_http_users_create_returns_dict_with_id(http_backend):
+    result = http_backend.users.create({
+        "username": "newuser", "email": "new@x.com", "password": "pass",
+    })
+    assert "id" in result
+    assert result["username"] == "newuser"
+
+
+def test_http_users_delete_returns_true(http_backend, http_factory):
+    from lib.services.user_service import UserService
+    user = UserService(http_factory).create_user("todelete", "del@x.com", "pass")
+    result = http_backend.users.delete(user["id"])
+    assert result is True
+
+
+def test_http_users_delete_nonexistent_returns_false(http_backend):
+    import uuid
+    result = http_backend.users.delete(str(uuid.uuid4()))
+    assert result is False
