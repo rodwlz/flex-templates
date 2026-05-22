@@ -104,7 +104,7 @@ def api_client(monkeypatch):
 
 
 def test_create_role_returns_id_and_name(api_client):
-    response = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    response = api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "admin"
@@ -808,7 +808,7 @@ def approve_bulk_delete(data: dict, service: UserService = Depends(get_service))
 ```python
 def test_stage_user_with_roles(api_client):
     """stage returns preview; confirm commits."""
-    role_resp = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    role_resp = api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
     role_id = role_resp.json()["id"]
 
     stage_resp = api_client.post("/users/with-roles/stage", json={
