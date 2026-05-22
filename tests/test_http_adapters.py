@@ -120,3 +120,11 @@ def test_http_roles_remove(http_backend, test_user):
     http_backend.roles.assign(user["id"], role["id"])
     result = http_backend.roles.remove(user["id"], role["id"])
     assert result is True
+
+
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+
+def test_http_scheduler_list_empty(http_backend):
+    """Scheduler route returns [] when no scheduler is running."""
+    result = http_backend.scheduler.list()
+    assert result == []
