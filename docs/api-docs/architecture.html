@@ -192,7 +192,7 @@ backend = HttpBackendAdapter(base_url="http://localhost:8080")</code></pre>
         <p><code>BaseView</code> is the page template &mdash; every view subclasses it and only
         writes <code>build_content()</code>. Admin views that require login subclass
         <code>ProtectedView(BaseView)</code> instead &mdash; redirect to <code>/login</code>
-        is automatic if <code>backend.current_user()</code> returns None.</p>
+        is automatic if <code>backend.auth.current_user()</code> returns None.</p>
 
         <div style="position: relative;">
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
