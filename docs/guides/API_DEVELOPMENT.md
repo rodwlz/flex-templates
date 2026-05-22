@@ -904,7 +904,7 @@ username=alice&password=s3cr3t
 from fastapi import APIRouter, Depends
 from lib.auth.dependencies import get_current_user
 
-router = APIRouter(prefix="/profile", tags=["profile"])
+router = APIRouter(prefix="/v1/profile", tags=["profile"])
 
 @router.get("")
 def get_profile(user: dict = Depends(get_current_user)):
@@ -917,7 +917,7 @@ def get_profile(user: dict = Depends(get_current_user)):
 from fastapi import APIRouter, Depends
 from lib.auth.dependencies import require_roles
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/v1/admin", tags=["admin"])
 
 @router.delete("/users/{user_id}")
 def admin_delete_user(
