@@ -31,7 +31,12 @@ backend = ServiceBackendAdapter(factory, user_service, scheduler)
 backend = HttpBackendAdapter(base_url="http://localhost:8080")
 ```
 
-- Explain `/v1/` prefix: all routes are versioned so external clients (JS, mobile, CLI) can rely on a stable URL contract
+- Explain `/v1/` prefix as the **universal contract** — the bridge between the Python adapter layer and any external client:
+  - `HttpBackendAdapter` calls exactly these URLs (e.g. `POST /v1/auth/login`, `GET /v1/users/`). The adapter doesn't know whether it's talking to a local dev server or a remote production host — it just calls `/v1/...` and trusts the contract
+  - `ServiceBackendAdapter` bypasses HTTP entirely and calls Python methods directly — but the result is identical because both implement `IBackendAdapter`
+  - Any external client — JS dashboard, mobile app, CLI tool, card game backend — can call the same `/v1/` URLs and get the same contract the Python app uses. Write the endpoint once, consume from anywhere
+  - The version prefix enables running `/v1/` and `/v2/` simultaneously during a migration: old clients keep working on `/v1/`, new clients adopt `/v2/`. No flag day, no breaking change
+  - **The swap is transparent to views** because views call `backend.auth.login()`, never a URL. The URL is an implementation detail of `HttpBackendAdapter` only
 
 ### `api-development.html` — Replace route catalog with live link + guide
 
@@ -103,7 +108,27 @@ from lib.adapters.http_backend_adapter import HttpBackendAdapter
 backend = HttpBackendAdapter(base_url="http://testserver", _client=TestClient(app))
 ```
 
-**Section 4: When to Use Each Mode**
+**Section 4: Why /v1/ Is the Contract**
+
+Explain the versioning prefix as the glue between layers:
+
+```
+View code                    Always calls:  backend.auth.login()
+                                                    ↓
+ServiceBackendAdapter        Calls:         UserService.authenticate()  (Python, no HTTP)
+HttpBackendAdapter           Calls:         POST /v1/auth/login          (HTTP)
+                                                    ↓
+FastAPI route                Handles:       POST /v1/auth/login
+                             Calls:         UserService.authenticate()
+```
+
+Key points to make explicit in the page:
+- The view never touches a URL. The URL lives inside `HttpBackendAdapter` only.
+- `/v1/` is a stability promise to every external consumer (JS, mobile, CLI). Once published, it doesn't change without a version bump.
+- Future proof: add `/v2/auth/login` without breaking existing clients. Both versions run side by side.
+- The `ServiceBackendAdapter` skips the HTTP hop entirely but produces identical results — same service, same data, same `IBackendAdapter` interface.
+
+**Section 5: When to Use Each Mode**
 
 | Mode | Use when |
 |---|---|
@@ -179,7 +204,9 @@ Step 5 ("Add methods to ServiceBackendAdapter") currently only shows `ServiceBac
 
 ### `docs/core/CONVENTIONS.md` — Add /v1 versioning convention
 
-Add: *All API routes use the `/v1/` prefix. This is the universal contract for external clients. Never skip the prefix in route definitions or test URLs.*
+Add the following to the conventions list:
+
+> **All API routes use the `/v1/` prefix.** This is the universal contract that makes `HttpBackendAdapter` work — the adapter calls `/v1/...` URLs, and those same routes are what FastAPI exposes. Any external client (JS, mobile, CLI) targets the same prefix. Never skip the prefix in route definitions or test URLs. When breaking changes are needed, add a `/v2/` router alongside `/v1/` rather than modifying existing routes.
 
 ### `docs/reference/API_ARCHITECTURE_SUMMARY.md` — Delete
 
