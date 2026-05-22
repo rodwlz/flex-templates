@@ -460,7 +460,7 @@ def api_client(monkeypatch):
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
             <pre><code class="language-python">def test_post_role_creates_role(api_client):
     """POST /roles creates a role and returns it."""
-    response = api_client.post("/roles", json={
+    response = api_client.post("/v1/roles", json={
         "name": "admin",
         "description": "Administrator",
     })
@@ -473,17 +473,17 @@ def api_client(monkeypatch):
 
 def test_list_roles_returns_all(api_client):
     """GET /roles returns every created role."""
-    api_client.post("/roles", json={"name": "admin", "description": "Admin"})
-    api_client.post("/roles", json={"name": "editor", "description": "Editor"})
+    api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
+    api_client.post("/v1/roles", json={"name": "editor", "description": "Editor"})
 
-    response = api_client.get("/roles")
+    response = api_client.get("/v1/roles")
     assert response.status_code == 200
     assert len(response.json()["roles"]) == 2
 
 
 def test_get_user_includes_roles_array(api_client):
     """GET /users/{id} returns the user with a roles field."""
-    create_resp = api_client.post("/users", json={
+    create_resp = api_client.post("/v1/users", json={
         "username": "bob",
         "email": "bob@example.com",
         "password_hash": "hash",
@@ -526,7 +526,7 @@ def test_get_user_404_on_malformed_uuid(api_client):
     which raises ValueError on a malformed string. SimpleService wraps that as
     ActionResult(success=False), and the route returns 404.
     """
-    response = api_client.get("/users/not-a-uuid")
+    response = api_client.get("/v1/users/not-a-uuid")
     assert response.status_code == 404
 
 
@@ -545,7 +545,7 @@ def test_get_user_404_detail_contains_id(api_client):
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
             <pre><code class="language-python">def test_create_user_400_on_missing_username(api_client):
     """POST /users without a username returns 400 (the service raises ValueError)."""
-    response = api_client.post("/users", json={
+    response = api_client.post("/v1/users", json={
         "email": "no-username@example.com",
         "password_hash": "hash",
         "salt": "salt",
@@ -904,7 +904,7 @@ def approve_bulk_delete(data: dict, service: UserService = Depends(get_service))
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
             <pre><code class="language-python">def test_stage_user_with_roles(api_client):
     """stage returns preview; confirm commits."""
-    role_resp = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    role_resp = api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
     role_id = role_resp.json()["id"]
 
     stage_resp = api_client.post("/v1/users/with-roles/stage", json={
