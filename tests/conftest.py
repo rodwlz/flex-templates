@@ -26,7 +26,7 @@ import pytest
 from lib.core.events import EventBus
 from lib.services.navigation_service import NavigationService
 from lib.ui.router import FletRouter
-from lib.database.session import SessionFactory
+from lib.database.session import SessionFactory, ConnectionRegistry
 from lib.database.base import Base
 import lib.models  # noqa: F401 — ensures all ORM models are registered in Base.metadata
 from lib.repositories.user_repository import UserRepository
@@ -85,3 +85,71 @@ def db_factory():
 @pytest.fixture
 def user_repo(db_factory):
     return UserRepository(db_factory)
+
+
+# ── HTTP adapter test infrastructure ─────────────────────────────────────────
+
+from sqlalchemy.pool import StaticPool
+
+
+def _http_mem_factory() -> SessionFactory:
+    """In-memory SQLite that keeps one connection alive (for HTTP adapter tests)."""
+    factory = SessionFactory.__new__(SessionFactory)
+    factory._engine = __import__('sqlalchemy').create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    factory._Session = __import__('sqlalchemy.orm', fromlist=['sessionmaker']).sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False, bind=factory._engine
+    )
+    return factory
+
+
+@pytest.fixture
+def http_factory(monkeypatch):
+    """In-memory DB registered as 'postgres' — shared by http_backend + test_user."""
+    factory = _http_mem_factory()
+    factory.create_tables(Base)
+    monkeypatch.setattr(
+        ConnectionRegistry,
+        "_factories",
+        {"postgres": factory},
+    )
+    return factory
+
+
+@pytest.fixture
+def http_app(http_factory):
+    """FastAPI app with all v1 routes — used by http_backend fixture."""
+    from fastapi import FastAPI
+    from lib.api.routes import (
+        auth as auth_routes,
+        users as users_routes,
+        roles as roles_routes,
+        scheduler as scheduler_routes,
+    )
+    app = FastAPI()
+    app.include_router(auth_routes.router)
+    app.include_router(users_routes.router)
+    app.include_router(roles_routes.router)
+    app.include_router(scheduler_routes.router)
+    return app
+
+
+@pytest.fixture
+def http_backend(http_app):
+    """HttpBackendAdapter wired to the in-memory test FastAPI app."""
+    from fastapi.testclient import TestClient
+    from lib.adapters.http_backend_adapter import HttpBackendAdapter
+    client = TestClient(http_app)
+    return HttpBackendAdapter(base_url="http://testserver", _client=client)
+
+
+@pytest.fixture
+def test_user(http_factory):
+    """Create a real user in the test DB; returns {username, password, email}."""
+    from lib.services.user_service import UserService
+    svc = UserService(http_factory)
+    svc.create_user(username="testuser", email="test@example.com", password="testpass123")
+    return {"username": "testuser", "password": "testpass123", "email": "test@example.com"}
