@@ -151,6 +151,11 @@ def __init__(self, factory, user_service, scheduler, order_service=None):
     self._order_service = order_service or OrderService(factory)
 ```
 
+> **If you also need HTTP support:** Add the same method to `HttpBackendAdapter`
+> (`lib/adapters/http_backend_adapter.py`), wiring it to the corresponding `/v1/`
+> endpoint. If the operation should be universally available regardless of adapter,
+> add the abstract method to `IBackendAdapter` in `lib/adapters/backend_adapter.py` first.
+
 ---
 
 ## 6. Wire in `main.py`
