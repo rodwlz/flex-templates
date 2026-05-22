@@ -811,7 +811,7 @@ def test_stage_user_with_roles(api_client):
     role_resp = api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
     role_id = role_resp.json()["id"]
 
-    stage_resp = api_client.post("/users/with-roles/stage", json={
+    stage_resp = api_client.post("/v1/users/with-roles/stage", json={
         "username": "charlie",
         "email": "charlie@example.com",
         "password_hash": "hash",
@@ -821,16 +821,16 @@ def test_stage_user_with_roles(api_client):
     assert stage_resp.status_code == 200
     assert "preview" in stage_resp.json()
 
-    confirm_resp = api_client.post("/users/with-roles/confirm")
+    confirm_resp = api_client.post("/v1/users/with-roles/confirm")
     assert confirm_resp.status_code == 200
 
-    users_resp = api_client.get("/users")
+    users_resp = api_client.get("/v1/users")
     assert any(u["username"] == "charlie" for u in users_resp.json()["users"])
 
 
 def test_cancel_staged_user_does_not_persist(api_client):
     """stage followed by cancel leaves the database unchanged."""
-    api_client.post("/users/with-roles/stage", json={
+    api_client.post("/v1/users/with-roles/stage", json={
         "username": "dave",
         "email": "dave@example.com",
         "password_hash": "hash",
@@ -838,16 +838,16 @@ def test_cancel_staged_user_does_not_persist(api_client):
         "role_ids": [],
     })
 
-    cancel_resp = api_client.post("/users/with-roles/cancel")
+    cancel_resp = api_client.post("/v1/users/with-roles/cancel")
     assert cancel_resp.status_code == 200
 
-    users_resp = api_client.get("/users")
+    users_resp = api_client.get("/v1/users")
     assert not any(u["username"] == "dave" for u in users_resp.json()["users"])
 
 
 def test_approval_required_request_then_approve(api_client):
     """approval flow: request stages, approve commits."""
-    request_resp = api_client.post("/users/bulk-delete/request", json={
+    request_resp = api_client.post("/v1/users/bulk-delete/request", json={
         "username": "frank",
         "email": "frank@example.com",
         "password_hash": "hash",
@@ -857,7 +857,7 @@ def test_approval_required_request_then_approve(api_client):
     assert request_resp.status_code == 200
     assert "preview" in request_resp.json()
 
-    approve_resp = api_client.post("/users/bulk-delete/approve", json={})
+    approve_resp = api_client.post("/v1/users/bulk-delete/approve", json={})
     assert approve_resp.status_code == 200
     assert approve_resp.json()["confirmed"] is True
 ```
