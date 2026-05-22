@@ -232,7 +232,7 @@ def delete_role(role_id: str, service: RoleService = Depends(get_service)):
     return result.data</code></pre>
         </div>
 
-        <h3>Example &mdash; Staged: POST /users/with-roles/stage + confirm + cancel</h3>
+        <h3>Example &mdash; Staged: POST /v1/users/with-roles/stage + confirm + cancel</h3>
 
         <p>Creating a <code>User</code> with roles must be atomic &mdash; either both the user row and the <code>user_roles</code> rows land together, or neither does. The client previews the diff before committing.</p>
 
@@ -266,7 +266,7 @@ def cancel_user_with_roles(service: UserService = Depends(get_service)):
 
         <p>Note the service cache: <code>UserService</code> keeps the in-flight unit-of-work in <code>self._pending</code> between the <code>stage</code> and <code>confirm</code> calls. A fresh service instance per request would lose that state. Route files that use <code>StagingService</code> use a module-level <code>_service_cache</code> keyed by the factory identity.</p>
 
-        <h3>Example &mdash; Approval: POST /users/bulk-delete/request + approve</h3>
+        <h3>Example &mdash; Approval: POST /v1/users/bulk-delete/request + approve</h3>
 
         <p>Deleting many users is irreversible. The <code>requires_approval=True</code> flag on the <code>ActionRequest</code> signals to the client that an explicit confirmation step is mandatory before the data is gone.</p>
 
