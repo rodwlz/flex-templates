@@ -145,24 +145,41 @@ CacheRegistry.get("redis")             # returns a RedisAdapter</code></pre>
 
         <h3>BackendAdapter — <code>lib/adapters/backend_adapter.py</code></h3>
 
-        <p>The plug between Flet admin views and the backend. Views call
-        <code>self.props["backend"]</code> &mdash; an <code>IBackendAdapter</code> instance
-        &mdash; for all auth and data operations. Swap <code>ServiceBackendAdapter</code>
-        for <code>HttpBackendAdapter</code> in <code>main.py</code> and no view changes:</p>
+        <p>The plug between Flet admin views and the backend. <code>IBackendAdapter</code>
+        exposes four typed domain properties — views call these, never a URL:</p>
+
+        <table>
+            <thead>
+                <tr><th>Property</th><th>Interface</th><th>Methods</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>backend.auth</code></td><td><code>IAuthAdapter</code></td><td><code>login()</code>, <code>logout()</code>, <code>current_user()</code></td></tr>
+                <tr><td><code>backend.users</code></td><td><code>IUserAdapter</code></td><td><code>list()</code>, <code>create()</code>, <code>delete()</code></td></tr>
+                <tr><td><code>backend.roles</code></td><td><code>IRoleAdapter</code></td><td><code>list()</code>, <code>create()</code>, <code>delete()</code>, <code>assign()</code>, <code>remove()</code></td></tr>
+                <tr><td><code>backend.scheduler</code></td><td><code>ISchedulerAdapter</code></td><td><code>list()</code> &mdash; read-only job inspector</td></tr>
+            </tbody>
+        </table>
+
+        <p>Two concrete implementations — swap in <code>main.py</code>, zero view changes:</p>
 
         <div style="position: relative;">
             <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
-            <pre><code class="language-python">class ManageUsersView(ProtectedView):
-    def build_content(self):
-        backend = self.props["backend"]
-        result = backend.list_users(page=1, page_size=20)
-        # result: {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}</code></pre>
+            <pre><code class="language-python"># In-process (default):
+backend = ServiceBackendAdapter(factory, user_service, scheduler)
+
+# HTTP (local or remote):
+backend = HttpBackendAdapter(base_url="http://localhost:8080")</code></pre>
         </div>
 
-        <p><code>IBackendAdapter</code> defines: <code>login</code>/<code>logout</code>/<code>current_user</code>,
-        <code>list_users</code>/<code>create_user</code>/<code>delete_user</code>,
-        <code>list_roles</code>/<code>create_role</code>/<code>delete_role</code>/<code>assign_role</code>/<code>remove_role</code>,
-        <code>list_jobs</code>.</p>
+        <p><strong><code>/v1/</code> is the universal contract</strong> between the adapter layer and HTTP:</p>
+
+        <ul>
+            <li><code>HttpBackendAdapter</code> calls exactly these URLs (e.g. <code>POST /v1/auth/login</code>). It doesn&rsquo;t know whether it&rsquo;s talking to a local dev server or a remote host &mdash; it just calls <code>/v1/&hellip;</code> and trusts the contract.</li>
+            <li><code>ServiceBackendAdapter</code> bypasses HTTP and calls Python methods directly &mdash; but the result is identical because both implement <code>IBackendAdapter</code>.</li>
+            <li>Any external client (JS dashboard, mobile app, CLI) can call the same <code>/v1/</code> URLs. Write the endpoint once, consume from anywhere.</li>
+            <li>Side-by-side versioning: add <code>/v2/</code> alongside <code>/v1/</code> during a migration. Old clients keep working. No flag day.</li>
+            <li><strong>The swap is transparent to views</strong> because views call <code>backend.auth.login()</code>, never a URL. The URL is an implementation detail of <code>HttpBackendAdapter</code> only.</li>
+        </ul>
 
         <h3>Router &amp; BaseView — <code>lib/ui/</code></h3>
 
