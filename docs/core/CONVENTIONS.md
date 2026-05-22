@@ -390,3 +390,29 @@ class NavigationService(IService):
 ```
 
 `NavigationService` and `VaultService` use this pattern intentionally. Don't refactor them to `SimpleService` — they hit reasons 1, 2, and 3.
+
+---
+
+## 10. API Route Versioning — `/v1/` prefix
+
+**All API routes use the `/v1/` prefix.** This is the universal contract that makes
+`HttpBackendAdapter` work:
+
+- `HttpBackendAdapter` calls `/v1/...` URLs — the adapter doesn't care whether it's
+  talking to a local dev server or a remote production host.
+- `ServiceBackendAdapter` bypasses HTTP entirely and calls Python methods directly —
+  but the result is identical because both implement `IBackendAdapter`.
+- Any external client (JS frontend, mobile app, CLI tool) targets the same `/v1/`
+  prefix. Write the endpoint once, consume from anywhere.
+
+**Never skip the prefix in route definitions or test URLs.** When breaking changes are
+needed, add a `/v2/` router alongside `/v1/` rather than modifying existing routes. Old
+clients keep working on `/v1/`; new clients adopt `/v2/`. No flag day, no breaking change.
+
+```python
+# CORRECT
+router = APIRouter(prefix="/v1/roles", tags=["roles"])
+
+# WRONG — HttpBackendAdapter will not find this route
+router = APIRouter(prefix="/roles", tags=["roles"])
+```
