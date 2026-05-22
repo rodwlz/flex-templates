@@ -203,7 +203,7 @@ the full CRUD contract spelled out.
 `BaseView` is the page template — every view subclasses it and only writes
 `build_content()`. The appbar, sidebar, and dev nav come for free. Admin views
 that require login subclass `ProtectedView(BaseView)` instead — redirect to
-`/login` is automatic if `backend.current_user()` returns None.
+`/login` is automatic if `backend.auth.current_user()` returns None.
 
 ```python
 class ProductsView(BaseView):
