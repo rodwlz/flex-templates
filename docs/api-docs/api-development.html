@@ -22,6 +22,13 @@
         <p>How to build HTTP endpoints in FlexTemplates &mdash; validation, error handling, testing,
         and the common CRUD patterns used throughout the codebase.</p>
 
+        <blockquote>
+            <p>&#128225; <strong>Live API Reference</strong> &rarr;
+            <code>http://localhost:8080/docs</code> (Swagger UI) or
+            <code>/redoc</code> (ReDoc) &mdash; run the app first. The live docs
+            are the canonical reference for request/response schemas.</p>
+        </blockquote>
+
         <p><strong>Prerequisites:</strong> Read <a href="template.html">CONTRACTS_GUIDE.md</a> first. Every route
         calls <code>service.execute(ActionRequest(...))</code> and reads an <code>ActionResult</code>. If you
         understand that contract, the rest of this guide is just mechanics.</p>
@@ -33,6 +40,26 @@
             <li><a href="anti-patterns.html">ANTI_PATTERNS.md</a> &mdash; what not to do and why</li>
             <li><a href="template.html">API_PATTERN_TEMPLATE.md</a> &mdash; step-by-step walkthrough for adding a new entity</li>
         </ul>
+
+        <h2>Available Endpoints</h2>
+
+        <table>
+            <thead>
+                <tr><th>Endpoint</th><th>Method</th><th>Auth</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>/v1/auth/login</code></td><td>POST</td><td>None</td><td>OAuth2 password flow, returns JWT</td></tr>
+                <tr><td><code>/v1/auth/me</code></td><td>GET</td><td>Bearer</td><td>Current user&rsquo;s full profile</td></tr>
+                <tr><td><code>/v1/users/</code></td><td>GET / POST / DELETE</td><td>Optional</td><td>User CRUD</td></tr>
+                <tr><td><code>/v1/roles/</code></td><td>GET / POST / DELETE</td><td>Optional</td><td>Role CRUD</td></tr>
+                <tr><td><code>/v1/roles/assign</code></td><td>POST</td><td>Optional</td><td>Assign role to user</td></tr>
+                <tr><td><code>/v1/roles/remove</code></td><td>DELETE</td><td>Optional</td><td>Remove role from user</td></tr>
+                <tr><td><code>/v1/caches/</code></td><td>GET / POST</td><td>Optional</td><td>Cache operations</td></tr>
+                <tr><td><code>/v1/scheduler/jobs</code></td><td>GET</td><td>Optional</td><td>List scheduled jobs</td></tr>
+            </tbody>
+        </table>
+
+        <p>See <code>http://localhost:8080/docs</code> for full request/response schemas.</p>
 
         <hr>
 
@@ -54,7 +81,7 @@ from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
 from lib.services.role_service import RoleService
 
-router = APIRouter(prefix="/roles", tags=["roles"])
+router = APIRouter(prefix="/v1/roles", tags=["roles"])
 
 
 def get_service() -&gt; RoleService:
@@ -114,7 +141,7 @@ def api_client(monkeypatch):
 
 
 def test_create_role_returns_id_and_name(api_client):
-    response = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
+    response = api_client.post("/v1/roles", json={"name": "admin", "description": "Admin"})
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "admin"
@@ -680,7 +707,7 @@ from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
 from lib.services.role_service import RoleService
 
-router = APIRouter(prefix="/roles", tags=["roles"])
+router = APIRouter(prefix="/v1/roles", tags=["roles"])
 
 
 def get_service() -&gt; RoleService:
@@ -880,7 +907,7 @@ def approve_bulk_delete(data: dict, service: UserService = Depends(get_service))
     role_resp = api_client.post("/roles", json={"name": "admin", "description": "Admin"})
     role_id = role_resp.json()["id"]
 
-    stage_resp = api_client.post("/users/with-roles/stage", json={
+    stage_resp = api_client.post("/v1/users/with-roles/stage", json={
         "username": "charlie",
         "email": "charlie@example.com",
         "password_hash": "hash",
@@ -890,16 +917,16 @@ def approve_bulk_delete(data: dict, service: UserService = Depends(get_service))
     assert stage_resp.status_code == 200
     assert "preview" in stage_resp.json()
 
-    confirm_resp = api_client.post("/users/with-roles/confirm")
+    confirm_resp = api_client.post("/v1/users/with-roles/confirm")
     assert confirm_resp.status_code == 200
 
-    users_resp = api_client.get("/users")
+    users_resp = api_client.get("/v1/users")
     assert any(u["username"] == "charlie" for u in users_resp.json()["users"])
 
 
 def test_cancel_staged_user_does_not_persist(api_client):
     """stage followed by cancel leaves the database unchanged."""
-    api_client.post("/users/with-roles/stage", json={
+    api_client.post("/v1/users/with-roles/stage", json={
         "username": "dave",
         "email": "dave@example.com",
         "password_hash": "hash",
@@ -907,16 +934,16 @@ def test_cancel_staged_user_does_not_persist(api_client):
         "role_ids": [],
     })
 
-    cancel_resp = api_client.post("/users/with-roles/cancel")
+    cancel_resp = api_client.post("/v1/users/with-roles/cancel")
     assert cancel_resp.status_code == 200
 
-    users_resp = api_client.get("/users")
+    users_resp = api_client.get("/v1/users")
     assert not any(u["username"] == "dave" for u in users_resp.json()["users"])
 
 
 def test_approval_required_request_then_approve(api_client):
     """approval flow: request stages, approve commits."""
-    request_resp = api_client.post("/users/bulk-delete/request", json={
+    request_resp = api_client.post("/v1/users/bulk-delete/request", json={
         "username": "frank",
         "email": "frank@example.com",
         "password_hash": "hash",
@@ -926,7 +953,7 @@ def test_approval_required_request_then_approve(api_client):
     assert request_resp.status_code == 200
     assert "preview" in request_resp.json()
 
-    approve_resp = api_client.post("/users/bulk-delete/approve", json={})
+    approve_resp = api_client.post("/v1/users/bulk-delete/approve", json={})
     assert approve_resp.status_code == 200
     assert approve_resp.json()["confirmed"] is True</code></pre>
         </div>
