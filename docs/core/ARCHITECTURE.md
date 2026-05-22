@@ -219,27 +219,37 @@ def view(page, props):     # required entry point
 
 ### BackendAdapter — `lib/adapters/backend_adapter.py`
 
-The plug between Flet admin views and the backend. Admin views call
-`self.props["backend"]` — an `IBackendAdapter` instance — for all auth and
-data operations. `ServiceBackendAdapter` is the concrete implementation (calls
-Python services directly). Swap it for `HttpBackendAdapter` in `main.py` and
-no view changes:
+The plug between Flet admin views and the backend. `IBackendAdapter` exposes four
+typed domain properties:
+
+| Property | Interface | What it does |
+|---|---|---|
+| `backend.auth` | `IAuthAdapter` | `login()`, `logout()`, `current_user()` |
+| `backend.users` | `IUserAdapter` | `list()`, `create()`, `delete()` |
+| `backend.roles` | `IRoleAdapter` | `list()`, `create()`, `delete()`, `assign()`, `remove()` |
+| `backend.scheduler` | `ISchedulerAdapter` | `list()` — read-only job inspector |
+
+Two concrete implementations:
+
+- **`ServiceBackendAdapter`** — in-process, calls Python services directly. Current default in `main.py`.
+- **`HttpBackendAdapter`** — over HTTP, calls FastAPI `/v1/` endpoints. Drop-in replacement.
+
+One-line swap in `main.py` switches the whole app:
 
 ```python
-class ManageUsersView(ProtectedView):
-    def build_content(self):
-        backend = self.props["backend"]
-        result = backend.list_users(page=1, page_size=20)
-        # result: {"items": [...], "total": N, "page": 1, "page_size": 20, "pages": N}
+# In-process (default):
+backend = ServiceBackendAdapter(factory, user_service, scheduler)
+
+# HTTP (local or remote):
+backend = HttpBackendAdapter(base_url="http://localhost:8080")
 ```
 
-`IBackendAdapter` defines: `login`/`logout`/`current_user`, `list_users`/`create_user`/
-`delete_user`, `list_roles`/`create_role`/`delete_role`/`assign_role`/`remove_role`,
-`list_jobs`.
+Both satisfy `IBackendAdapter`. Views never touch a URL — they call
+`backend.auth.login()`, `backend.users.list()`, etc., and the concrete type
+is an implementation detail of `main.py` only.
 
-`ProtectedView(BaseView)` is the auth-guard subclass — it checks
-`backend.current_user()` before rendering and redirects to `/login` if the
-session is empty.
+`ProtectedView(BaseView)` checks `backend.auth.current_user()` before rendering
+and redirects to `/login` if the session is empty.
 
 ### Vault — `lib/security/`
 
