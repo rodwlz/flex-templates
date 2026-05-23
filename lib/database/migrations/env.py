@@ -6,6 +6,7 @@ from alembic import context
 from lib.database.base import Base
 import lib.models.user  # noqa: F401 — registers User on Base.metadata
 import lib.models.role  # noqa: F401 — registers Role on Base.metadata
+import lib.models.password_reset_token  # noqa: F401 — registers PasswordResetToken
 
 config = context.config
 
