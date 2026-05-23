@@ -37,6 +37,10 @@ def test_list_returns_pagination_metadata(paginate_client):
     body = resp.json()
     for key in ("items", "total", "page", "page_size", "pages"):
         assert key in body, f"Missing key: {key}"
+    # Ensure sensitive fields are not exposed in list response
+    for item in body["items"]:
+        assert "password_hash" not in item
+        assert "salt" not in item
 
 
 def test_list_correct_total(paginate_client):

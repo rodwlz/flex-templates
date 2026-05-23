@@ -8,6 +8,9 @@ from lib.repositories.user_repository import UserRepository
 from lib.security.password import hash_password, verify_password
 
 
+_USER_LIST_FIELDS = frozenset({"id", "username", "email", "status", "is_active", "roles"})
+
+
 class UserService(StagingService):
     """Supports both immediate and staged operations.
 
@@ -38,9 +41,8 @@ class UserService(StagingService):
         page = data.get("page", 1)
         page_size = data.get("page_size", 20)
         result = repo.paginate(page=page, page_size=page_size)
-        _safe = {"id", "username", "email", "status", "is_active", "roles"}
         result["items"] = [
-            {k: v for k, v in item.items() if k in _safe}
+            {k: (str(v) if k == "id" else v) for k, v in item.items() if k in _USER_LIST_FIELDS}
             for item in result["items"]
         ]
         return result

@@ -19,9 +19,9 @@ back as ActionResult(success=False, error=...) and are translated to 4xx HTTP.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from lib.contracts.base import ActionRequest
+from lib.contracts.base import ActionRequest, PaginatedResult
 from lib.database.session import ConnectionRegistry
 from lib.services.user_service import UserService
 
@@ -58,10 +58,10 @@ def create_user(data: dict, service: UserService = Depends(get_service)):
     return result.data
 
 
-@router.get("", tags=["immediate"])
+@router.get("", response_model=PaginatedResult, tags=["immediate"])
 def list_users(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     service: UserService = Depends(get_service),
 ):
     """List users with page/page_size pagination. Returns PaginatedResult shape."""
