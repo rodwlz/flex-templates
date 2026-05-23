@@ -65,7 +65,12 @@ class UserService(StagingService):
             "password_hash": password_hash,
             "salt": salt,
         })
-        return {"id": str(user.id), "username": user.username, "email": user.email}
+        return {
+            "id": str(user.id),
+            "username": user.username,
+            "email": user.email,
+            "is_active": user.is_active,
+        }
 
     def delete(self, data: dict) -> dict:
         repo = UserRepository(self._factory)

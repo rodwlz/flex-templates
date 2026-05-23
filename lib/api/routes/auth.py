@@ -8,6 +8,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 
 from lib.auth.dependencies import get_current_user
 from lib.auth.jwt_handler import create_token
@@ -53,4 +54,64 @@ def me(
     result = service.execute(ActionRequest(action="get", data={"id": current["id"]}))
     if not result.success:
         raise HTTPException(status_code=404, detail="User not found")
+    return result.data
+
+
+# ── Registration ──────────────────────────────────────────────────────────────
+
+class _RegisterBody(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+@router.post("/register", status_code=201)
+def register(body: _RegisterBody, service: UserService = Depends(_get_service)):
+    """Create a new user account. Returns user_id, username, is_active."""
+    result = service.execute(ActionRequest(action="register", data={
+        "username": body.username,
+        "email": body.email,
+        "password": body.password,
+    }))
+    if not result.success:
+        if result.error and "already registered" in result.error:
+            raise HTTPException(status_code=409, detail=result.error)
+        raise HTTPException(status_code=400, detail=result.error)
+    return {
+        "user_id": result.data["id"],
+        "username": result.data["username"],
+        "is_active": result.data.get("is_active", True),
+    }
+
+
+# ── Password reset ────────────────────────────────────────────────────────────
+
+class _ForgotPasswordBody(BaseModel):
+    email: str
+
+
+class _ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/forgot-password")
+def forgot_password(body: _ForgotPasswordBody, service: UserService = Depends(_get_service)):
+    """Request a password reset token. Always returns 200 to prevent user enumeration."""
+    result = service.execute(ActionRequest(
+        action="request_reset",
+        data={"email": body.email},
+    ))
+    return result.data
+
+
+@router.post("/reset-password")
+def reset_password(body: _ResetPasswordBody, service: UserService = Depends(_get_service)):
+    """Reset password using a valid token. Returns 400 for invalid/expired tokens."""
+    result = service.execute(ActionRequest(
+        action="reset_password",
+        data={"token": body.token, "new_password": body.new_password},
+    ))
+    if not result.success:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     return result.data
