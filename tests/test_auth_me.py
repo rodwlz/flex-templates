@@ -1,6 +1,5 @@
 """Integration test for GET /v1/auth/me."""
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -11,6 +10,7 @@ from lib.api.routes import users as users_routes
 from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.database.base import Base
 from lib.services.user_service import UserService
+from tests.conftest import _v1_app
 
 
 def _mem_factory():
@@ -33,9 +33,7 @@ def auth_client(monkeypatch):
     monkeypatch.setattr(ConnectionRegistry, "_factories", {"postgres": factory})
     svc = UserService(factory)
     svc.create_user(username="alice", email="alice@example.com", password="pass123")
-    app = FastAPI()
-    app.include_router(auth_routes.router)
-    app.include_router(users_routes.router)
+    app = _v1_app(auth_routes.router, users_routes.router)
     return TestClient(app)
 
 

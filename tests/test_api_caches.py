@@ -2,10 +2,10 @@
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from lib.api.routes import caches as caches_routes
+from tests.conftest import _v1_app
 from lib.contracts.base import ActionResult
 from lib.services.cache_registry import CacheRegistry
 
@@ -20,8 +20,7 @@ def clean_registry():
 
 @pytest.fixture
 def client():
-    app = FastAPI()
-    app.include_router(caches_routes.router)
+    app = _v1_app(caches_routes.router)
     return TestClient(app)
 
 

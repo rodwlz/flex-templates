@@ -6,7 +6,6 @@ no real Uvicorn server needed. The route handlers go through the same
 ConnectionRegistry the production app uses.
 """
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -16,6 +15,7 @@ from lib.api.routes import roles as roles_routes
 from lib.api.routes import users as users_routes
 from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.database.base import Base
+from tests.conftest import _v1_app
 
 
 def _shared_memory_factory() -> SessionFactory:
@@ -50,9 +50,7 @@ def api_client(monkeypatch):
         {"postgres": factory},
     )
 
-    app = FastAPI()
-    app.include_router(roles_routes.router)
-    app.include_router(users_routes.router)
+    app = _v1_app(roles_routes.router, users_routes.router)
 
     return TestClient(app)
 

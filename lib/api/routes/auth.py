@@ -15,7 +15,8 @@ from lib.contracts.base import ActionRequest
 from lib.database.session import ConnectionRegistry
 from lib.services.user_service import UserService
 
-router = APIRouter(prefix="/v1/auth", tags=["auth"])
+_PUBLIC_ROUTER = True  # mount into public sub-router — login needs no Bearer
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _get_service() -> UserService:

@@ -8,13 +8,13 @@ ConnectionRegistry the production app uses.
 import uuid
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from lib.api.routes import users as users_routes
+from tests.conftest import _v1_app
 from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.database.base import Base
 from lib.repositories.user_repository import UserRepository
@@ -47,8 +47,7 @@ def api_client(monkeypatch):
         {"postgres": factory},
     )
 
-    app = FastAPI()
-    app.include_router(users_routes.router)
+    app = _v1_app(users_routes.router)
 
     repo = UserRepository(factory)
     return TestClient(app), repo

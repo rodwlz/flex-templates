@@ -1,6 +1,5 @@
 import pytest
 import time
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.database.base import Base
 from lib.contracts.base import ActionRequest
+from tests.conftest import _v1_app
 
 
 def _shared_memory_factory() -> SessionFactory:
@@ -36,8 +36,7 @@ def auth_client(monkeypatch):
     monkeypatch.setattr(ConnectionRegistry, "_factories", {"postgres": factory})
 
     from lib.api.routes.auth import router as auth_router
-    app = FastAPI()
-    app.include_router(auth_router)
+    app = _v1_app(auth_router)
     return TestClient(app), factory
 
 

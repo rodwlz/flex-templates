@@ -119,22 +119,36 @@ def http_factory(monkeypatch):
     return factory
 
 
+def _v1_app(*routers):
+    """
+    Build a test FastAPI app serving the given routers under /v1/ with no
+    rate limiting or auth enforcement. Preserves /v1/... URL patterns after
+    route modules dropped their /v1 prefix.
+    """
+    from fastapi import FastAPI, APIRouter
+    v1 = APIRouter(prefix="/v1")
+    for r in routers:
+        v1.include_router(r)
+    app = FastAPI()
+    app.include_router(v1)
+    return app
+
+
 @pytest.fixture
 def http_app(http_factory):
     """FastAPI app with all v1 routes — used by http_backend fixture."""
-    from fastapi import FastAPI
     from lib.api.routes import (
         auth as auth_routes,
         users as users_routes,
         roles as roles_routes,
         scheduler as scheduler_routes,
     )
-    app = FastAPI()
-    app.include_router(auth_routes.router)
-    app.include_router(users_routes.router)
-    app.include_router(roles_routes.router)
-    app.include_router(scheduler_routes.router)
-    return app
+    return _v1_app(
+        auth_routes.router,
+        users_routes.router,
+        roles_routes.router,
+        scheduler_routes.router,
+    )
 
 
 @pytest.fixture

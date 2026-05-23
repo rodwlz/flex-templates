@@ -1,6 +1,5 @@
 """Integration tests for POST /v1/roles/assign and DELETE /v1/roles/remove."""
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,6 +11,7 @@ from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.database.base import Base
 from lib.services.user_service import UserService
 from lib.services.role_service import RoleService
+from tests.conftest import _v1_app
 
 
 def _mem_factory():
@@ -32,9 +32,7 @@ def assign_client(monkeypatch):
     factory = _mem_factory()
     factory.create_tables(Base)
     monkeypatch.setattr(ConnectionRegistry, "_factories", {"postgres": factory})
-    app = FastAPI()
-    app.include_router(roles_routes.router)
-    app.include_router(users_routes.router)
+    app = _v1_app(roles_routes.router, users_routes.router)
     return TestClient(app), factory
 
 
