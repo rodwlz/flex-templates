@@ -1,7 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Column, ForeignKey, String, Table, Uuid
+from sqlalchemy import Boolean, Column, ForeignKey, String, Table, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lib.database.base import Base
@@ -29,6 +29,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     salt: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, default="base-user")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Many-to-many: a user can have multiple roles
     roles: Mapped[List["Role"]] = relationship(

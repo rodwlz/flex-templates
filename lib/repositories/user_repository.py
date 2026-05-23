@@ -54,6 +54,7 @@ class UserRepository(AbstractRepository[User]):
                 "username": user.username,
                 "email": user.email,
                 "password_hash": user.password_hash,
+                "is_active": user.is_active,
                 "roles": [r.name for r in user.roles],
             }
 
