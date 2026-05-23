@@ -22,12 +22,11 @@ def mount_routes(app: FastAPI, config, package: str = "lib.api.routes") -> None:
     mod = importlib.import_module(package)
     for _, name, _ in pkgutil.iter_modules(mod.__path__):
         sub = importlib.import_module(f"{package}.{name}")
-        if not hasattr(sub, "router"):
-            continue
-        if getattr(sub, "_PUBLIC_ROUTER", False):
-            public.include_router(sub.router)
-        else:
-            protected.include_router(sub.router)
+        if hasattr(sub, "public_router"):
+            public.include_router(sub.public_router)
+        if hasattr(sub, "router"):
+            target = public if getattr(sub, "_PUBLIC_ROUTER", False) else protected
+            target.include_router(sub.router)
 
     v1_router.include_router(public)
     v1_router.include_router(protected)
