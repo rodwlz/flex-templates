@@ -26,6 +26,7 @@ from lib.middleware.logging import setup_logging, log_requests
 from lib.tasks.scheduler import TaskScheduler
 from lib.adapters.backend_adapter import ServiceBackendAdapter
 from lib.services.user_service import UserService
+from lib.services.product_service import ProductService
 from lib.database.base import Base
 
 
@@ -128,6 +129,7 @@ def main():
         _primary_factory = ConnectionRegistry.get(config.primary_database)
         user_repo = UserRepository(_primary_factory)
         _ctx["backend"] = _make_backend(_primary_factory)
+        _ctx["product_service"] = ProductService(_primary_factory)
     except RuntimeError:
         # primary DB not yet registered — fall back to local SQLite
         _sqlite_factory = SessionFactory("sqlite:///./dev.db")
@@ -140,9 +142,11 @@ def main():
             print(f"Warning: Alembic failed, using create_tables: {_alembic_err}")
             _sqlite_factory.create_tables(Base)
         _ctx["backend"] = _make_backend(_sqlite_factory)
+        _ctx["product_service"] = ProductService(_sqlite_factory)
     except Exception as exc:
         _startup_error = str(exc)
         _ctx["backend"] = None
+        _ctx["product_service"] = None
 
     # Vault starts LOCKED. SecurityView unlocks it; vault.unlocked event wires connections.
     def _on_vault_unlocked(_event):
@@ -160,6 +164,7 @@ def main():
         try:
             pf = ConnectionRegistry.get(config.primary_database)
             _ctx["backend"] = _make_backend(pf)
+            _ctx["product_service"] = ProductService(pf)
         except RuntimeError:
             pass
 
@@ -200,6 +205,7 @@ def main():
         "connection_tester": connection_tester,
         "cache_tester":      cache_tester,
         "backend":           _ctx.get("backend"),
+        "product_service":   _ctx.get("product_service"),
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })
