@@ -88,7 +88,7 @@ class AbstractRepository(IRepository, Generic[T]):
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "pages": max(1, (total + page_size - 1) // page_size),
+                "pages": (total + page_size - 1) // page_size,
             }
 
     def filter_by(self, **specs) -> list:

@@ -19,3 +19,11 @@ class ActionResult(BaseModel):
     data: dict[str, Any] = {}
     events: list[Event] = []
     error: str | None = None
+
+
+class PaginatedResult(BaseModel):
+    items: list[dict]
+    total: int
+    page: int
+    page_size: int
+    pages: int

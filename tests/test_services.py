@@ -129,7 +129,7 @@ def test_user_service_stage_can_cancel(db_factory):
 
     # Verify user not created
     list_result = service.execute(ActionRequest(action="list", data={}))
-    assert len(list_result.data["users"]) == 0
+    assert len(list_result.data["items"]) == 0
 
 
 def test_create_with_plain_password_hashes_it(db_factory):

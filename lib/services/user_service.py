@@ -35,22 +35,15 @@ class UserService(StagingService):
 
     def list(self, data: dict) -> dict:
         repo = UserRepository(self._factory)
-        users = repo.list()
-        skip = data.get("skip", 0)
-        limit = data.get("limit", len(users))
-        sliced = users[skip:skip + limit]
-        return {
-            "users": [
-                {
-                    "id": str(u.id),
-                    "username": u.username,
-                    "email": u.email,
-                    "role_count": len(u.roles),
-                }
-                for u in sliced
-            ],
-            "total": len(users),
-        }
+        page = data.get("page", 1)
+        page_size = data.get("page_size", 20)
+        result = repo.paginate(page=page, page_size=page_size)
+        _safe = {"id", "username", "email", "status", "is_active", "roles"}
+        result["items"] = [
+            {k: v for k, v in item.items() if k in _safe}
+            for item in result["items"]
+        ]
+        return result
 
     def create(self, data: dict) -> dict:
         """Immediate create. Accepts either 'password' (plain) or 'password_hash'+'salt'."""
@@ -123,7 +116,7 @@ class UserService(StagingService):
 
     def list_users(self) -> list[dict]:
         result = self.execute(ActionRequest(action="list", data={}))
-        return result.data.get("users", [])
+        return result.data.get("items", [])
 
     def create_user(self, username: str, email: str, password: str = "", password_hash: str = "", salt: str = "") -> dict:
         result = self.execute(ActionRequest(action="create", data={

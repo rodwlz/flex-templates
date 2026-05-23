@@ -59,11 +59,15 @@ def create_user(data: dict, service: UserService = Depends(get_service)):
 
 
 @router.get("", tags=["immediate"])
-def list_users(skip: int = 0, limit: int = 10, service: UserService = Depends(get_service)):
-    """List users with optional pagination params."""
+def list_users(
+    page: int = 1,
+    page_size: int = 20,
+    service: UserService = Depends(get_service),
+):
+    """List users with page/page_size pagination. Returns PaginatedResult shape."""
     result = service.execute(ActionRequest(
         action="list",
-        data={"skip": skip, "limit": limit},
+        data={"page": page, "page_size": page_size},
     ))
     if not result.success:
         raise HTTPException(400, detail=result.error)

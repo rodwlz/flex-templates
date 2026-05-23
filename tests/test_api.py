@@ -103,7 +103,7 @@ def test_get_user_404_on_malformed_uuid(api_client):
 
 
 def test_list_users_returns_all(api_client):
-    """GET /users returns every user in the database under the `users` key."""
+    """GET /users returns every user in the database under the `items` key."""
     client, repo = api_client
     _make_user(repo, username="alice")
     _make_user(repo, username="bob")
@@ -112,17 +112,18 @@ def test_list_users_returns_all(api_client):
 
     assert response.status_code == 200
     body = response.json()
-    usernames = {u["username"] for u in body["users"]}
+    usernames = {u["username"] for u in body["items"]}
     assert usernames == {"alice", "bob"}
 
 
 def test_list_users_returns_empty_list_when_no_users(api_client):
-    """An empty database returns {'users': []}."""
+    """An empty database returns {'items': [], 'total': 0, 'pages': 0}."""
     client, _ = api_client
 
     response = client.get("/v1/users")
 
     assert response.status_code == 200
     body = response.json()
-    assert body["users"] == []
+    assert body["items"] == []
     assert body["total"] == 0
+    assert body["pages"] == 0

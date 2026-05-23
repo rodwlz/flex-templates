@@ -174,7 +174,7 @@ def test_list_users(api_client):
 
     resp = api_client.get("/v1/users")
     assert resp.status_code == 200
-    assert len(resp.json()["users"]) == 2
+    assert len(resp.json()["items"]) == 2
 
 
 def test_delete_user_removes_it(api_client):
@@ -213,7 +213,7 @@ def test_stage_user_with_roles(api_client):
     assert confirm_resp.status_code == 200
 
     users = api_client.get("/v1/users").json()
-    assert any(u["username"] == "charlie" for u in users["users"])
+    assert any(u["username"] == "charlie" for u in users["items"])
 
 
 def test_cancel_staged_user(api_client):
@@ -230,7 +230,7 @@ def test_cancel_staged_user(api_client):
     assert cancel_resp.status_code == 200
 
     users = api_client.get("/v1/users").json()
-    assert not any(u["username"] == "dave" for u in users["users"])
+    assert not any(u["username"] == "dave" for u in users["items"])
 
 
 # ===== USER ROUTES — APPROVAL-REQUIRED OPERATIONS =====

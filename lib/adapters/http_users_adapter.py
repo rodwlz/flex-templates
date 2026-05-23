@@ -10,23 +10,12 @@ class HttpUserAdapter(IUserAdapter):
         self._session = session
 
     def list(self, page: int = 1, page_size: int = 20) -> dict:
-        skip = (page - 1) * page_size
         resp = self._session.request(
             "GET", "/v1/users/",
-            params={"skip": skip, "limit": page_size},
+            params={"page": page, "page_size": page_size},
         )
         resp.raise_for_status()
-        body = resp.json()
-        users = body.get("users", [])
-        total = body.get("total", len(users))
-        pages = max(1, (total + page_size - 1) // page_size)
-        return {
-            "items": users,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "pages": pages,
-        }
+        return resp.json()
 
     def create(self, data: dict) -> dict:
         resp = self._session.request("POST", "/v1/users/", json=data)
