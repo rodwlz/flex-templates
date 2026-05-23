@@ -1,5 +1,7 @@
 import uuid
 
+from sqlalchemy.exc import IntegrityError
+
 from lib.contracts.base import ActionRequest
 from lib.core.interfaces import StagingService
 from lib.database.session import SessionFactory
@@ -164,3 +166,49 @@ class UserService(StagingService):
         if not result.success:
             raise ValueError(result.error)
         return result.data
+
+    def register(self, data: dict) -> dict:
+        """Public registration. Raises ValueError on duplicate username or email."""
+        try:
+            return self.create(data)
+        except IntegrityError as exc:
+            # Use orig (the raw DB error) for precise column detection; the full
+            # SQLAlchemy message always includes the INSERT column list, which
+            # makes "username" appear even for email-constraint violations.
+            orig = str(exc.orig).lower()
+            if "email" in orig:
+                raise ValueError("Email already registered") from exc
+            if "username" in orig:
+                raise ValueError("Username already registered") from exc
+            raise
+
+    def request_reset(self, data: dict) -> dict:
+        """Request a password reset token. Returns generic message for unknown emails."""
+        from lib.repositories.password_reset_token_repository import PasswordResetTokenRepository
+        repo = UserRepository(self._factory)
+        token_repo = PasswordResetTokenRepository(self._factory)
+
+        users = repo.filter_by(email=data["email"])
+        if not users:
+            return {"message": "If that email is registered, a reset token has been issued"}
+
+        user_id = users[0]["id"]   # uuid.UUID directly from _serialize — do NOT wrap in uuid.UUID()
+        token_str = token_repo.create_for_user(user_id)
+        return {"token": token_str, "expires_in": 900}
+
+    def reset_password(self, data: dict) -> dict:
+        """Reset a user's password using a valid reset token. Raises ValueError if invalid/expired."""
+        from lib.repositories.password_reset_token_repository import PasswordResetTokenRepository
+        token_repo = PasswordResetTokenRepository(self._factory)
+        token_row = token_repo.find_valid(data["token"])
+        if token_row is None:
+            raise ValueError("Invalid or expired reset token")
+
+        password_hash, salt = hash_password(data["new_password"])
+        user_repo = UserRepository(self._factory)
+        user_repo.update(uuid.UUID(token_row["user_id"]), {
+            "password_hash": password_hash,
+            "salt": salt,
+        })
+        token_repo.mark_used(uuid.UUID(token_row["id"]))
+        return {"success": True}
