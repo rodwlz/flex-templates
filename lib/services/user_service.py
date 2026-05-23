@@ -84,6 +84,8 @@ class UserService(StagingService):
         user = repo.find_for_auth(login)
         if user is None or not verify_password(password, user["password_hash"]):
             raise ValueError("Invalid credentials")
+        if not user["is_active"]:
+            raise ValueError("Account is disabled")
         return {
             "id": user["id"],
             "username": user["username"],
