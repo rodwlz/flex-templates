@@ -77,6 +77,8 @@ def test_main_module_imports_cleanly():
         "lib.api.server",
         "lib.api.mount_service",
         "lib.api.router_registry",
+        "lib.api.rate_limiter",
+        "lib.api.v1",
         "lib.auth.jwt_handler",
         "lib.auth.dependencies",
         "lib.api.routes.auth",
