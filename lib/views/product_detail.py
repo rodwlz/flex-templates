@@ -1,45 +1,42 @@
 import flet as ft
 from pydantic import BaseModel
 
+from lib.contracts.base import ActionRequest
 from lib.ui.layouts.base_view import BaseView
 from lib.ui.components.card import Card
 from lib.ui.components.back_button import BackButton
-
-
-CATALOG = {
-    1: {"name": "Modular Mug", "price": 12.0, "stock": 42},
-    2: {"name": "Reusable Lego", "price": 25.0, "stock": 7},
-    3: {"name": "Standardized Sticker", "price": 3.5, "stock": 999},
-}
 
 
 class ProductDetailView(BaseView):
     title = "Product"
 
     class Params(BaseModel):
-        id: int                       # from URL path:  /products/{id}
+        id: str                       # from URL path:  /products/{id}
         tab: str = "overview"         # from query string:  ?tab=stock
 
     def build_content(self):
-        p = self.params
-        product = CATALOG.get(p.id)
+        service = self.props.get("product_service")
+        if service is None:
+            return ft.Text("Product service unavailable", color=ft.Colors.RED_400)
 
-        if product is None:
-            return ft.Text(f"No product with id={p.id}", color=ft.Colors.RED_400)
+        result = service.execute(ActionRequest(action="get", data={"id": self.params.id}))
+        if not result.success:
+            return ft.Text("Product not found", color=ft.Colors.RED_400)
 
-        body = self._tab_body(p.tab, product)
+        p = result.data
+        body = self._tab_body(self.params.tab, p)
 
         return ft.Column(
             [
-                ft.Text(product["name"], size=28, weight=ft.FontWeight.BOLD),
+                ft.Text(p["name"], size=28, weight=ft.FontWeight.BOLD),
                 ft.Row(
                     [
-                        self._tab_link("overview", p.id),
-                        self._tab_link("stock", p.id),
+                        self._tab_link("overview", self.params.id),
+                        self._tab_link("stock", self.params.id),
                     ],
                     spacing=15,
                 ),
-                Card(title=p.tab.capitalize(), body=body),
+                Card(title=self.params.tab.capitalize(), body=body),
                 BackButton(self.nav_service),
             ],
             spacing=15,
@@ -47,12 +44,10 @@ class ProductDetailView(BaseView):
 
     def _tab_body(self, tab: str, product: dict):
         if tab == "stock":
-            return ft.Text(f"In stock: {product['stock']} units")
+            return ft.Text(f"In stock: {product['stock_qty']} units")
         return ft.Text(f"Price: ${product['price']:.2f}")
 
-    def _tab_link(self, tab: str, product_id: int):
-        from lib.contracts.base import ActionRequest
-
+    def _tab_link(self, tab: str, product_id: str):
         return ft.TextButton(
             tab.capitalize(),
             on_click=lambda _: self.nav_service.execute(

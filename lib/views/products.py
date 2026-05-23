@@ -1,21 +1,27 @@
 import flet as ft
 
+from lib.contracts.base import ActionRequest
 from lib.ui.layouts.base_view import BaseView
 from lib.ui.components.card import Card
 from lib.ui.components.nav_button import NavButton
-
-
-SAMPLE_PRODUCTS = [
-    {"id": 1, "name": "Modular Mug", "price": 12.0},
-    {"id": 2, "name": "Reusable Lego", "price": 25.0},
-    {"id": 3, "name": "Standardized Sticker", "price": 3.5},
-]
 
 
 class ProductsView(BaseView):
     title = "Products"
 
     def build_content(self):
+        service = self.props.get("product_service")
+        if service is None:
+            return ft.Text("Product service unavailable", color=ft.Colors.RED_400)
+
+        result = service.execute(ActionRequest(action="list", data={}))
+        if not result.success:
+            return ft.Text(f"Error loading products: {result.error}", color=ft.Colors.RED_400)
+
+        items = result.data.get("items", [])
+        if not items:
+            return ft.Text("No products available")
+
         cards = [
             Card(
                 title=p["name"],
@@ -29,7 +35,7 @@ class ProductsView(BaseView):
                     spacing=10,
                 ),
             )
-            for p in SAMPLE_PRODUCTS
+            for p in items
         ]
         return ft.Column(
             [ft.Text("Products", size=28, weight=ft.FontWeight.BOLD), *cards],
