@@ -147,3 +147,10 @@ class IErrorAdapter(ABC):
 class IFlexComponent(ABC):
     @abstractmethod
     def build(self) -> object: ...
+
+
+class IEmailSender(ABC):
+    """Send a single email message. Implementations: ConsoleSender (dev), SmtpSender (prod)."""
+
+    @abstractmethod
+    def send(self, *, to: str, subject: str, body: str) -> None: ...
