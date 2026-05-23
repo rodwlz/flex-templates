@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from lib.contracts.base import ActionRequest
 from lib.core.interfaces import StagingService
 from lib.database.session import SessionFactory
+from lib.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from lib.repositories.role_repository import RoleRepository
 from lib.repositories.user_repository import UserRepository
 from lib.security.password import hash_password, verify_password
@@ -184,11 +185,14 @@ class UserService(StagingService):
 
     def request_reset(self, data: dict) -> dict:
         """Request a password reset token. Returns generic message for unknown emails."""
-        from lib.repositories.password_reset_token_repository import PasswordResetTokenRepository
+        email = data.get("email", "")
+        if not email:
+            raise ValueError("email is required")
+
         repo = UserRepository(self._factory)
         token_repo = PasswordResetTokenRepository(self._factory)
 
-        users = repo.filter_by(email=data["email"])
+        users = repo.filter_by(email=email)
         if not users:
             return {"message": "If that email is registered, a reset token has been issued"}
 
@@ -198,11 +202,16 @@ class UserService(StagingService):
 
     def reset_password(self, data: dict) -> dict:
         """Reset a user's password using a valid reset token. Raises ValueError if invalid/expired."""
-        from lib.repositories.password_reset_token_repository import PasswordResetTokenRepository
         token_repo = PasswordResetTokenRepository(self._factory)
         token_row = token_repo.find_valid(data["token"])
         if token_row is None:
             raise ValueError("Invalid or expired reset token")
+
+        if not data.get("new_password"):
+            raise ValueError("new_password is required")
+
+        # Mark token used FIRST — prevents reuse even if password update fails
+        token_repo.mark_used(uuid.UUID(token_row["id"]))
 
         password_hash, salt = hash_password(data["new_password"])
         user_repo = UserRepository(self._factory)
@@ -210,5 +219,4 @@ class UserService(StagingService):
             "password_hash": password_hash,
             "salt": salt,
         })
-        token_repo.mark_used(uuid.UUID(token_row["id"]))
         return {"success": True}
