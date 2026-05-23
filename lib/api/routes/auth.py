@@ -80,7 +80,7 @@ def register(body: _RegisterBody, service: UserService = Depends(_get_service)):
     return {
         "user_id": result.data["id"],
         "username": result.data["username"],
-        "is_active": result.data.get("is_active", True),
+        "is_active": result.data["is_active"],
     }
 
 
@@ -97,7 +97,7 @@ class _ResetPasswordBody(BaseModel):
 
 @router.post("/forgot-password")
 def forgot_password(body: _ForgotPasswordBody, service: UserService = Depends(_get_service)):
-    """Request a password reset token. Always returns 200 to prevent user enumeration."""
+    """Request a password reset token. Always 200 — token in body (no email service in dev)."""
     result = service.execute(ActionRequest(
         action="request_reset",
         data={"email": body.email},
