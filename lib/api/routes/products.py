@@ -39,6 +39,7 @@ def list_products(page: int = 1, page_size: int = 20):
         data={"page": page, "page_size": page_size},
     ))
     if not result.success:
+        # 400: list failures are bad-input errors, not resource-not-found
         raise HTTPException(400, detail=result.error)
     return result.data
 

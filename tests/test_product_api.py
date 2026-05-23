@@ -12,27 +12,10 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from lib.database.session import ConnectionRegistry, SessionFactory
+from lib.database.session import ConnectionRegistry
 from lib.database.base import Base
-from tests.conftest import _v1_app
-
-
-def _shared_memory_factory() -> SessionFactory:
-    """In-memory SQLite with a single persistent connection."""
-    factory = SessionFactory.__new__(SessionFactory)
-    factory._engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    factory._Session = sessionmaker(
-        autocommit=False, autoflush=False, expire_on_commit=False, bind=factory._engine
-    )
-    return factory
+from tests.conftest import _v1_app, _http_mem_factory
 
 
 @pytest.fixture
@@ -40,7 +23,7 @@ def api_client(monkeypatch):
     """In-memory DB registered as 'postgres', products routers mounted."""
     from lib.api.routes import products as products_routes
 
-    factory = _shared_memory_factory()
+    factory = _http_mem_factory()
     factory.create_tables(Base)
 
     monkeypatch.setattr(
