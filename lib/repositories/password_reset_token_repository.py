@@ -47,9 +47,11 @@ class PasswordResetTokenRepository(AbstractRepository[PasswordResetToken]):
                 "token": token,   # return raw token (only caller has it)
             }
 
-    def mark_used(self, token_id: uuid.UUID) -> None:
-        """Set used_at = now on the given token row."""
+    def mark_used(self, token_id: uuid.UUID) -> bool:
+        """Set used_at = now. Returns True if the row existed, False otherwise."""
         with self._factory.session() as s:
             row = s.get(PasswordResetToken, token_id)
-            if row:
-                row.used_at = datetime.now(timezone.utc)
+            if row is None:
+                return False
+            row.used_at = datetime.now(timezone.utc)
+            return True
