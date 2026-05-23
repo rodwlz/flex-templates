@@ -2,6 +2,7 @@ from urllib.parse import urlparse
 
 import flet as ft
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from lib.config.settings import AppConfig
 from lib.core.events import EventBus, Events
@@ -170,7 +171,15 @@ def main():
     # same ConnectionRegistry — Flet UI and HTTP API share state.
     api_app = FastAPI(title=config.app_title)
     api_app.middleware("http")(log_requests)
-    mount_routes(api_app)
+    _cors_origins = [o.strip() for o in config.cors_origins.split(",") if o.strip()]
+    api_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    mount_routes(api_app, config)
     from lib.api.routes import scheduler as scheduler_routes
     scheduler_routes.set_scheduler(scheduler)
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
