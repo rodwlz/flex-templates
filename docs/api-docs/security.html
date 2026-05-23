@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Guide — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Security Guide</h1>
+        <p class="breadcrumb">Reference &rsaquo; Security</p>
+    </header>
+    <main>
+
+        <p>FlexTemplates ships with four security layers active by default: opt-out JWT auth on
+        every <code>/v1/</code> route, rate limiting on login and all protected endpoints, CORS
+        policy, and a strict-mode guard that prevents deploying with a dev JWT secret.</p>
+
+        <blockquote>
+            <p>&#128274; <strong>All security env vars live in <code>.secrets/.env</code></strong>
+            &mdash; never in the project root <code>.env</code>.
+            <code>AppConfig</code> reads from <code>.secrets/.env</code> automatically.</p>
+        </blockquote>
+
+        <hr>
+
+        <h2>How routes are protected</h2>
+
+        <p>Every <code>/v1/</code> route passes through one of two sub-routers built by
+        <code>make_v1_router(config)</code> in <code>lib/api/v1.py</code>:</p>
+
+        <table>
+            <thead>
+                <tr><th>Sub-router</th><th>Who uses it</th><th>Enforces</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>public</code></td>
+                    <td><code>lib/api/routes/auth.py</code> only</td>
+                    <td>Login rate limit</td>
+                </tr>
+                <tr>
+                    <td><code>protected</code></td>
+                    <td>Every other route module</td>
+                    <td>General rate limit + Bearer JWT</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><strong>The default is protected.</strong> A new file dropped in
+        <code>lib/api/routes/</code> is automatically in the <code>protected</code> sub-router
+        &mdash; no <code>Depends(get_current_user)</code> needed. The only way to opt out is
+        <code>_PUBLIC_ROUTER = True</code> at module level.</p>
+
+        <h3>Making a route public</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/webhooks.py
+
+_PUBLIC_ROUTER = True          # moves the whole module to the public (no-auth) router
+router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+@router.post("/stripe")
+def stripe_webhook(payload: dict):
+    ...</code></pre>
+        </div>
+
+        <p>Only use <code>_PUBLIC_ROUTER = True</code> for endpoints that genuinely need no
+        authentication (webhooks with their own signature verification, health checks, etc.).</p>
+
+        <hr>
+
+        <h2>Environment variables</h2>
+
+        <table>
+            <thead>
+                <tr><th>Variable</th><th>Default</th><th>Effect</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>JWT_SECRET_KEY</code></td>
+                    <td><code>dev-secret-change-me</code></td>
+                    <td>Signs and verifies all JWTs</td>
+                </tr>
+                <tr>
+                    <td><code>JWT_STRICT</code></td>
+                    <td><code>false</code></td>
+                    <td><code>true</code> &rarr; hard-fail on startup if dev secret is still set</td>
+                </tr>
+                <tr>
+                    <td><code>CORS_ORIGINS</code></td>
+                    <td><code>http://localhost:3000,<br>http://localhost:8080</code></td>
+                    <td>Comma-separated list of allowed origins</td>
+                </tr>
+                <tr>
+                    <td><code>RATE_LIMIT_PER_MINUTE</code></td>
+                    <td><code>60</code></td>
+                    <td>Max requests/min per IP on protected routes</td>
+                </tr>
+                <tr>
+                    <td><code>RATE_LIMIT_LOGIN_PER_MINUTE</code></td>
+                    <td><code>5</code></td>
+                    <td>Max login attempts/min per IP</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Minimal <code>.secrets/.env</code> for deployment</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">JWT_SECRET_KEY=&lt;generate: python -c "import secrets; print(secrets.token_hex(32))"&gt;
+JWT_STRICT=true
+CORS_ORIGINS=https://app.example.com
+RATE_LIMIT_PER_MINUTE=60
+RATE_LIMIT_LOGIN_PER_MINUTE=5</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>JWT strict mode</h2>
+
+        <p><code>lib/auth/jwt_handler.py</code> checks the secret at module import time.
+        Behaviour depends on <code>JWT_STRICT</code> and <code>API_ONLY</code>:</p>
+
+        <table>
+            <thead>
+                <tr><th>JWT_STRICT</th><th>API_ONLY</th><th>Dev secret present</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>false</code></td><td><code>false</code></td>
+                    <td>Yes</td>
+                    <td><code>warnings.warn</code> &mdash; app starts, token is forgeable</td>
+                </tr>
+                <tr>
+                    <td><code>true</code></td><td>any</td>
+                    <td>Yes</td>
+                    <td><code>sys.exit(1)</code> &mdash; app refuses to start</td>
+                </tr>
+                <tr>
+                    <td>any</td><td><code>true</code></td>
+                    <td>Yes</td>
+                    <td><code>sys.exit(1)</code> &mdash; app refuses to start</td>
+                </tr>
+                <tr>
+                    <td>any</td><td>any</td>
+                    <td>No</td>
+                    <td>Silent &mdash; all good</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Generate a production secret:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">python -c "import secrets; print(secrets.token_hex(32))"</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>CORS</h2>
+
+        <p><code>CORSMiddleware</code> is wired in <code>main.py</code> using
+        <code>config.cors_origins</code>. The comma-separated string is split into a list at
+        startup.</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># .secrets/.env
+CORS_ORIGINS=https://app.example.com,https://admin.example.com</code></pre>
+        </div>
+
+        <p>The defaults (<code>http://localhost:3000,http://localhost:8080</code>) cover the most
+        common dev server ports. <code>allow_credentials=true</code> is set &mdash; cookies and
+        <code>Authorization</code> headers work cross-origin.</p>
+
+        <blockquote>
+            <p>&#9888;&#65039; Do not set <code>CORS_ORIGINS=*</code> when using credentials.
+            Browsers reject credentialed requests to wildcard origins. Use explicit origins.</p>
+        </blockquote>
+
+        <hr>
+
+        <h2>Rate limiting</h2>
+
+        <p><code>lib/api/rate_limiter.py</code> implements a sliding-window rate limiter keyed
+        by client IP. It uses Redis (via <code>CacheRegistry</code>) when available, falling back
+        to an in-process dict for single-process and test deployments.</p>
+
+        <p>Two limiters are created per <code>make_v1_router</code> call:</p>
+
+        <table>
+            <thead>
+                <tr><th>Limiter</th><th>Applies to</th><th>Default</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>login_limiter</code></td>
+                    <td><code>public</code> sub-router (login endpoint)</td>
+                    <td>5 req/min</td>
+                </tr>
+                <tr>
+                    <td><code>general_limiter</code></td>
+                    <td><code>protected</code> sub-router (everything else)</td>
+                    <td>60 req/min</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Exceeding the limit returns <code>HTTP 429 Too many requests</code>.</p>
+
+        <h3>Custom limiter on a specific endpoint</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from fastapi import Depends
+from lib.api.rate_limiter import RateLimiter
+
+_strict = RateLimiter(limit=10, window=60)  # 10 req/min, 60-second window
+
+@router.post("/expensive-operation")
+def expensive(_, __=Depends(_strict)):
+    ...</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Auth flow reference</h2>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash"># 1. Login
+curl -X POST http://localhost:8080/v1/auth/login \
+  -d "username=alice&password=secret"
+# → {"access_token": "eyJ...", "token_type": "bearer"}
+
+# 2. Call a protected endpoint
+curl http://localhost:8080/v1/users \
+  -H "Authorization: Bearer eyJ..."
+# → [{"id": "...", "username": "alice", ...}]</code></pre>
+        </div>
+
+        <p>The JWT payload contains <code>{"sub": "&lt;user_uuid&gt;"}</code>.
+        <code>get_current_user</code> in <code>lib/auth/dependencies.py</code> decodes it and
+        returns the <code>User</code> ORM object.</p>
+
+        <h3>Using the current user in a handler</h3>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.auth.dependencies import get_current_user, require_roles
+
+# Access current user (already enforced by the sub-router, but useful for audit/ownership)
+@router.get("/me/orders")
+def my_orders(current_user=Depends(get_current_user)):
+    return repo.list(user_id=current_user.id)
+
+# Restrict to a specific role
+@router.post("/admin/action")
+def admin_action(current_user=Depends(require_roles(["admin"]))):
+    ...</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>Security test coverage</h2>
+
+        <table>
+            <thead>
+                <tr><th>File</th><th>What it verifies</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>tests/test_security_contract.py</code></td>
+                    <td>All routes under <code>/v1/</code>; login reachable without Bearer;
+                    every other endpoint returns 401 without Bearer</td>
+                </tr>
+                <tr>
+                    <td><code>tests/test_security_behaviour.py</code></td>
+                    <td>Full auth flow; 401 on no/bad token; 429 on rate-limit breach</td>
+                </tr>
+                <tr>
+                    <td><code>tests/test_security_cors.py</code></td>
+                    <td>Allowed origin gets CORS headers; blocked origin doesn&rsquo;t;
+                    credentials header present</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p><code>test_security_contract.py</code> is a living regression guard &mdash; if a
+        developer adds an unprotected route, <code>test_protected_endpoints_require_bearer_token</code>
+        fails immediately on the next <code>pytest</code> run.</p>
+
+    </main>
+
+    <nav class="page-nav">
+        <div class="nav-group">
+            <button class="btn-secondary" onclick="window.location.href='index.html'">&larr; Back to Hub</button>
+        </div>
+        <span class="progress">Reference &middot; Security</span>
+        <div class="nav-group">
+            <button class="btn-primary" onclick="window.location.href='migrations.html'">Migrations &rarr;</button>
+        </div>
+    </nav>
+
+    <script src="js/script.js"></script>
+</body>
+</html>

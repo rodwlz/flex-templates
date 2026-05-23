@@ -50,12 +50,12 @@
             <tbody>
                 <tr><td><code>/v1/auth/login</code></td><td>POST</td><td>None</td><td>OAuth2 password flow, returns JWT</td></tr>
                 <tr><td><code>/v1/auth/me</code></td><td>GET</td><td>Bearer</td><td>Current user&rsquo;s full profile</td></tr>
-                <tr><td><code>/v1/users/</code></td><td>GET / POST / DELETE</td><td>Optional</td><td>User CRUD</td></tr>
-                <tr><td><code>/v1/roles/</code></td><td>GET / POST / DELETE</td><td>Optional</td><td>Role CRUD</td></tr>
-                <tr><td><code>/v1/roles/assign</code></td><td>POST</td><td>Optional</td><td>Assign role to user</td></tr>
-                <tr><td><code>/v1/roles/remove</code></td><td>DELETE</td><td>Optional</td><td>Remove role from user</td></tr>
-                <tr><td><code>/v1/caches/</code></td><td>GET / POST</td><td>Optional</td><td>Cache operations</td></tr>
-                <tr><td><code>/v1/scheduler/jobs</code></td><td>GET</td><td>Optional</td><td>List scheduled jobs</td></tr>
+                <tr><td><code>/v1/users/</code></td><td>GET / POST / DELETE</td><td>Bearer</td><td>User CRUD</td></tr>
+                <tr><td><code>/v1/roles/</code></td><td>GET / POST / DELETE</td><td>Bearer</td><td>Role CRUD</td></tr>
+                <tr><td><code>/v1/roles/assign</code></td><td>POST</td><td>Bearer</td><td>Assign role to user</td></tr>
+                <tr><td><code>/v1/roles/remove</code></td><td>DELETE</td><td>Bearer</td><td>Remove role from user</td></tr>
+                <tr><td><code>/v1/caches/</code></td><td>GET / POST</td><td>Bearer</td><td>Cache operations</td></tr>
+                <tr><td><code>/v1/scheduler/jobs</code></td><td>GET</td><td>Bearer</td><td>List scheduled jobs</td></tr>
             </tbody>
         </table>
 
