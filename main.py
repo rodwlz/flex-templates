@@ -247,7 +247,15 @@ def main():
             print(f"API-only mode — http://{config.api_host}:{config.api_port}")
             _stop.wait()
         else:
-            ft.run(main=flet_main)
+            _view_map = {
+                "web": ft.AppView.WEB_BROWSER,
+                "headless": ft.AppView.HEADLESS_WEB,
+            }
+            ft.run(
+                main=flet_main,
+                view=_view_map.get(config.app_view, ft.AppView.FLET_APP),
+                port=config.flet_port if config.app_view != "desktop" else 0,
+            )
     finally:
         server.stop()
         scheduler.stop()

@@ -45,6 +45,8 @@ class AppConfig(BaseSettings):
 
     # ── UI ─────────────────────────────────────────────────────────────────
     app_title: str = "FlexTemplates"
+    app_view: str = "desktop"  # "desktop" | "web" | "headless"
+    flet_port: int = 8550      # port used when app_view="web"
     debug: bool = False
 
     # ── Deployment ─────────────────────────────────────────────────────────
