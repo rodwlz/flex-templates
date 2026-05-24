@@ -118,6 +118,8 @@ def test_main_module_imports_cleanly():
         "lib.adapters.http_scheduler_adapter",
         "lib.adapters.http_backend_adapter",
         "lib.api.routes.scheduler",
+        "lib.api.websocket.manager",
+        "lib.api.routes.ws",
         "lib.ui.layouts.protected_view",
         "lib.email.console_sender",
         "lib.email.smtp_sender",

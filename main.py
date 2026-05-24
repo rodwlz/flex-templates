@@ -194,6 +194,10 @@ def main():
     scheduler_routes.set_scheduler(scheduler)
     from lib.api.routes.auth import set_email_sender as _set_auth_email_sender
     _set_auth_email_sender(email_sender)
+    from lib.api.websocket.manager import ConnectionManager
+    from lib.api.routes import ws as ws_route
+    _ws_manager = ConnectionManager()
+    ws_route.set_manager(_ws_manager)
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
     server.start()
 
@@ -213,6 +217,7 @@ def main():
         "cache_tester":      cache_tester,
         "backend":           _ctx.get("backend"),
         "product_service":   _ctx.get("product_service"),
+        "ws_manager":        _ws_manager,
         # ── Dev tooling ────────────────────────────────────────────────────
         "dev_nav": True,  # orange FAB — remove for production
     })

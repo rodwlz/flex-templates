@@ -27,6 +27,8 @@ def mount_routes(app: FastAPI, config, package: str = "lib.api.routes") -> None:
         if hasattr(sub, "router"):
             target = public if getattr(sub, "_PUBLIC_ROUTER", False) else protected
             target.include_router(sub.router)
+        if hasattr(sub, "ws_router"):
+            app.include_router(sub.ws_router, prefix="/ws")
 
     v1_router.include_router(public)
     v1_router.include_router(protected)
