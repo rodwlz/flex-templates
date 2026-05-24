@@ -14,6 +14,8 @@ custom dispatch (e.g. a game engine) replace or wrap this loop.
 """
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Query, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
@@ -38,6 +40,11 @@ async def ws_endpoint(
     ws: WebSocket,
     token: str | None = Query(default=None),
 ) -> None:
+    # 0. Guard — ensure manager is initialized
+    if _manager is None:
+        await ws.close(code=1011)  # 1011 = Internal Error
+        return
+
     # 1. Authenticate — reject before accepting to avoid unnecessary resource use
     if not token:
         await ws.close(code=4001)
@@ -57,7 +64,10 @@ async def ws_endpoint(
     # 3. Relay loop — re-broadcasts every client message to the room with sender identity
     try:
         while True:
-            data = await ws.receive_json()
+            try:
+                data = await ws.receive_json()
+            except json.JSONDecodeError:
+                continue  # ignore malformed frames, keep connection alive
             await _manager.broadcast(room_id, {
                 "type": data.get("type", "message"),
                 "payload": {**data.get("payload", {}), "from": user["id"]},
