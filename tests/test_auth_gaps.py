@@ -10,15 +10,47 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lib.api.routes import auth as auth_routes
+from lib.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from lib.repositories.user_repository import UserRepository
 from lib.security.password import hash_password
 from tests.conftest import _v1_app
+
+
+class _CaptureSender:
+    """Test double that records the last sent email body so tests can extract the token."""
+
+    def __init__(self):
+        self.last_body = ""
+
+    def send(self, *, to: str, subject: str, body: str) -> None:
+        self.last_body = body
+
+    def extract_token(self) -> str:
+        """Parse raw token from the email body line 'Your reset token: <token>'."""
+        for line in self.last_body.splitlines():
+            if line.startswith("Your reset token:"):
+                return line.split(":", 1)[1].strip()
+        raise ValueError("No token found in captured email body")
 
 
 @pytest.fixture
 def auth_client(http_factory):
     app = _v1_app(auth_routes.router)
     return TestClient(app), UserRepository(http_factory)
+
+
+@pytest.fixture
+def auth_client_capture(http_factory):
+    """auth_client variant with a CaptureSender injected — gives tests access to the reset token."""
+    from lib.services.user_service import UserService
+    sender = _CaptureSender()
+
+    def _get_service_with_capture():
+        return UserService(http_factory, email_sender=sender)
+
+    app = _v1_app(auth_routes.router)
+    app.dependency_overrides[auth_routes._get_service] = _get_service_with_capture
+    return TestClient(app), UserRepository(http_factory), sender
 
 
 def _register(client, username="alice", email=None, password="secret"):
@@ -85,15 +117,15 @@ def test_disabled_user_cannot_login(auth_client):
 
 # ── Password reset ────────────────────────────────────────────────────────────
 
-def test_forgot_password_returns_token(auth_client):
+def test_forgot_password_returns_message(auth_client):
     client, repo = auth_client
     _seed_user(repo)
     resp = client.post("/v1/auth/forgot-password",
                        json={"email": "alice@example.com"})
     assert resp.status_code == 200
     body = resp.json()
-    assert "token" in body
     assert body["expires_in"] == 900
+    assert "message" in body
 
 
 def test_forgot_password_unknown_email_200_generic(auth_client):
@@ -104,13 +136,24 @@ def test_forgot_password_unknown_email_200_generic(auth_client):
     assert "message" in resp.json()
 
 
-def test_reset_password_success(auth_client):
+def test_forgot_password_response_has_message_not_token(auth_client):
+    """Token must NOT appear in the response body after email sender is injected."""
     client, repo = auth_client
+    _seed_user(repo, "charlie")
+    resp = client.post("/v1/auth/forgot-password", json={"email": "charlie@example.com"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "token" not in body
+    assert "message" in body
+    assert "expires_in" in body
+
+
+def test_reset_password_success(auth_client_capture):
+    client, repo, sender = auth_client_capture
     _seed_user(repo)
 
-    token_resp = client.post("/v1/auth/forgot-password",
-                             json={"email": "alice@example.com"})
-    token = token_resp.json()["token"]
+    client.post("/v1/auth/forgot-password", json={"email": "alice@example.com"})
+    token = sender.extract_token()
 
     resp = client.post("/v1/auth/reset-password",
                        json={"token": token, "new_password": "newpass123"})
@@ -129,12 +172,12 @@ def test_reset_password_invalid_token_400(auth_client):
     assert resp.status_code == 400
 
 
-def test_reset_password_used_token_400(auth_client):
-    client, repo = auth_client
+def test_reset_password_used_token_400(auth_client_capture):
+    client, repo, sender = auth_client_capture
     _seed_user(repo)
 
-    token = client.post("/v1/auth/forgot-password",
-                        json={"email": "alice@example.com"}).json()["token"]
+    client.post("/v1/auth/forgot-password", json={"email": "alice@example.com"})
+    token = sender.extract_token()
     client.post("/v1/auth/reset-password",
                 json={"token": token, "new_password": "pass2"})
     resp = client.post("/v1/auth/reset-password",

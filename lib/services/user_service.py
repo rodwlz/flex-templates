@@ -22,8 +22,12 @@ class UserService(StagingService):
     that need a preview (e.g. creating a user and assigning roles in one transaction).
     """
 
-    def __init__(self, factory: SessionFactory):
+    def __init__(self, factory: SessionFactory, email_sender=None):
         super().__init__(factory)
+        if email_sender is None:
+            from lib.email.console_sender import ConsoleSender
+            email_sender = ConsoleSender()
+        self._email_sender = email_sender
 
     # ===== IMMEDIATE OPERATIONS (SimpleService style) =====
 
@@ -189,7 +193,7 @@ class UserService(StagingService):
             raise
 
     def request_reset(self, data: dict) -> dict:
-        """Request a password reset token. Returns generic message for unknown emails."""
+        """Request a password reset token. Sends email (console in dev, SMTP in prod)."""
         email = data.get("email", "")
         if not email:
             raise ValueError("email is required")
@@ -199,11 +203,29 @@ class UserService(StagingService):
 
         users = repo.filter_by(email=email)
         if not users:
-            return {"message": "If that email is registered, a reset token has been issued"}
+            return {
+                "message": "If that email is registered, a reset email has been sent",
+                "expires_in": 900,
+            }
 
         user_id = users[0]["id"]   # uuid.UUID directly from _serialize — do NOT wrap in uuid.UUID()
         token_str = token_repo.create_for_user(user_id)
-        return {"token": token_str, "expires_in": 900}
+
+        self._email_sender.send(
+            to=email,
+            subject="Password reset request",
+            body=(
+                f"You requested a password reset.\n\n"
+                f"Your reset token: {token_str}\n\n"
+                f"This token expires in 15 minutes.\n"
+                f"If you did not request this, ignore this message."
+            ),
+        )
+
+        return {
+            "message": "If that email is registered, a reset email has been sent",
+            "expires_in": 900,
+        }
 
     def reset_password(self, data: dict) -> dict:
         """Reset a user's password using a valid reset token. Raises ValueError if invalid/expired."""
