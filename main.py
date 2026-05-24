@@ -28,6 +28,8 @@ from lib.adapters.backend_adapter import ServiceBackendAdapter
 from lib.services.user_service import UserService
 from lib.services.product_service import ProductService
 from lib.database.base import Base
+from lib.email.console_sender import ConsoleSender
+from lib.email.smtp_sender import SmtpSender
 
 
 # Vault key prefix → adapter builder. Adding a new cache type means adding one
@@ -65,6 +67,9 @@ def _register_caches_from_vault(vault) -> None:
 def main():
     config = AppConfig()
     setup_logging("DEBUG" if config.debug else "INFO")
+
+    # Instantiate email sender based on configuration
+    email_sender = SmtpSender(config) if config.email_sender == "smtp" else ConsoleSender()
 
     # Register all databases from DATABASE_* environment variables
     for db_name, db_url in config.databases.items():
@@ -119,7 +124,7 @@ def main():
     def _make_backend(factory):
         return ServiceBackendAdapter(
             factory=factory,
-            user_service=UserService(factory),
+            user_service=UserService(factory, email_sender=email_sender),
             scheduler=scheduler,
         )
 
