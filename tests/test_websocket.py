@@ -1,6 +1,10 @@
 """Tests for ConnectionManager and the /ws WebSocket endpoint."""
 import asyncio
 import pytest
+import uuid
+from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
+from lib.auth.jwt_handler import create_token
 
 
 # ── ConnectionManager unit tests (mock WebSocket, no HTTP server needed) ─────
@@ -101,9 +105,6 @@ def ws_app():
 
 
 def test_ws_rejects_missing_token(ws_app):
-    from fastapi.testclient import TestClient
-    from starlette.websockets import WebSocketDisconnect
-
     client = TestClient(ws_app)
     with pytest.raises(WebSocketDisconnect) as exc_info:
         with client.websocket_connect("/ws/room1") as ws:
@@ -112,9 +113,6 @@ def test_ws_rejects_missing_token(ws_app):
 
 
 def test_ws_rejects_invalid_token(ws_app):
-    from fastapi.testclient import TestClient
-    from starlette.websockets import WebSocketDisconnect
-
     client = TestClient(ws_app)
     with pytest.raises(WebSocketDisconnect) as exc_info:
         with client.websocket_connect("/ws/room1?token=not.a.valid.jwt") as ws:
@@ -123,9 +121,6 @@ def test_ws_rejects_invalid_token(ws_app):
 
 
 def test_ws_connect_joins_room(ws_app):
-    from fastapi.testclient import TestClient
-    from lib.auth.jwt_handler import create_token
-
     client = TestClient(ws_app)
     token = create_token({"sub": "user-123", "roles": ["player"]})
 
@@ -138,9 +133,6 @@ def test_ws_connect_joins_room(ws_app):
 
 
 def test_ws_broadcast_reaches_all_clients(ws_app):
-    from fastapi.testclient import TestClient
-    from lib.auth.jwt_handler import create_token
-
     client = TestClient(ws_app)
     token_a = create_token({"sub": "user-a", "roles": []})
     token_b = create_token({"sub": "user-b", "roles": []})
@@ -163,9 +155,6 @@ def test_ws_broadcast_reaches_all_clients(ws_app):
 
 
 def test_ws_disconnect_broadcasts_room_left(ws_app):
-    from fastapi.testclient import TestClient
-    from lib.auth.jwt_handler import create_token
-
     client = TestClient(ws_app)
     token_a = create_token({"sub": "user-a", "roles": []})
     token_b = create_token({"sub": "user-b", "roles": []})
@@ -185,9 +174,6 @@ def test_ws_disconnect_broadcasts_room_left(ws_app):
 
 
 def test_ws_clients_in_different_rooms_isolated(ws_app):
-    from fastapi.testclient import TestClient
-    from lib.auth.jwt_handler import create_token
-
     client = TestClient(ws_app)
     token_a = create_token({"sub": "user-a", "roles": []})
     token_b = create_token({"sub": "user-b", "roles": []})
@@ -207,3 +193,18 @@ def test_ws_clients_in_different_rooms_isolated(ws_app):
     # Each client receives only from their own room
     assert msg_a["type"] == "room-a-only"
     assert msg_b["type"] == "room-b-only"
+
+
+def test_ws_rejects_when_manager_uninitialized(ws_app):
+    import lib.api.routes.ws as ws_module
+    original = ws_module._manager
+    try:
+        ws_module._manager = None
+        token = create_token({"sub": str(uuid.uuid4()), "roles": []})
+        with pytest.raises(WebSocketDisconnect) as exc_info:
+            with TestClient(ws_app) as client:
+                with client.websocket_connect(f"/ws/room1?token={token}") as ws:
+                    ws.receive_json()
+        assert exc_info.value.code == 1011
+    finally:
+        ws_module._manager = original

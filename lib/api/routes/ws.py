@@ -68,6 +68,8 @@ async def ws_endpoint(
                 data = await ws.receive_json()
             except json.JSONDecodeError:
                 continue  # ignore malformed frames, keep connection alive
+            if not isinstance(data, dict):
+                continue  # ignore non-dict JSON, keep connection alive
             await _manager.broadcast(room_id, {
                 "type": data.get("type", "message"),
                 "payload": {**data.get("payload", {}), "from": user["id"]},
