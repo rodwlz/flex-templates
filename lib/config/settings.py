@@ -35,6 +35,14 @@ class AppConfig(BaseSettings):
     vault_path: str = ".secrets/vault.json"
     vault_env_path: str = ".secrets/.env"
 
+    # ── Email transport ────────────────────────────────────────────────────────
+    email_sender: str = "console"              # "console" | "smtp"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""                    # set in .secrets/.env for prod
+    smtp_from: str = "noreply@example.com"
+
     # ── UI ─────────────────────────────────────────────────────────────────
     app_title: str = "FlexTemplates"
     debug: bool = False
