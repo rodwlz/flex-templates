@@ -192,6 +192,8 @@ def main():
     mount_routes(api_app, config)
     from lib.api.routes import scheduler as scheduler_routes
     scheduler_routes.set_scheduler(scheduler)
+    from lib.api.routes.auth import set_email_sender as _set_auth_email_sender
+    _set_auth_email_sender(email_sender)
     server = BackendServer(api_app, host=config.api_host, port=config.api_port)
     server.start()
 

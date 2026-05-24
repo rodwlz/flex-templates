@@ -19,9 +19,18 @@ from lib.services.user_service import UserService
 _PUBLIC_ROUTER = True  # mount into public sub-router — login needs no Bearer
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Module-level — set at startup by main.py
+_email_sender = None
+
+
+def set_email_sender(sender) -> None:
+    """Called once at startup to inject the configured email sender."""
+    global _email_sender
+    _email_sender = sender
+
 
 def _get_service() -> UserService:
-    return UserService(ConnectionRegistry.get())
+    return UserService(ConnectionRegistry.get(), email_sender=_email_sender)
 
 
 @router.post("/login")
