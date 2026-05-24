@@ -1056,6 +1056,76 @@ def mount_routes(app: FastAPI, package: str = "lib.api.routes") -> None:
 No registration, no list to update. Verify: start the server and open
 `http://localhost:8080/docs` — your new routes appear under their tag automatically.
 
+### Mixed-auth routes — public reads + protected writes in one file
+
+When an entity has both public and authenticated endpoints, define two routers in
+the same file: `public_router` (no JWT) and `router` (JWT required). The auto-discovery
+logic mounts `public_router` to the unauthenticated sub-router and `router` to the
+protected one:
+
+```python
+# lib/api/routes/products.py
+from fastapi import APIRouter, Depends, HTTPException
+from lib.auth.dependencies import get_current_user
+
+# Public — no auth required
+public_router = APIRouter(prefix="/v1/products", tags=["products"])
+
+# Protected — JWT required
+router = APIRouter(prefix="/v1/products", tags=["products"])
+
+
+def get_service() -> ProductService:
+    return ProductService(ConnectionRegistry.get())
+
+
+# ── Public endpoints ──────────────────────────────────────────────────────────
+
+@public_router.get("")
+def list_products(page: int = 1, page_size: int = 20,
+                  service: ProductService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="list", data={"page": page, "page_size": page_size}))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+@public_router.get("/{product_id}")
+def get_product(product_id: str, service: ProductService = Depends(get_service)):
+    result = service.execute(ActionRequest(action="get", data={"id": product_id}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data
+
+
+# ── Protected endpoints ───────────────────────────────────────────────────────
+
+@router.post("", status_code=201)
+def create_product(data: dict, service: ProductService = Depends(get_service),
+                   _user: dict = Depends(get_current_user)):
+    result = service.execute(ActionRequest(action="create", data=data))
+    if not result.success:
+        raise HTTPException(400, detail=result.error)
+    return result.data
+
+
+@router.patch("/{product_id}")
+def update_product(product_id: str, data: dict,
+                   service: ProductService = Depends(get_service),
+                   _user: dict = Depends(get_current_user)):
+    result = service.execute(ActionRequest(action="update", data={"id": product_id, **data}))
+    if not result.success:
+        raise HTTPException(404, detail=result.error)
+    return result.data
+```
+
+`public_router` and `router` share the same prefix — they are two separate
+`APIRouter` instances that happen to produce routes under `/v1/products`. The
+auth boundary is purely at the router level.
+
+**Rule:** public reads (GET) go on `public_router`. Writes (POST, PATCH, DELETE)
+go on `router` and add `_user: dict = Depends(get_current_user)` to enforce the JWT.
+
 ---
 
 ## Checklist Before Merging a New Endpoint

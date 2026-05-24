@@ -54,3 +54,11 @@ def test_check_jwt_secret_dev_key_strict_exits():
     with pytest.raises(SystemExit) as exc_info:
         _check_jwt_secret(_DEV_SECRET, strict=True)
     assert exc_info.value.code == 1
+
+
+def test_expired_token_raises_jwt_error():
+    """A token with a negative expiry (minted in the past) is rejected as expired."""
+    from lib.auth.jwt_handler import create_token, decode_token
+    token = create_token({"sub": "user-123"}, expire_minutes=-1)
+    with pytest.raises(JWTError):
+        decode_token(token)

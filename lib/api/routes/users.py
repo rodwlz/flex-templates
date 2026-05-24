@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from lib.auth.dependencies import require_roles
 from lib.contracts.base import ActionRequest, PaginatedResult
 from lib.database.session import ConnectionRegistry
 from lib.services.user_service import UserService
@@ -50,8 +51,8 @@ def get_service() -> UserService:
 # ===== IMMEDIATE OPERATIONS =====
 
 @router.post("", tags=["immediate"])
-def create_user(data: dict, service: UserService = Depends(get_service)):
-    """Create a user immediately (no roles attached)."""
+def create_user(data: dict, service: UserService = Depends(get_service), _=Depends(require_roles("admin"))):
+    """Create a user immediately (no roles attached). Requires admin role."""
     result = service.execute(ActionRequest(action="create", data=data))
     if not result.success:
         raise HTTPException(400, detail=result.error)
@@ -84,8 +85,8 @@ def get_user(user_id: str, service: UserService = Depends(get_service)):
 
 
 @router.delete("/{user_id}", tags=["immediate"])
-def delete_user(user_id: str, service: UserService = Depends(get_service)):
-    """Delete a user by id."""
+def delete_user(user_id: str, service: UserService = Depends(get_service), _=Depends(require_roles("admin"))):
+    """Delete a user by id. Requires admin role."""
     result = service.execute(ActionRequest(action="delete", data={"id": user_id}))
     if not result.success:
         raise HTTPException(404, detail=result.error)

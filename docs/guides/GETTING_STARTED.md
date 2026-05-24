@@ -46,12 +46,27 @@ INFO: Application startup complete
 
 The Flet window opens + FastAPI backend is running.
 
+### Seed dev data (optional but recommended)
+
+Before exploring the app, populate it with a sample admin user and products:
+
+```bash
+python scripts/seed_dev.py
+```
+
+This creates (idempotently — safe to run multiple times):
+- Role: `admin`
+- User: `admin` / `admin@example.com` — password `admin123` — role `admin`
+- 6 sample products (Wireless Keyboard, USB-C Hub, etc.)
+
+Log in with `admin / admin123` to see auth-gated features like the product edit form.
+
 ### In the app:
-1. Open the "Users" view
-2. Click "Create User" button
-3. See the form
-4. Submit → Database saves the user
-5. View refreshes to show the new user
+1. Click **Products** in the sidebar → 6 products appear
+2. Click **View Details** → product detail page
+3. Click **Login** → sign in as `admin / admin123`
+4. Navigate back to a product detail → edit form appears for admins
+5. Open the **Manage** view → user management (admin only)
 
 **What just happened:** The UI called a service, which called a repository, which saved to the database. All through ActionRequest → ActionResult contracts.
 

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Transport — FlexTemplates Docs</title>
+    <link rel="stylesheet" href="css/docs.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Email Transport</h1>
+        <p class="breadcrumb">Builder Guides &rsaquo; Email Transport</p>
+    </header>
+    <main>
+
+        <p>How to send email from services &mdash; configure the sender, swap implementations,
+        inject into routes, and write tests without hitting a real server.</p>
+
+        <hr>
+
+        <h2>Overview</h2>
+
+        <p>Email transport follows the same pluggable pattern as every other framework component:
+        one abstract interface, two built-in implementations, wired in <code>main.py</code>.</p>
+
+        <pre><code>IEmailSender                   ← lib/core/interfaces.py
+  ├── ConsoleSender             ← lib/email/console_sender.py  (dev default)
+  └── SmtpSender                ← lib/email/smtp_sender.py     (production)</code></pre>
+
+        <p>The active sender is chosen at startup from <code>AppConfig.email_sender</code>
+        (<code>"console"</code> or <code>"smtp"</code>) and injected into every service and route
+        module that needs to send mail. Views never touch the sender directly.</p>
+
+        <hr>
+
+        <h2>Calling <code>send()</code> from a Service</h2>
+
+        <p>Inject <code>IEmailSender</code> through the service constructor — never import
+        <code>ConsoleSender</code> or <code>SmtpSender</code> inside a service.
+        <code>UserService</code> shows the canonical pattern:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class UserService(StagingService):
+    def __init__(self, factory: SessionFactory, email_sender=None):
+        super().__init__(factory)
+        if email_sender is None:
+            from lib.email.console_sender import ConsoleSender  # lazy dev fallback
+            email_sender = ConsoleSender()
+        self._email_sender = email_sender
+
+    def request_reset(self, data: dict) -> dict:
+        # ... look up user, generate token ...
+        self._email_sender.send(
+            to=user["email"],
+            subject="Password Reset",
+            body=f"Reset your password: {reset_url}",
+        )
+        return {"message": "Reset email sent", "expires_in": 900}</code></pre>
+        </div>
+
+        <p>All three arguments to <code>send()</code> are <strong>keyword-only</strong> &mdash;
+        calling <code>send(addr, subj, body)</code> is a <code>TypeError</code>. This prevents
+        argument-order bugs.</p>
+
+        <hr>
+
+        <h2>Configuration</h2>
+
+        <p>Set these in <code>.secrets/.env</code> (never in the project root <code>.env</code>):</p>
+
+        <table>
+            <thead>
+                <tr><th>Variable</th><th>Default</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>EMAIL_SENDER</code></td><td><code>console</code></td><td><code>"console"</code> (dev) or <code>"smtp"</code> (prod)</td></tr>
+                <tr><td><code>SMTP_HOST</code></td><td><code>""</code></td><td>Mail server hostname</td></tr>
+                <tr><td><code>SMTP_PORT</code></td><td><code>587</code></td><td>587 = STARTTLS, 465 = implicit SSL</td></tr>
+                <tr><td><code>SMTP_USERNAME</code></td><td><code>""</code></td><td>Auth username</td></tr>
+                <tr><td><code>SMTP_PASSWORD</code></td><td><code>""</code></td><td>Auth password</td></tr>
+                <tr><td><code>SMTP_FROM</code></td><td><code>noreply@example.com</code></td><td>From address</td></tr>
+            </tbody>
+        </table>
+
+        <p><code>SmtpSender</code> detects port 465 automatically and uses <code>SMTP_SSL</code>;
+        all other ports use STARTTLS.</p>
+
+        <p><strong>Gmail example</strong> (use an App Password, not your account password):</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-bash">EMAIL_SENDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=you@gmail.com
+SMTP_PASSWORD=abcd-efgh-ijkl-mnop
+SMTP_FROM=you@gmail.com</code></pre>
+        </div>
+
+        <hr>
+
+        <h2>ConsoleSender &mdash; dev default</h2>
+
+        <p>Prints the full email to stdout. Zero config, always available, safe in tests:</p>
+
+        <pre><code>[EMAIL] To: alice@example.com
+[EMAIL] Subject: Password Reset
+[EMAIL] Body:
+Reset your password at: http://localhost:8080/reset?token=abc123</code></pre>
+
+        <hr>
+
+        <h2>Route Injection Pattern</h2>
+
+        <p>Route modules that build services with email use a module-level setter function &mdash;
+        the same pattern as <code>set_scheduler()</code> in the scheduler routes:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python"># lib/api/routes/auth.py
+_email_sender = None
+
+def set_email_sender(sender) -> None:
+    global _email_sender
+    _email_sender = sender
+
+def _get_service() -> UserService:
+    return UserService(ConnectionRegistry.get(), email_sender=_email_sender)</code></pre>
+        </div>
+
+        <p><code>main.py</code> calls <code>set_email_sender(email_sender)</code> once at startup.
+        Any route module that needs email follows the same pattern.</p>
+
+        <hr>
+
+        <h2>Adding a Custom Sender</h2>
+
+        <p>Implement <code>IEmailSender</code> from <code>lib/core/interfaces.py</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.core.interfaces import IEmailSender
+
+class SendGridSender(IEmailSender):
+    def __init__(self, api_key: str):
+        self._api_key = api_key
+
+    def send(self, *, to: str, subject: str, body: str) -> None:
+        import httpx
+        httpx.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+            json={"personalizations": [{"to": [{"email": to}]}],
+                  "from": {"email": "noreply@example.com"},
+                  "subject": subject,
+                  "content": [{"type": "text/plain", "value": body}]},
+        )</code></pre>
+        </div>
+
+        <p>Wire it in <code>main.py</code> (the only file that names concrete implementations):</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.email.sendgrid_sender import SendGridSender
+
+email_sender = SendGridSender(api_key=config.sendgrid_api_key)</code></pre>
+        </div>
+
+        <p>No other files change.</p>
+
+        <hr>
+
+        <h2>Testing with a Capture Sender</h2>
+
+        <p>Inject a capture sender in tests to assert on the email body without hitting a real server:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">class _CaptureSender:
+    def __init__(self):
+        self.sent: list[dict] = []
+
+    def send(self, *, to: str, subject: str, body: str) -> None:
+        self.sent.append({"to": to, "subject": subject, "body": body})
+
+    def last_body(self) -> str:
+        return self.sent[-1]["body"] if self.sent else ""
+
+
+@pytest.fixture
+def capture_svc(db_factory):
+    sender = _CaptureSender()
+    return UserService(db_factory, email_sender=sender), sender
+
+
+def test_reset_email_contains_token(capture_svc):
+    svc, sender = capture_svc
+    svc.execute(ActionRequest(action="request_reset", data={"login": "admin@example.com"}))
+    assert "token" in sender.last_body()
+    assert sender.sent[-1]["to"] == "admin@example.com"</code></pre>
+        </div>
+
+        <p>For API-level tests, override the module-level sender via <code>monkeypatch</code>:</p>
+
+        <div style="position: relative;">
+            <button class="copy-button" onclick="copyToClipboard(this)">Copy</button>
+            <pre><code class="language-python">from lib.api.routes import auth as auth_routes
+
+@pytest.fixture
+def auth_client(app, monkeypatch):
+    sender = _CaptureSender()
+    monkeypatch.setattr(auth_routes, "_email_sender", sender)
+    return TestClient(app), sender</code></pre>
+        </div>
+
+        <p><a href="index.html">&larr; Back to Docs Hub</a></p>
+
+    </main>
+
+    <script>
+        function copyToClipboard(button) {
+            const pre = button.nextElementSibling;
+            navigator.clipboard.writeText(pre.textContent).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => button.textContent = 'Copy', 2000);
+            });
+        }
+    </script>
+</body>
+</html>

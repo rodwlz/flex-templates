@@ -11,6 +11,10 @@ class UserRepository(AbstractRepository[User]):
     def _serialize(self, obj) -> dict:
         d = super()._serialize(obj)
         d["roles"] = [r.name for r in obj.roles]
+        # Never include password material in serialized output.
+        # find_for_auth() handles auth lookups and builds its dict manually.
+        d.pop("password_hash", None)
+        d.pop("salt", None)
         return d
 
     def _deserialize(self, data: dict) -> dict:

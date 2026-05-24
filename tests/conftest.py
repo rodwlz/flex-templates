@@ -79,7 +79,8 @@ def fake_page():
 def db_factory():
     factory = SessionFactory("sqlite:///:memory:")
     factory.create_tables(Base)
-    return factory
+    yield factory
+    factory.dispose()
 
 
 @pytest.fixture
@@ -116,7 +117,8 @@ def http_factory(monkeypatch):
         "_factories",
         {"postgres": factory},
     )
-    return factory
+    yield factory
+    factory.dispose()
 
 
 def _v1_app(*routers):

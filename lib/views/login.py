@@ -21,6 +21,11 @@ class LoginView(BaseView):
         self._username_field: ft.TextField | None = None
         self._password_field: ft.TextField | None = None
 
+    def _on_sign_out(self, _e):
+        if self._backend is not None:
+            self._backend.auth.logout()
+        self.nav_service.execute(ActionRequest(action="visit", data={"url": "/"}))
+
     def _on_sign_in(self, _e):
         username = self._username_field.value.strip()
         password = self._password_field.value.strip()
@@ -45,6 +50,35 @@ class LoginView(BaseView):
             self.page.update()
 
     def build_content(self):
+        if self._backend is not None and self._backend.auth.current_user() is not None:
+            user = self._backend.auth.current_user()
+            return ft.Column(
+                [
+                    ft.Text("Already signed in", size=28, weight=ft.FontWeight.BOLD),
+                    ft.Text(
+                        f"Logged in as: {user.get('username', 'unknown')}",
+                        color=ft.Colors.BLUE_GREY_300,
+                    ),
+                    ft.Row(
+                        [
+                            ft.ElevatedButton(
+                                content=ft.Text("Go to Home"),
+                                on_click=lambda _: self.nav_service.execute(
+                                    ActionRequest(action="visit", data={"url": "/"})
+                                ),
+                            ),
+                            ft.OutlinedButton(
+                                content=ft.Text("Sign out"),
+                                on_click=self._on_sign_out,
+                            ),
+                        ],
+                        spacing=10,
+                    ),
+                ],
+                spacing=15,
+                horizontal_alignment=ft.CrossAxisAlignment.START,
+            )
+
         self._username_field = ft.TextField(label="Username", width=320, autofocus=True)
         self._password_field = ft.TextField(
             label="Password", password=True, can_reveal_password=True, width=320

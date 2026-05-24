@@ -122,6 +122,18 @@ def test_post_product_without_jwt_returns_401(api_client):
     assert response.status_code == 401
 
 
+def test_patch_product_without_jwt_returns_401(api_client):
+    """PATCH /v1/products/{id} with no Authorization header must return 401."""
+    response = api_client.patch(f"/v1/products/{uuid.uuid4()}", json={"price": 5.00})
+    assert response.status_code == 401
+
+
+def test_delete_product_without_jwt_returns_401(api_client):
+    """DELETE /v1/products/{id} with no Authorization header must return 401."""
+    response = api_client.delete(f"/v1/products/{uuid.uuid4()}")
+    assert response.status_code == 401
+
+
 # ── Authenticated CRUD ────────────────────────────────────────────────────
 
 def test_create_product_with_token(product_client, auth_token):

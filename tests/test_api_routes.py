@@ -13,9 +13,16 @@ from sqlalchemy.pool import StaticPool
 
 from lib.api.routes import roles as roles_routes
 from lib.api.routes import users as users_routes
+from lib.auth.jwt_handler import create_token
 from lib.database.session import ConnectionRegistry, SessionFactory
 from lib.database.base import Base
 from tests.conftest import _v1_app
+
+
+def _admin_headers() -> dict:
+    """Authorization header carrying an admin JWT — no DB user needed."""
+    token = create_token({"sub": "00000000-0000-0000-0000-000000000001", "roles": ["admin"]})
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _shared_memory_factory() -> SessionFactory:
@@ -131,14 +138,30 @@ def test_delete_role_404_when_missing(api_client):
 
 # ===== USER ROUTES — IMMEDIATE OPERATIONS =====
 
+def test_post_user_without_admin_role_returns_403(api_client):
+    """POST /users by a non-admin authenticated user must return 403."""
+    player_token = create_token({"sub": "00000000-0000-0000-0000-000000000002", "roles": ["player"]})
+    resp = api_client.post("/v1/users", json={
+        "username": "hacker", "email": "h@x.com", "password": "pw",
+    }, headers={"Authorization": f"Bearer {player_token}"})
+    assert resp.status_code == 403
+
+
+def test_delete_user_without_admin_role_returns_403(api_client):
+    """DELETE /users/{id} by a non-admin authenticated user must return 403."""
+    import uuid
+    player_token = create_token({"sub": "00000000-0000-0000-0000-000000000002", "roles": ["player"]})
+    resp = api_client.delete(f"/v1/users/{uuid.uuid4()}", headers={"Authorization": f"Bearer {player_token}"})
+    assert resp.status_code == 403
+
+
 def test_post_user_creates_user(api_client):
     """POST /users immediately creates and returns the user."""
     response = api_client.post("/v1/users", json={
         "username": "alice",
         "email": "alice@example.com",
-        "password_hash": "hash",
-        "salt": "salt",
-    })
+        "password": "test123",
+    }, headers=_admin_headers())
     assert response.status_code == 200
     assert response.json()["username"] == "alice"
 
@@ -148,9 +171,8 @@ def test_get_user_with_roles(api_client):
     create_resp = api_client.post("/v1/users", json={
         "username": "bob",
         "email": "bob@example.com",
-        "password_hash": "hash",
-        "salt": "salt",
-    })
+        "password": "test123",
+    }, headers=_admin_headers())
     user_id = create_resp.json()["id"]
 
     get_resp = api_client.get(f"/v1/users/{user_id}")
@@ -165,12 +187,12 @@ def test_list_users(api_client):
     """GET /users returns every user under the 'users' key."""
     api_client.post("/v1/users", json={
         "username": "u1", "email": "u1@example.com",
-        "password_hash": "h", "salt": "s",
-    })
+        "password": "test123",
+    }, headers=_admin_headers())
     api_client.post("/v1/users", json={
         "username": "u2", "email": "u2@example.com",
-        "password_hash": "h", "salt": "s",
-    })
+        "password": "test123",
+    }, headers=_admin_headers())
 
     resp = api_client.get("/v1/users")
     assert resp.status_code == 200
@@ -181,11 +203,11 @@ def test_delete_user_removes_it(api_client):
     """DELETE /users/{id} removes the user; subsequent GET returns 404."""
     create_resp = api_client.post("/v1/users", json={
         "username": "eve", "email": "eve@example.com",
-        "password_hash": "h", "salt": "s",
-    })
+        "password": "test123",
+    }, headers=_admin_headers())
     user_id = create_resp.json()["id"]
 
-    delete_resp = api_client.delete(f"/v1/users/{user_id}")
+    delete_resp = api_client.delete(f"/v1/users/{user_id}", headers=_admin_headers())
     assert delete_resp.status_code == 200
     assert delete_resp.json()["deleted"] is True
 
@@ -202,8 +224,6 @@ def test_stage_user_with_roles(api_client):
     stage_resp = api_client.post("/v1/users/with-roles/stage", json={
         "username": "charlie",
         "email": "charlie@example.com",
-        "password_hash": "hash",
-        "salt": "salt",
         "role_ids": [role_id],
     })
     assert stage_resp.status_code == 200
@@ -221,8 +241,6 @@ def test_cancel_staged_user(api_client):
     api_client.post("/v1/users/with-roles/stage", json={
         "username": "dave",
         "email": "dave@example.com",
-        "password_hash": "hash",
-        "salt": "salt",
         "role_ids": [],
     })
 
@@ -241,8 +259,6 @@ def test_bulk_delete_request_then_approve(api_client):
     request_resp = api_client.post("/v1/users/bulk-delete/request", json={
         "username": "frank",
         "email": "frank@example.com",
-        "password_hash": "hash",
-        "salt": "salt",
         "role_ids": [],
     })
     assert request_resp.status_code == 200

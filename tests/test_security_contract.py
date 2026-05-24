@@ -4,6 +4,8 @@ Security contract tests — structural + behavioral audit of the /v1/ API.
 A new unprotected route will fail test_protected_endpoints_require_bearer_token.
 Run after any change to lib/api/routes/ to verify the contract holds.
 """
+import uuid
+
 import pytest
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -91,3 +93,38 @@ def test_protected_endpoints_require_bearer_token(secured_client):
         assert resp.json()["detail"] == "Not authenticated", (
             f"{method} {path}: expected 'Not authenticated', got {resp.json()['detail']!r}"
         )
+
+
+def test_product_write_endpoints_require_bearer_token(secured_client):
+    """PATCH and DELETE on products return 401 'Not authenticated' when no Bearer is sent."""
+    product_id = str(uuid.UUID(int=0))
+    resp = secured_client.patch(f"/v1/products/{product_id}", json={"price": 1.0})
+    assert resp.status_code == 401, f"PATCH without auth: got {resp.status_code}"
+    assert resp.json()["detail"] == "Not authenticated"
+
+    resp = secured_client.delete(f"/v1/products/{product_id}")
+    assert resp.status_code == 401, f"DELETE without auth: got {resp.status_code}"
+    assert resp.json()["detail"] == "Not authenticated"
+
+
+def test_user_repo_serialization_never_exposes_password_fields(db_factory):
+    """paginate() and filter_by() on UserRepository must never return password_hash or salt.
+
+    This test exists to catch the case where a new developer writes a service method
+    that returns repo.paginate() or repo.filter_by() directly — they must not expose
+    hashed passwords even if the service-layer field filter is absent.
+    """
+    from lib.repositories.user_repository import UserRepository
+    from lib.security.password import hash_password
+
+    repo = UserRepository(db_factory)
+    h, s = hash_password("supersecret")
+    repo.create({"username": "alice", "email": "alice@x.com", "password_hash": h, "salt": s})
+
+    for item in repo.paginate()["items"]:
+        assert "password_hash" not in item, "paginate() leaked password_hash"
+        assert "salt" not in item, "paginate() leaked salt"
+
+    for row in repo.filter_by(username="alice"):
+        assert "password_hash" not in row, "filter_by() leaked password_hash"
+        assert "salt" not in row, "filter_by() leaked salt"

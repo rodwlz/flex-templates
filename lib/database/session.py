@@ -36,6 +36,10 @@ class SessionFactory:
     def create_tables(self, base):
         base.metadata.create_all(bind=self._engine)
 
+    def dispose(self) -> None:
+        """Close all pooled connections. Call in test teardown and app shutdown."""
+        self._engine.dispose()
+
     def unit_of_work(self):
         from lib.database.uow import UnitOfWork
         return UnitOfWork(self._Session())

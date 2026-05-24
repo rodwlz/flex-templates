@@ -161,6 +161,7 @@ The current factory provides:
 | `cache_tester` | `CacheTester` | Cache liveness probe |
 | `params` | `dict` | URL path params (e.g. `{"id": "42"}` from `/users/{id}`) |
 | `query` | `dict` | Parsed query string (e.g. `{"tab": "stock"}` from `?tab=stock`) |
+| `product_service` | `ProductService` | Product CRUD — list, get, create, update, delete |
 | `backend` | `IBackendAdapter` | Auth + user/role/job CRUD for admin views |
 | `dev_nav` | `bool` | Show the orange floating dev nav |
 
@@ -941,6 +942,65 @@ class ManageUsersView(ProtectedView):
 **Interface:** `IBackendAdapter` is defined in `lib/adapters/backend_adapter.py`.
 To add a new backend operation (e.g. `pause_job`), add it to the ABC and implement
 it in `ServiceBackendAdapter` — view code is unchanged.
+
+### 5.6 Auth-Gated Content in Public Views
+
+Some views are public (no login required) but show extra controls when the user
+is logged in — for example, an edit form on a product detail page. Check
+`backend.auth.current_user()` in `__init__` and use it in `build_content()`:
+
+```python
+class ProductDetailView(BaseView):
+    def __init__(self, page, props):
+        super().__init__(page, props)
+        self._service = props.get("product_service")
+        backend = props.get("backend")
+        self._is_admin = backend is not None and backend.auth.current_user() is not None
+
+        # Pre-declare edit form fields so handlers can reference them
+        self._edit_name: ft.TextField | None = None
+        self._edit_status: ft.Text | None = None
+
+    def _on_save(self, _e):
+        result = self._service.execute(ActionRequest(action="update", data={
+            "id": self.params.id,
+            "name": self._edit_name.value.strip(),
+        }))
+        self._edit_status.value = "Saved." if result.success else f"Error: {result.error}"
+        self._edit_status.color = ft.Colors.GREEN_400 if result.success else ft.Colors.RED_400
+        self.page.update()
+
+    def build_content(self):
+        result = self._service.execute(ActionRequest(action="get", data={"id": self.params.id}))
+        if not result.success:
+            return ft.Text("Not found", color=ft.Colors.RED_400)
+
+        p = result.data
+        controls = [ft.Text(p["name"], size=28, weight=ft.FontWeight.BOLD)]
+
+        if self._is_admin:
+            # Edit section only visible when logged in
+            self._edit_name = ft.TextField(label="Name", value=p["name"], width=280)
+            self._edit_status = ft.Text("", size=12)
+            controls += [
+                ft.Divider(),
+                ft.Text("Edit", size=18, weight=ft.FontWeight.BOLD),
+                self._edit_name,
+                ft.Row([
+                    ft.ElevatedButton(content=ft.Text("Save"), on_click=self._on_save),
+                    self._edit_status,
+                ], spacing=10),
+            ]
+
+        return ft.Column(controls, spacing=15)
+```
+
+Key points:
+- Resolve `is_admin` once in `__init__` — `build_content()` may run multiple times.
+- Pre-declare mutable form fields on `self` before `build_content()` runs; the handler references them by attribute, not by closure.
+- The edit section is rendered only when logged in — the public read portion always renders.
+
+This differs from `ProtectedView` (which redirects to `/login` if not authenticated). Use auth-gated content when the view is genuinely public but offers richer features to logged-in users.
 
 ---
 

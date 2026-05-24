@@ -55,13 +55,9 @@ class UserService(StagingService):
         return result
 
     def create(self, data: dict) -> dict:
-        """Immediate create. Accepts either 'password' (plain) or 'password_hash'+'salt'."""
+        """Immediate create. Plain 'password' is hashed internally — never accepts pre-hashed credentials."""
         plain = data.get("password", "")
-        if plain:
-            password_hash, salt = hash_password(plain)
-        else:
-            password_hash = data.get("password_hash", "")
-            salt = data.get("salt", "")
+        password_hash, salt = hash_password(plain) if plain else ("", "")
         repo = UserRepository(self._factory)
         user = repo.create({
             "username": data["username"],
@@ -107,11 +103,14 @@ class UserService(StagingService):
         repo = uow.repo(UserRepository)
         role_repo = uow.repo(RoleRepository)
 
+        plain = data.get("password", "")
+        password_hash, salt = hash_password(plain) if plain else ("", "")
+
         user = repo.create({
             "username": data["username"],
             "email": data["email"],
-            "password_hash": data.get("password_hash", ""),
-            "salt": data.get("salt", ""),
+            "password_hash": password_hash,
+            "salt": salt,
         })
 
         if role_ids := data.get("role_ids"):
@@ -132,13 +131,11 @@ class UserService(StagingService):
         result = self.execute(ActionRequest(action="list", data={}))
         return result.data.get("items", [])
 
-    def create_user(self, username: str, email: str, password: str = "", password_hash: str = "", salt: str = "") -> dict:
+    def create_user(self, username: str, email: str, password: str = "") -> dict:
         result = self.execute(ActionRequest(action="create", data={
             "username": username,
             "email": email,
             "password": password,
-            "password_hash": password_hash,
-            "salt": salt,
         }))
         return result.data
 

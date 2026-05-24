@@ -59,10 +59,30 @@ def test_user_service_simple_create(db_factory):
     service = UserService(db_factory)
     result = service.execute(ActionRequest(
         action="create",
-        data={"username": "alice", "email": "alice@example.com", "password_hash": "hash", "salt": "salt"}
+        data={"username": "alice", "email": "alice@example.com", "password": "test123"}
     ))
     assert result.success is True
     assert result.data["username"] == "alice"
+
+
+def test_service_ignores_prehashed_input(db_factory):
+    """create() must never write caller-supplied password_hash to the database.
+
+    An authenticated caller who POSTs password_hash directly must not be able to
+    create an account they can authenticate with a known credential.
+    """
+    from lib.repositories.user_repository import UserRepository
+    svc = UserService(db_factory)
+    svc.execute(ActionRequest(action="create", data={
+        "username": "badactor",
+        "email": "bad@x.com",
+        "password_hash": "attacker_controlled_hash",
+        "salt": "attacker_salt",
+    }))
+    stored = UserRepository(db_factory).find_for_auth("badactor")
+    assert stored["password_hash"] != "attacker_controlled_hash", (
+        "Service wrote caller-supplied password_hash to DB — hash injection possible"
+    )
 
 
 def test_user_service_create_with_roles_staged(db_factory):
@@ -83,8 +103,6 @@ def test_user_service_create_with_roles_staged(db_factory):
         data={
             "username": "bob",
             "email": "bob@example.com",
-            "password_hash": "hash",
-            "salt": "salt",
             "role_ids": [admin_id]
         }
     ))
@@ -116,8 +134,6 @@ def test_user_service_stage_can_cancel(db_factory):
         data={
             "username": "charlie",
             "email": "charlie@example.com",
-            "password_hash": "hash",
-            "salt": "salt",
             "role_ids": []
         }
     ))

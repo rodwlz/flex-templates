@@ -1,5 +1,12 @@
 """Integration tests for Http*Adapters against a real FastAPI test app."""
 import pytest
+from lib.auth.jwt_handler import create_token
+
+
+def _inject_admin(http_backend) -> None:
+    """Pre-load an admin JWT into the shared session — no DB user needed."""
+    token = create_token({"sub": "00000000-0000-0000-0000-000000000001", "roles": ["admin"]})
+    http_backend.auth._session.set_credentials(token, {"id": "00000000-0000-0000-0000-000000000001", "roles": ["admin"]})
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
@@ -66,6 +73,7 @@ def test_http_users_list_page2_offset(http_backend, http_factory):
 
 
 def test_http_users_create_returns_dict_with_id(http_backend):
+    _inject_admin(http_backend)
     result = http_backend.users.create({
         "username": "newuser", "email": "new@x.com", "password": "pass",
     })
@@ -75,6 +83,7 @@ def test_http_users_create_returns_dict_with_id(http_backend):
 
 def test_http_users_delete_returns_true(http_backend, http_factory):
     from lib.services.user_service import UserService
+    _inject_admin(http_backend)
     user = UserService(http_factory).create_user("todelete", "del@x.com", "pass")
     result = http_backend.users.delete(user["id"])
     assert result is True

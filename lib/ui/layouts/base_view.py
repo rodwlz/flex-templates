@@ -95,12 +95,17 @@ class BaseView:
     # ── Render ─────────────────────────────────────────────────────────────
     def render(self) -> ft.View:
         body = self._coerce_to_control(self.build_content())
-        main_area = ft.Container(content=body, expand=True, padding=30)
+        main_area = ft.ListView([body], expand=True, padding=30)
 
         if self.show_sidebar:
             sidebar = self.build_sidebar()
             if sidebar is not None:
-                root = ft.Row([sidebar, main_area], expand=True, spacing=0)
+                root = ft.Row(
+                    [sidebar, main_area],
+                    expand=True,
+                    spacing=0,
+                    vertical_alignment=ft.CrossAxisAlignment.STRETCH,
+                )
             else:
                 root = main_area
         else:
