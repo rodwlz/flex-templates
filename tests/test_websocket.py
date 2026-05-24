@@ -70,3 +70,10 @@ def test_manager_broadcast_all_reaches_every_room(manager):
     asyncio.run(manager.broadcast_all({"type": "server.notice", "payload": {}}))
     assert ws_a.sent == [{"type": "server.notice", "payload": {}}]
     assert ws_b.sent == [{"type": "server.notice", "payload": {}}]
+
+
+def test_manager_broadcast_prunes_empty_room_from_rooms(manager):
+    dead = _DeadWs()
+    asyncio.run(manager.connect("room1", dead))
+    asyncio.run(manager.broadcast("room1", {"type": "ping", "payload": {}}))
+    assert "room1" not in manager.rooms()

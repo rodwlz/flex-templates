@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from fastapi import WebSocket
+from starlette.websockets import WebSocketDisconnect
 
 
 class ConnectionManager:
@@ -33,10 +34,12 @@ class ConnectionManager:
         for ws in list(self._rooms.get(room_id, set())):
             try:
                 await ws.send_json(message)
-            except Exception:
+            except (WebSocketDisconnect, RuntimeError):
                 dead.add(ws)
         for ws in dead:
             self._rooms[room_id].discard(ws)
+        if room_id in self._rooms and not self._rooms[room_id]:
+            self._rooms.pop(room_id, None)
 
     async def broadcast_all(self, message: dict) -> None:
         """Send message to every client in every room."""
