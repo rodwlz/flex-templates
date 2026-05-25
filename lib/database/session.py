@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 # Bound the wait when a network DB is unreachable. SQLite ignores it (file I/O,
 # no socket). Five seconds is short enough to keep the admin views responsive
 # yet long enough to ride out brief network blips during normal startup.
-_CONNECT_TIMEOUT_SECONDS = 5
+_CONNECT_TIMEOUT_SECONDS = 15  # cold Docker/Proxmox starts can take 10-15 s
 
 
 def _engine_kwargs(url: str, echo: bool) -> dict:
@@ -41,6 +41,20 @@ class SessionFactory:
         self._engine.dispose()
 
     def unit_of_work(self):
+        """Return a UnitOfWork for this factory.
+
+        UnitOfWork is a context manager — always use it with `with` to guarantee
+        rollback and session cleanup on exceptions:
+
+            with factory.unit_of_work() as uow:
+                repo = uow.repo(UserRepository)
+                repo.create(data)
+            # auto-committed on clean exit, rolled back on exception
+
+        StagingService intentionally holds the UoW open across multiple calls
+        (stage → confirm/cancel) and manages the lifecycle manually via
+        uow.commit() / uow.rollback() / uow.close().
+        """
         from lib.database.uow import UnitOfWork
         return UnitOfWork(self._Session())
 

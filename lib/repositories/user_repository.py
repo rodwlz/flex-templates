@@ -59,7 +59,7 @@ class UserRepository(AbstractRepository[User]):
                 "email": user.email,
                 "password_hash": user.password_hash,
                 "is_active": user.is_active,
-                "roles": [r.name for r in user.roles],
+                "roles": [r.name for r in getattr(user, "roles", [])],
             }
 
     def list_by_role(self, role_name: str) -> list[User]:

@@ -15,7 +15,10 @@ import pkgutil
 from fastapi import FastAPI
 
 
-def mount_routes(app: FastAPI, config, package: str = "lib.api.routes") -> None:
+def mount_routes(app: FastAPI, config=None, package: str = "lib.api.routes") -> None:
+    if config is None:
+        from lib.config.settings import AppConfig
+        config = AppConfig()
     from lib.api.v1 import make_v1_router
     v1_router, public, protected = make_v1_router(config)
 

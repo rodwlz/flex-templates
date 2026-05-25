@@ -1,10 +1,13 @@
+import os
+
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
+from starlette.websockets import WebSocketDisconnect
 
 from lib.auth.jwt_handler import JWTError, decode_token
 
-# tokenUrl matches the login endpoint — makes it easy to swap for an external OAuth2 provider
-_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/login")
+# AUTH_LOGIN_URL lets forked projects move the login endpoint without breaking Swagger UI.
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl=os.getenv("AUTH_LOGIN_URL", "/v1/auth/login"))
 
 
 def get_current_user(token: str = Depends(_oauth2_scheme)) -> dict:
@@ -25,6 +28,23 @@ def get_current_user(token: str = Depends(_oauth2_scheme)) -> dict:
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def get_ws_user(token: str) -> dict:
+    """Validate a JWT passed as ?token=<JWT> on WebSocket upgrade.
+
+    Browsers cannot send Authorization headers during the WS handshake,
+    so the token travels as a query parameter instead.
+
+    Raises WebSocketDisconnect(code=4001) on missing subject or invalid token.
+    """
+    try:
+        payload = decode_token(token)
+        if not payload.get("sub"):
+            raise WebSocketDisconnect(code=4001)
+        return {"id": payload["sub"], "roles": payload.get("roles", [])}
+    except JWTError:
+        raise WebSocketDisconnect(code=4001)
 
 
 def require_roles(*role_names: str):

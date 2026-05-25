@@ -14,6 +14,18 @@ class RedisAdapter(SimpleService):
     ttl(data: {key}) -> {ttl}
     """
 
+    @classmethod
+    def from_url(cls, url: str) -> "RedisAdapter":
+        """Construct from a Redis URL: redis://:password@host:port/db"""
+        from urllib.parse import urlparse
+        p = urlparse(url)
+        return cls(
+            host=p.hostname or "localhost",
+            port=p.port or 6379,
+            password=p.password or "",
+            db=int((p.path or "/0").lstrip("/") or 0),
+        )
+
     def __init__(self, host: str, port: int = 6379, password: str = "", db: int = 0):
         import redis
         self._r = redis.Redis(

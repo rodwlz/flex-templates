@@ -43,6 +43,12 @@ class AppConfig(BaseSettings):
     smtp_password: str = ""                    # set in .secrets/.env for prod
     smtp_from: str = "noreply@example.com"
 
+    # ── Redis ──────────────────────────────────────────────────────────────
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
+    redis_db: int = 0
+
     # ── UI ─────────────────────────────────────────────────────────────────
     app_title: str = "FlexTemplates"
     app_view: str = "desktop"  # "desktop" | "web" | "headless"
