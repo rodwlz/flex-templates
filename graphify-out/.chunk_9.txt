@@ -1,0 +1,14 @@
+﻿E:\QuantumWolf\flex-templates\tests\test_schema_inspector.py
+E:\QuantumWolf\flex-templates\tests\test_security_behaviour.py
+E:\QuantumWolf\flex-templates\tests\test_security_contract.py
+E:\QuantumWolf\flex-templates\tests\test_security_cors.py
+E:\QuantumWolf\flex-templates\tests\test_services.py
+E:\QuantumWolf\flex-templates\tests\test_session.py
+E:\QuantumWolf\flex-templates\tests\test_settings.py
+E:\QuantumWolf\flex-templates\tests\test_smoke.py
+E:\QuantumWolf\flex-templates\tests\test_status_card.py
+E:\QuantumWolf\flex-templates\tests\test_uow.py
+E:\QuantumWolf\flex-templates\tests\test_user_service_auth.py
+E:\QuantumWolf\flex-templates\tests\test_vault_service.py
+E:\QuantumWolf\flex-templates\tests\test_websocket.py
+E:\QuantumWolf\flex-templates\tests\__init__.py

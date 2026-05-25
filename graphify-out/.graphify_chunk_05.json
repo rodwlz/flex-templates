@@ -1,0 +1,789 @@
+{
+  "nodes": [
+    {
+      "id": "scheduler_TaskScheduler",
+      "label": "TaskScheduler",
+      "file_type": "code",
+      "source_file": "lib/tasks/scheduler.py",
+      "source_location": "class TaskScheduler",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "adapter_FletNavigationAdapter",
+      "label": "FletNavigationAdapter",
+      "file_type": "code",
+      "source_file": "lib/ui/adapter.py",
+      "source_location": "class FletNavigationAdapter",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "error_adapter_FletErrorAdapter",
+      "label": "FletErrorAdapter",
+      "file_type": "code",
+      "source_file": "lib/ui/error_adapter.py",
+      "source_location": "class FletErrorAdapter",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "router_FletRouter",
+      "label": "FletRouter",
+      "file_type": "code",
+      "source_file": "lib/ui/router.py",
+      "source_location": "class FletRouter",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "router_FletRouter_route_change",
+      "label": "FletRouter.route_change",
+      "file_type": "code",
+      "source_file": "lib/ui/router.py",
+      "source_location": "def route_change",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "router_FletRouter_resolve",
+      "label": "FletRouter._resolve",
+      "file_type": "code",
+      "source_file": "lib/ui/router.py",
+      "source_location": "def _resolve",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "router_FletRouter_load_view",
+      "label": "FletRouter._load_view",
+      "file_type": "code",
+      "source_file": "lib/ui/router.py",
+      "source_location": "def _load_view",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "router_FletRouter_set_props_factory",
+      "label": "FletRouter.set_props_factory",
+      "file_type": "code",
+      "source_file": "lib/ui/router.py",
+      "source_location": "def set_props_factory",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_tabs_AdminTabs",
+      "label": "AdminTabs",
+      "file_type": "code",
+      "source_file": "lib/ui/components/admin_tabs.py",
+      "source_location": "class AdminTabs",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_tabs_ADMIN_TABS",
+      "label": "ADMIN_TABS constant",
+      "file_type": "code",
+      "source_file": "lib/ui/components/admin_tabs.py",
+      "source_location": "ADMIN_TABS",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "back_button_BackButton",
+      "label": "BackButton",
+      "file_type": "code",
+      "source_file": "lib/ui/components/back_button.py",
+      "source_location": "class BackButton",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "card_Card",
+      "label": "Card",
+      "file_type": "code",
+      "source_file": "lib/ui/components/card.py",
+      "source_location": "class Card",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "copy_button_copy_to_clipboard",
+      "label": "copy_to_clipboard",
+      "file_type": "code",
+      "source_file": "lib/ui/components/copy_button.py",
+      "source_location": "def copy_to_clipboard",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "copy_button_CopyButton",
+      "label": "CopyButton",
+      "file_type": "code",
+      "source_file": "lib/ui/components/copy_button.py",
+      "source_location": "class CopyButton",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "dev_nav_DevNav",
+      "label": "DevNav",
+      "file_type": "code",
+      "source_file": "lib/ui/components/dev_nav.py",
+      "source_location": "class DevNav",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "dev_nav_DevNav_build",
+      "label": "DevNav.build",
+      "file_type": "code",
+      "source_file": "lib/ui/components/dev_nav.py",
+      "source_location": "def build",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "manage_tabs_ManageTabs",
+      "label": "ManageTabs",
+      "file_type": "code",
+      "source_file": "lib/ui/components/manage_tabs.py",
+      "source_location": "class ManageTabs",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "manage_tabs_MANAGE_TABS",
+      "label": "MANAGE_TABS constant",
+      "file_type": "code",
+      "source_file": "lib/ui/components/manage_tabs.py",
+      "source_location": "MANAGE_TABS",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "nav_bar_NavBar",
+      "label": "NavBar",
+      "file_type": "code",
+      "source_file": "lib/ui/components/nav_bar.py",
+      "source_location": "class NavBar",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "nav_button_NavButton",
+      "label": "NavButton",
+      "file_type": "code",
+      "source_file": "lib/ui/components/nav_button.py",
+      "source_location": "class NavButton",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "side_bar_SideBar",
+      "label": "SideBar",
+      "file_type": "code",
+      "source_file": "lib/ui/components/side_bar.py",
+      "source_location": "class SideBar",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "status_card_StatusCard",
+      "label": "StatusCard",
+      "file_type": "code",
+      "source_file": "lib/ui/components/status_card.py",
+      "source_location": "class StatusCard",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "status_card_STATE_COLORS",
+      "label": "_STATE_COLORS mapping",
+      "file_type": "code",
+      "source_file": "lib/ui/components/status_card.py",
+      "source_location": "_STATE_COLORS",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "base_view_BaseView",
+      "label": "BaseView",
+      "file_type": "code",
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "class BaseView",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "base_view_BaseView_render",
+      "label": "BaseView.render",
+      "file_type": "code",
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "def render",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "base_view_BaseView_build_content",
+      "label": "BaseView.build_content",
+      "file_type": "code",
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "def build_content",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "base_view_SIDEBAR_ITEMS",
+      "label": "SIDEBAR_ITEMS constant",
+      "file_type": "code",
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "SIDEBAR_ITEMS",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "protected_view_ProtectedView",
+      "label": "ProtectedView",
+      "file_type": "code",
+      "source_file": "lib/ui/layouts/protected_view.py",
+      "source_location": "class ProtectedView",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "protected_view_ProtectedView_render",
+      "label": "ProtectedView.render",
+      "file_type": "code",
+      "source_file": "lib/ui/layouts/protected_view.py",
+      "source_location": "def render",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "interfaces_INavigationAdapter",
+      "label": "INavigationAdapter",
+      "file_type": "code",
+      "source_file": "lib/core/interfaces.py",
+      "source_location": "class INavigationAdapter",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "interfaces_IErrorAdapter",
+      "label": "IErrorAdapter",
+      "file_type": "code",
+      "source_file": "lib/core/interfaces.py",
+      "source_location": "class IErrorAdapter",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "navigation_service_NavigationService",
+      "label": "NavigationService",
+      "file_type": "code",
+      "source_file": "lib/services/navigation_service.py",
+      "source_location": "class NavigationService",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "contracts_base_ActionRequest",
+      "label": "ActionRequest",
+      "file_type": "code",
+      "source_file": "lib/contracts/base.py",
+      "source_location": "class ActionRequest",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "contracts_base_Event",
+      "label": "Event",
+      "file_type": "code",
+      "source_file": "lib/contracts/base.py",
+      "source_location": "class Event",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "contracts_view_context_ViewContext",
+      "label": "ViewContext",
+      "file_type": "code",
+      "source_file": "lib/contracts/view_context.py",
+      "source_location": "class ViewContext",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "adapter_FletNavigationAdapter",
+      "target": "interfaces_INavigationAdapter",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/adapter.py",
+      "source_location": "class FletNavigationAdapter(INavigationAdapter)",
+      "weight": 1.0
+    },
+    {
+      "source": "error_adapter_FletErrorAdapter",
+      "target": "interfaces_IErrorAdapter",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/error_adapter.py",
+      "source_location": "class FletErrorAdapter(IErrorAdapter)",
+      "weight": 1.0
+    },
+    {
+      "source": "adapter_FletNavigationAdapter",
+      "target": "navigation_service_NavigationService",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/adapter.py",
+      "source_location": "__init__(self, navigation_service: NavigationService)",
+      "weight": 1.0
+    },
+    {
+      "source": "adapter_FletNavigationAdapter",
+      "target": "contracts_base_Event",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/adapter.py",
+      "source_location": "_on_route_changed(self, event: Event)",
+      "weight": 1.0
+    },
+    {
+      "source": "router_FletRouter",
+      "target": "navigation_service_NavigationService",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/router.py",
+      "source_location": "__init__(self, navigation_service: NavigationService, ...)",
+      "weight": 1.0
+    },
+    {
+      "source": "router_FletRouter",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/router.py",
+      "source_location": "route_change — ActionRequest(action='visit', ...)",
+      "weight": 1.0
+    },
+    {
+      "source": "router_FletRouter_route_change",
+      "target": "navigation_service_NavigationService",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/router.py",
+      "source_location": "self._nav_service.execute(ActionRequest(action='visit', ...))",
+      "weight": 1.0
+    },
+    {
+      "source": "router_FletRouter_route_change",
+      "target": "router_FletRouter_resolve",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/router.py",
+      "source_location": "view = self._resolve(path, page, query)",
+      "weight": 1.0
+    },
+    {
+      "source": "router_FletRouter_resolve",
+      "target": "router_FletRouter_load_view",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/router.py",
+      "source_location": "return self._load_view(module_path, page, ...)",
+      "weight": 1.0
+    },
+    {
+      "source": "admin_tabs_AdminTabs",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/admin_tabs.py",
+      "source_location": "lambda _e, r=route: nav_service.execute(ActionRequest(...))",
+      "weight": 1.0
+    },
+    {
+      "source": "admin_tabs_AdminTabs",
+      "target": "admin_tabs_ADMIN_TABS",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/admin_tabs.py",
+      "source_location": "for label, route, icon in ADMIN_TABS",
+      "weight": 1.0
+    },
+    {
+      "source": "back_button_BackButton",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/back_button.py",
+      "source_location": "lambda _: nav_service.execute(ActionRequest(action='back'))",
+      "weight": 1.0
+    },
+    {
+      "source": "copy_button_CopyButton",
+      "target": "copy_button_copy_to_clipboard",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/copy_button.py",
+      "source_location": "on_click=lambda _: copy_to_clipboard(page, value, toast)",
+      "weight": 1.0
+    },
+    {
+      "source": "dev_nav_DevNav",
+      "target": "navigation_service_NavigationService",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/dev_nav.py",
+      "source_location": "__init__(self, nav_service: NavigationService, ...)",
+      "weight": 1.0
+    },
+    {
+      "source": "dev_nav_DevNav",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/dev_nav.py",
+      "source_location": "self._nav.execute(ActionRequest(action='visit', ...))",
+      "weight": 1.0
+    },
+    {
+      "source": "manage_tabs_ManageTabs",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/manage_tabs.py",
+      "source_location": "lambda _e, r=route: nav_service.execute(ActionRequest(...))",
+      "weight": 1.0
+    },
+    {
+      "source": "manage_tabs_ManageTabs",
+      "target": "manage_tabs_MANAGE_TABS",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/manage_tabs.py",
+      "source_location": "for label, route, icon in MANAGE_TABS",
+      "weight": 1.0
+    },
+    {
+      "source": "nav_bar_NavBar",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/nav_bar.py",
+      "source_location": "on_click=lambda _: nav_service.execute(ActionRequest(action='back'))",
+      "weight": 1.0
+    },
+    {
+      "source": "nav_button_NavButton",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/nav_button.py",
+      "source_location": "on_click=lambda _: nav_service.execute(ActionRequest(...))",
+      "weight": 1.0
+    },
+    {
+      "source": "side_bar_SideBar",
+      "target": "nav_button_NavButton",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/side_bar.py",
+      "source_location": "NavButton(label, route, nav_service, ...)",
+      "weight": 1.0
+    },
+    {
+      "source": "status_card_StatusCard",
+      "target": "status_card_STATE_COLORS",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/status_card.py",
+      "source_location": "accent, dark = _STATE_COLORS.get(state, ...)",
+      "weight": 1.0
+    },
+    {
+      "source": "base_view_BaseView",
+      "target": "contracts_view_context_ViewContext",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "self.ctx = ViewContext.from_props(props)",
+      "weight": 1.0
+    },
+    {
+      "source": "base_view_BaseView_render",
+      "target": "dev_nav_DevNav_build",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "controls.append(DevNav(self.nav_service, self.page).build())",
+      "weight": 1.0
+    },
+    {
+      "source": "base_view_BaseView_render",
+      "target": "nav_bar_NavBar",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "def build_appbar(self): return NavBar(self.title, self.nav_service)",
+      "weight": 1.0
+    },
+    {
+      "source": "base_view_BaseView_render",
+      "target": "side_bar_SideBar",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "def build_sidebar(self): return SideBar(SIDEBAR_ITEMS, self.nav_service)",
+      "weight": 1.0
+    },
+    {
+      "source": "base_view_BaseView",
+      "target": "base_view_SIDEBAR_ITEMS",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "return SideBar(SIDEBAR_ITEMS, self.nav_service)",
+      "weight": 1.0
+    },
+    {
+      "source": "protected_view_ProtectedView",
+      "target": "base_view_BaseView",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/protected_view.py",
+      "source_location": "class ProtectedView(BaseView)",
+      "weight": 1.0
+    },
+    {
+      "source": "protected_view_ProtectedView_render",
+      "target": "base_view_BaseView_render",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/protected_view.py",
+      "source_location": "return super().render()",
+      "weight": 1.0
+    },
+    {
+      "source": "protected_view_ProtectedView_render",
+      "target": "contracts_base_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/protected_view.py",
+      "source_location": "self.nav_service.execute(ActionRequest(action='visit', data={'url': '/login'}))",
+      "weight": 1.0
+    },
+    {
+      "source": "admin_tabs_AdminTabs",
+      "target": "manage_tabs_ManageTabs",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "lib/ui/components/admin_tabs.py",
+      "source_location": null,
+      "weight": 0.95
+    },
+    {
+      "source": "back_button_BackButton",
+      "target": "nav_button_NavButton",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "lib/ui/components/back_button.py",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "adapter_FletNavigationAdapter",
+      "target": "router_FletRouter",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "lib/ui/adapter.py",
+      "source_location": null,
+      "weight": 0.75
+    },
+    {
+      "source": "error_adapter_FletErrorAdapter",
+      "target": "router_FletRouter_resolve",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "lib/ui/error_adapter.py",
+      "source_location": null,
+      "weight": 0.65
+    },
+    {
+      "source": "scheduler_TaskScheduler",
+      "target": "admin_tabs_ADMIN_TABS",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.55,
+      "source_file": "lib/tasks/scheduler.py",
+      "source_location": "Scheduler admin tab links to /admin/scheduler which surfaces TaskScheduler data",
+      "weight": 0.55
+    },
+    {
+      "source": "base_view_BaseView_build_content",
+      "target": "protected_view_ProtectedView_render",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "lib/ui/layouts/base_view.py",
+      "source_location": "build_content() called by render(); ProtectedView guards before calling render()",
+      "weight": 0.85
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "nav_action_request_pattern",
+      "label": "NavigationService + ActionRequest UI Navigation Pattern",
+      "nodes": [
+        "admin_tabs_AdminTabs",
+        "back_button_BackButton",
+        "nav_button_NavButton",
+        "dev_nav_DevNav",
+        "nav_bar_NavBar",
+        "manage_tabs_ManageTabs"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/components/admin_tabs.py"
+    },
+    {
+      "id": "flet_page_binding_pattern",
+      "label": "Flet Page Binding Pattern (adapter+error_adapter+router)",
+      "nodes": [
+        "adapter_FletNavigationAdapter",
+        "error_adapter_FletErrorAdapter",
+        "router_FletRouter"
+      ],
+      "relation": "implement",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "lib/ui/adapter.py"
+    },
+    {
+      "id": "base_protected_view_render_chain",
+      "label": "View Render Chain: BaseView -> ProtectedView -> build_content",
+      "nodes": [
+        "base_view_BaseView",
+        "protected_view_ProtectedView",
+        "base_view_BaseView_render",
+        "protected_view_ProtectedView_render",
+        "base_view_BaseView_build_content"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "lib/ui/layouts/base_view.py"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

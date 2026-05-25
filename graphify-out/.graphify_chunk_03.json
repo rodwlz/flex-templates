@@ -1,0 +1,460 @@
+{
+  "nodes": [
+    {"id": "interfaces_IService", "label": "IService (Abstract)", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 5", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_SimpleService", "label": "SimpleService", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 10", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_StagingService", "label": "StagingService", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 49", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_IRepository", "label": "IRepository (Abstract)", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 111", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_INavigationAdapter", "label": "INavigationAdapter (Abstract)", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 134", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_IErrorAdapter", "label": "IErrorAdapter (Abstract)", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 142", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_IFlexComponent", "label": "IFlexComponent (Abstract)", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 147", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "interfaces_IEmailSender", "label": "IEmailSender (Abstract)", "file_type": "code", "source_file": "core/interfaces.py", "source_location": "line 152", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "base_Base", "label": "SQLAlchemy DeclarativeBase", "file_type": "code", "source_file": "database/base.py", "source_location": "line 6", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "base_TimestampMixin", "label": "TimestampMixin", "file_type": "code", "source_file": "database/base.py", "source_location": "line 10", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "migrations_run_migrations", "label": "run_migrations()", "file_type": "code", "source_file": "database/migrations.py", "source_location": "line 16", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "query_safe_query", "label": "safe_query()", "file_type": "code", "source_file": "database/query.py", "source_location": "line 5", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "session_SessionFactory", "label": "SessionFactory", "file_type": "code", "source_file": "database/session.py", "source_location": "line 19", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "session_ConnectionRegistry", "label": "ConnectionRegistry", "file_type": "code", "source_file": "database/session.py", "source_location": "line 62", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "uow_UnitOfWork", "label": "UnitOfWork", "file_type": "code", "source_file": "database/uow.py", "source_location": "line 49", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "uow__SessionProxy", "label": "_SessionProxy", "file_type": "code", "source_file": "database/uow.py", "source_location": "line 6", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "uow__BoundSession", "label": "_BoundSession", "file_type": "code", "source_file": "database/uow.py", "source_location": "line 32", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "uow__row_to_dict", "label": "_row_to_dict()", "file_type": "code", "source_file": "database/uow.py", "source_location": "line 43", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "env_run_migrations_offline", "label": "run_migrations_offline()", "file_type": "code", "source_file": "database/migrations/env.py", "source_location": "line 34", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "env_run_migrations_online", "label": "run_migrations_online()", "file_type": "code", "source_file": "database/migrations/env.py", "source_location": "line 47", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "env__get_url", "label": "_get_url()", "file_type": "code", "source_file": "database/migrations/env.py", "source_location": "line 20", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "migration_initial_users", "label": "Migration: initial_users_table (1002b8218db7)", "file_type": "code", "source_file": "database/migrations/versions/1002b8218db7_initial_users_table.py", "source_location": "line 1", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "migration_add_products", "label": "Migration: add_products_table (bb55af88cf00)", "file_type": "code", "source_file": "database/migrations/versions/bb55af88cf00_add_products_table.py", "source_location": "line 1", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "migration_add_roles", "label": "Migration: add_roles_and_user_roles (f5baad507a72)", "file_type": "code", "source_file": "database/migrations/versions/f5baad507a72_add_roles_and_user_roles_tables.py", "source_location": "line 1", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "console_sender_ConsoleSender", "label": "ConsoleSender (dev email)", "file_type": "code", "source_file": "email/console_sender.py", "source_location": "line 4", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "smtp_sender_SmtpSender", "label": "SmtpSender (prod email)", "file_type": "code", "source_file": "email/smtp_sender.py", "source_location": "line 7", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "logging_JsonFormatter", "label": "JsonFormatter", "file_type": "code", "source_file": "middleware/logging.py", "source_location": "line 20", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "logging_setup_logging", "label": "setup_logging()", "file_type": "code", "source_file": "middleware/logging.py", "source_location": "line 40", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "logging_log_requests", "label": "log_requests() FastAPI middleware", "file_type": "code", "source_file": "middleware/logging.py", "source_location": "line 50", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "product_Product", "label": "Product ORM Model", "file_type": "code", "source_file": "models/product.py", "source_location": "line 10", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "role_Role", "label": "Role ORM Model", "file_type": "code", "source_file": "models/role.py", "source_location": "line 13", "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "base_contracts_ActionRequest", "label": "ActionRequest (contract)", "file_type": "code", "source_file": "contracts/base.py", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null},
+    {"id": "base_contracts_ActionResult", "label": "ActionResult (contract)", "file_type": "code", "source_file": "contracts/base.py", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}
+  ],
+  "edges": [
+    {
+      "source": "interfaces_IService",
+      "target": "base_contracts_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_IService",
+      "target": "base_contracts_ActionResult",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_SimpleService",
+      "target": "interfaces_IService",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 10",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_SimpleService",
+      "target": "base_contracts_ActionRequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 30",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_SimpleService",
+      "target": "base_contracts_ActionResult",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 32",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_StagingService",
+      "target": "interfaces_SimpleService",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 49",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_StagingService",
+      "target": "uow_UnitOfWork",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 84",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_StagingService",
+      "target": "session_SessionFactory",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 84",
+      "weight": 1.0
+    },
+    {
+      "source": "interfaces_StagingService",
+      "target": "uow_UnitOfWork",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 84-87",
+      "weight": 1.0
+    },
+    {
+      "source": "session_SessionFactory",
+      "target": "uow_UnitOfWork",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/session.py",
+      "source_location": "line 59",
+      "weight": 1.0
+    },
+    {
+      "source": "session_ConnectionRegistry",
+      "target": "session_SessionFactory",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/session.py",
+      "source_location": "line 67",
+      "weight": 1.0
+    },
+    {
+      "source": "uow_UnitOfWork",
+      "target": "uow__SessionProxy",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/uow.py",
+      "source_location": "line 75",
+      "weight": 1.0
+    },
+    {
+      "source": "uow_UnitOfWork",
+      "target": "uow__BoundSession",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/uow.py",
+      "source_location": "line 75",
+      "weight": 1.0
+    },
+    {
+      "source": "uow_UnitOfWork",
+      "target": "uow__row_to_dict",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/uow.py",
+      "source_location": "line 82-84",
+      "weight": 1.0
+    },
+    {
+      "source": "uow__BoundSession",
+      "target": "uow__SessionProxy",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/uow.py",
+      "source_location": "line 40",
+      "weight": 1.0
+    },
+    {
+      "source": "env_run_migrations_offline",
+      "target": "env__get_url",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/env.py",
+      "source_location": "line 36",
+      "weight": 1.0
+    },
+    {
+      "source": "env_run_migrations_online",
+      "target": "env__get_url",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/env.py",
+      "source_location": "line 48",
+      "weight": 1.0
+    },
+    {
+      "source": "env__get_url",
+      "target": "session_ConnectionRegistry",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/env.py",
+      "source_location": "line 29",
+      "weight": 1.0
+    },
+    {
+      "source": "env_run_migrations_offline",
+      "target": "base_Base",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/env.py",
+      "source_location": "line 17",
+      "weight": 1.0
+    },
+    {
+      "source": "env_run_migrations_online",
+      "target": "base_Base",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/env.py",
+      "source_location": "line 17",
+      "weight": 1.0
+    },
+    {
+      "source": "console_sender_ConsoleSender",
+      "target": "interfaces_IEmailSender",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "email/console_sender.py",
+      "source_location": "line 4",
+      "weight": 1.0
+    },
+    {
+      "source": "smtp_sender_SmtpSender",
+      "target": "interfaces_IEmailSender",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "email/smtp_sender.py",
+      "source_location": "line 7",
+      "weight": 1.0
+    },
+    {
+      "source": "product_Product",
+      "target": "base_Base",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "models/product.py",
+      "source_location": "line 10",
+      "weight": 1.0
+    },
+    {
+      "source": "role_Role",
+      "target": "base_Base",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "models/role.py",
+      "source_location": "line 13",
+      "weight": 1.0
+    },
+    {
+      "source": "logging_setup_logging",
+      "target": "logging_JsonFormatter",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "middleware/logging.py",
+      "source_location": "line 42",
+      "weight": 1.0
+    },
+    {
+      "source": "logging_log_requests",
+      "target": "logging_JsonFormatter",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "middleware/logging.py",
+      "source_location": "line 50",
+      "weight": 0.85
+    },
+    {
+      "source": "migration_add_roles",
+      "target": "migration_initial_users",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/versions/f5baad507a72_add_roles_and_user_roles_tables.py",
+      "source_location": "line 10",
+      "weight": 1.0
+    },
+    {
+      "source": "migration_add_products",
+      "target": "migration_add_roles",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/versions/bb55af88cf00_add_products_table.py",
+      "source_location": "line 15",
+      "weight": 1.0
+    },
+    {
+      "source": "migrations_run_migrations",
+      "target": "migration_initial_users",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "database/migrations.py",
+      "source_location": "line 27",
+      "weight": 0.85
+    },
+    {
+      "source": "migrations_run_migrations",
+      "target": "migration_add_roles",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "database/migrations.py",
+      "source_location": "line 27",
+      "weight": 0.85
+    },
+    {
+      "source": "migrations_run_migrations",
+      "target": "migration_add_products",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "database/migrations.py",
+      "source_location": "line 27",
+      "weight": 0.85
+    },
+    {
+      "source": "console_sender_ConsoleSender",
+      "target": "smtp_sender_SmtpSender",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "email/console_sender.py",
+      "source_location": null,
+      "weight": 0.95
+    },
+    {
+      "source": "interfaces_INavigationAdapter",
+      "target": "interfaces_IErrorAdapter",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "core/interfaces.py",
+      "source_location": null,
+      "weight": 0.75
+    },
+    {
+      "source": "interfaces_StagingService",
+      "target": "interfaces_IRepository",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "core/interfaces.py",
+      "source_location": "line 64 (docstring example)",
+      "weight": 0.95
+    },
+    {
+      "source": "uow_UnitOfWork",
+      "target": "interfaces_IRepository",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "database/uow.py",
+      "source_location": "line 73-75",
+      "weight": 0.95
+    },
+    {
+      "source": "product_Product",
+      "target": "migration_add_products",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "models/product.py",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "role_Role",
+      "target": "migration_add_roles",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "models/role.py",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "base_TimestampMixin",
+      "target": "base_Base",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "database/base.py",
+      "source_location": "line 10",
+      "weight": 0.95
+    },
+    {
+      "source": "interfaces_SimpleService",
+      "target": "interfaces_StagingService",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "core/interfaces.py",
+      "source_location": null,
+      "weight": 0.85
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "service_dispatch_pattern",
+      "label": "Service Dispatch Pattern: ActionRequest -> SimpleService -> ActionResult",
+      "nodes": ["interfaces_IService", "interfaces_SimpleService", "base_contracts_ActionRequest", "base_contracts_ActionResult"],
+      "relation": "implement",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py"
+    },
+    {
+      "id": "staging_transaction_pattern",
+      "label": "Staged Transaction Pattern: StagingService -> UnitOfWork -> SessionFactory",
+      "nodes": ["interfaces_StagingService", "uow_UnitOfWork", "session_SessionFactory"],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "core/interfaces.py"
+    },
+    {
+      "id": "alembic_migration_chain",
+      "label": "Alembic Migration Chain: initial_users -> add_roles -> add_products",
+      "nodes": ["migration_initial_users", "migration_add_roles", "migration_add_products"],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "database/migrations/versions"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}
