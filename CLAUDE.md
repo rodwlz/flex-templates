@@ -100,6 +100,24 @@ implementations. Everything else depends on interfaces.
   `lib/views/` and `/filename` routes to it. The flip side: filenames *are* the
   contract, so renaming `users.py` changes the URL.
 
+## Forking This Template — Known Gotchas
+
+- **`lib/repositories/__init__.py` shadows the base package.**
+  When a fork adds its own `lib/repositories/__init__.py`, Python uses that file
+  as the package root. Any new repository added to flex-templates' `lib/repositories/`
+  after the fork will be invisible to the fork unless explicitly imported there.
+  Keep the fork's `__init__.py` minimal (empty or re-exporting `*`) and add new
+  repositories to both the template and the fork.
+
+- **`BackendServer.wait()` is the correct way to block on the server thread.**
+  Do not access `server._thread.join()` directly — use the public `server.wait()`
+  method instead. `server._thread` is private and may change.
+
+- **`RedisAdapter` uses a dict-based API, not standard redis-py.**
+  All method arguments are dicts: `redis.get({"key": "..."})` not `redis.get("key")`.
+  This is intentional — it keeps RedisAdapter compatible with the `ActionRequest`
+  contract. Any new code (or fork code) must follow this convention.
+
 ## Top 3 Anti-Patterns to Avoid
 
 - **Hardcoded service imports in services (Anti-Pattern 1 / 13).**

@@ -36,3 +36,8 @@ class BackendServer:
         self._server.should_exit = True
         if self._thread:
             self._thread.join(timeout=5)
+
+    def wait(self) -> None:
+        """Block until the server thread exits. Use instead of server._thread.join()."""
+        if self._thread:
+            self._thread.join()

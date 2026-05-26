@@ -3,6 +3,13 @@ from lib.core.interfaces import SimpleService
 
 class RedisAdapter(SimpleService):
     """
+    IMPORTANT: uses a dict-based API, NOT standard redis-py conventions.
+    Always pass a dict argument, not a plain string key:
+
+        adapter.get({"key": "my_key"})          # correct
+        adapter.set({"key": "k", "value": "v"}) # correct
+        adapter.get("my_key")                    # WRONG — will raise KeyError
+
     Actions: get, set, delete, exists, keys, expire, ttl
 
     get(data: {key}) -> {key, value, found}
