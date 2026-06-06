@@ -102,6 +102,15 @@ implementations. Everything else depends on interfaces.
 
 ## Forking This Template — Known Gotchas
 
+- **`lib/` must stay a namespace package — never add `lib/__init__.py`.**
+  `flex-templates/lib/` has no `__init__.py` (namespace package, PEP 420).
+  Your consumer project's `lib/` must also have no `__init__.py`. Python 3 then
+  merges both `lib/` trees automatically when both roots are on `sys.path`.
+  Add `PYTHONPATH="$PWD:$PWD/flex-templates"` (or `pythonpath = [".", "flex-templates"]`
+  in `pyproject.toml`) and all `lib.*` imports resolve across both trees.
+  If either side adds `__init__.py`, the namespace merge breaks and the consumer
+  `lib/` silently shadows the framework's. See `docs/guides/DOCKER_INTEGRATION.md`.
+
 - **`lib/repositories/__init__.py` shadows the base package.**
   When a fork adds its own `lib/repositories/__init__.py`, Python uses that file
   as the package root. Any new repository added to flex-templates' `lib/repositories/`

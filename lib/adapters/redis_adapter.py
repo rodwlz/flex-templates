@@ -36,7 +36,7 @@ class RedisAdapter(SimpleService):
     def __init__(self, host: str, port: int = 6379, password: str = "", db: int = 0):
         import redis
         self._r = redis.Redis(
-            host=host, port=port, password=password, db=db,
+            host=host, port=port, password=password or None, db=db,
             decode_responses=True,
             socket_connect_timeout=5,
             socket_timeout=5,

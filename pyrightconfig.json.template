@@ -1,0 +1,7 @@
+{
+  "extraPaths": ["flex-templates"],
+  "include": ["lib", "tests", "main.py"],
+  "exclude": ["flex-templates/tests"],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic"
+}
